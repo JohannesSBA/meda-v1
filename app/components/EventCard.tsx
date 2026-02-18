@@ -1,12 +1,9 @@
-/*
- AI-generated code: 30% (tool: Codex - GPT-5, dateFormatter, formatDateRange) 
- Human code: 70% (functions: dateFormatter, formatDateRange, EventCard, EventCardProps) 
- No framework-generated code.
-*/
+
 
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
+// import { decodeEventLocation } from "@/helpers/locationCodec";
 import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
 
 type EventCardProps = {
@@ -20,8 +17,8 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 function formatDateRange(event: EventResponse) {
-  const start = new Date(event.event_datetime);
-  const end = event.event_endtime ? new Date(event.event_endtime) : null;
+  const start = new Date(event.eventDatetime);
+  const end = event.eventEndtime ? new Date(event.eventEndtime) : null;
 
   if (Number.isNaN(start.getTime())) {
     return null;
@@ -52,18 +49,11 @@ export function EventCard({
   ...rest
 }: EventCardProps) {
   const dateLabel = formatDateRange(event);
-  const locationLabel =
-    event.addressLabel ?? event.eventLocation ?? "Location to be announced";
-
-  const priceLabel =
-    event.priceField == null || event.priceField === 0
-      ? "Free"
-      : `ETB ${event.priceField}`;
-
-  const slotsLeft =
-    event.capacity != null && event.attendeeCount != null
-      ? Math.max(event.capacity - event.attendeeCount, 0)
-      : event.capacity ?? null;
+//   const decodedLocation = decodeEventLocation(event.event_location);
+//   const locationLabel =
+//     decodedLocation?.address ??
+//     event.event_location ??
+//     "Location to be announced";
 
   return (
     <Link
@@ -74,11 +64,11 @@ export function EventCard({
       <article className="flex h-full flex-col gap-5 p-6">
         <div className="flex items-start justify-between gap-4">
           <h3 className="text-xl font-semibold text-white transition group-hover:text-[#22FF88]">
-            {event.event_name}
+            {event.eventName}
           </h3>
-          {slotsLeft != null ? (
+          {event.capacity ? (
             <span className="rounded-full border border-[#1f3850] bg-[#0b1c2d] px-3 py-1 text-xs font-medium text-[#89e7ff]">
-              {slotsLeft} slots left
+              {event.capacity - (event.attendeeCount ?? 0)} player slots left
             </span>
           ) : null}
         </div>
@@ -89,10 +79,6 @@ export function EventCard({
           </p>
         ) : null}
 
-        <div className="flex items-center gap-2 text-xs font-medium text-[#22FF88]">
-          <span className="rounded-full bg-[#12313f] px-3 py-1">{priceLabel}</span>
-        </div>
-
         <p className="line-clamp-3 text-sm text-[#9fb6ce]">
           {event.description ?? "No additional details yet. Check back soon!"}
         </p>
@@ -100,7 +86,7 @@ export function EventCard({
         <div className="mt-auto flex items-center justify-between text-sm text-[#9fb6ce]">
           <span className="flex items-center gap-2">
             <FaLocationDot className="size-4" />
-            <span className="line-clamp-1">{locationLabel}</span>
+            {/* {locationLabel} */}
           </span>
           <span className="font-medium items-center gap-2 flex text-[#22FF88] transition group-hover:text-[#00E5FF]">
             View details <FaArrowRight className="size-4" />

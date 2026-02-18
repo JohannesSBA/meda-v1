@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { NextResponse } from "next/server";
 import { decodeEventLocation, haversineDistanceKm } from "@/app/helpers/locationCodec";
 
@@ -17,20 +18,20 @@ export async function GET(request: Request) {
   const nearLng = Number(searchParams.get("nearLng"));
   const radiusKm = Number(searchParams.get("radiusKm")) || DEFAULT_RADIUS_KM;
 
-  const where = search
+  const where: Prisma.EventWhereInput | undefined = search
     ? {
         OR: [
-          { eventName: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          { eventLocation: { contains: search, mode: "insensitive" } },
+          { eventName: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { eventLocation: { contains: search, mode: Prisma.QueryMode.insensitive } },
         ],
       }
     : undefined;
 
   const orderBy =
     sort === "price"
-      ? { priceField: order }
-      : { eventDatetime: order };
+      ? { priceField: order as Prisma.SortOrder }
+      : { eventDatetime: order as Prisma.SortOrder };
 
   const allEvents = await prisma.event.findMany({ where, orderBy });
 
