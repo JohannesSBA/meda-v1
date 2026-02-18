@@ -29,7 +29,7 @@ export default async function CreateEventsPage() {
             players pay their share—no more fronting the whole pitch fee.
           </p>
         </header>
-        <CreateEventForm categories={categories} />
+          <CreateEventForm categories={categories} />
       </div>
     </main>
   );

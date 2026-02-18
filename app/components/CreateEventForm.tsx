@@ -1,12 +1,19 @@
 "use client";
 import Image from "next/image";
-import React, { useState } from "react";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Category } from "../types/catagory";
+import axios from "axios";
+import { authClient } from "@/lib/auth/client";
+import { User } from "@neondatabase/auth/types";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 
 export default function CreateEventForm({ categories }: { categories: Category[] }) {
 
- 
+   
 
   const [form, setForm] = useState({
     eventName: "",
@@ -17,11 +24,22 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     startDate: "",
     endDate: "",
     location: "",
-    latitude: "",
-    longitude: "",
+    latitude: "9.01524",
+    longitude: "38.814349",
     capacity: "",
     price: ""
   });
+  const [user, setUser] = useState<User | null>(null);
+
+  const router = useRouter();
+
+   useEffect(() => {
+    authClient.getSession().then((result) => {
+      if (result.data?.user) {
+        setUser(result.data.user);
+      }
+    });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -45,12 +63,18 @@ export default function CreateEventForm({ categories }: { categories: Category[]
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // You can handle submission logic here
-    alert("Submit: " + JSON.stringify(form, null, 2));
+    axios.post(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`, { ...form, userId: user?.id, categoryId: form.category.categoryId }).then(res => {
+        toast.success("Event created successfully");
+        router.push(`/events/${res.data.event.eventId}`);
+    }).catch(err => {
+      console.error(err);
+      toast.error("Failed to create event");
+    });
   };
 
   return (
     <form
-      className="mx-auto max-w-2xl space-y-7 rounded-xl bg-[#18243b] px-6 py-8 shadow-lg"
+      className=" w-full space-y-7 rounded-xl bg-[#18243b] px-6 py-8 shadow-lg"
       onSubmit={handleSubmit}
     >
       <div>
@@ -173,6 +197,18 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         />
       </div>
 
+      <MapPicker
+        latitude={form.latitude}
+        longitude={form.longitude}
+        onChange={(lat, lng) =>
+          setForm((prev) => ({
+            ...prev,
+            latitude: lat.toString(),
+            longitude: lng.toString(),
+          }))
+        }
+      />
+
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <label htmlFor="latitude" className="block text-sm font-medium text-[#89e7ff] mb-1">
@@ -185,6 +221,7 @@ export default function CreateEventForm({ categories }: { categories: Category[]
             inputMode="decimal"
             step="any"
             placeholder="eg. 9.0455"
+            disabled
             className="w-full rounded-lg border-none bg-[#112030] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
             value={form.latitude}
             onChange={handleChange}
@@ -200,6 +237,7 @@ export default function CreateEventForm({ categories }: { categories: Category[]
             id="longitude"
             inputMode="decimal"
             step="any"
+            disabled
             placeholder="eg. 38.7009"
             className="w-full rounded-lg border-none bg-[#112030] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
             value={form.longitude}
@@ -250,5 +288,129 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         </button>
       </div>
     </form>
+  );
+}
+
+type MapPickerProps = {
+  latitude: string;
+  longitude: string;
+  onChange: (lat: number, lng: number) => void;
+};
+
+const DEFAULT_CENTER: [number, number] = [38.7578, 9.0301]; // Addis Ababa-ish fallback
+
+function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const onChangeRef = useRef(onChange);
+
+  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+  const [initialCoords] = useState<[number, number]>(() =>
+    Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))
+      ? [Number(longitude), Number(latitude)]
+      : DEFAULT_CENTER
+  );
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  const handleSelect = useCallback((lng: number, lat: number) => {
+    const trimmedLng = Number(lng.toFixed(6));
+    const trimmedLat = Number(lat.toFixed(6));
+    onChangeRef.current(trimmedLat, trimmedLng);
+  }, []);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || !token) return;
+
+    mapboxgl.accessToken = token;
+
+    const map = new mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/streets-v12",
+      center: initialCoords,
+      zoom: 12,
+    });
+    mapRef.current = map;
+
+    const marker = new mapboxgl.Marker({ draggable: true })
+      .setLngLat(initialCoords)
+      .addTo(map);
+    markerRef.current = marker;
+
+    const updateFromMarker = () => {
+      const lngLat = marker.getLngLat();
+      handleSelect(lngLat.lng, lngLat.lat);
+    };
+
+    marker.on("dragend", updateFromMarker);
+
+    map.on("click", (event) => {
+      marker.setLngLat(event.lngLat);
+      handleSelect(event.lngLat.lng, event.lngLat.lat);
+    });
+
+    map.on("load", () => map.resize());
+
+    return () => {
+      marker.remove();
+      map.remove();
+    };
+  }, [handleSelect, initialCoords, token]);
+
+  // Keep marker in sync when user types coordinates manually.
+  useEffect(() => {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    const latNum = Number(latitude);
+    const lngNum = Number(longitude);
+    if (!map || !marker || !Number.isFinite(latNum) || !Number.isFinite(lngNum)) return;
+    const nextCoords: [number, number] = [lngNum, latNum];
+    marker.setLngLat(nextCoords);
+    map.easeTo({ center: nextCoords, duration: 250 });
+  }, [latitude, longitude]);
+
+  if (!token) {
+    return (
+      <div className="rounded-lg border border-[#22344a] bg-[#0f1f2f] p-4 text-sm text-[#b9cde4]">
+        Set <code className="text-[#89e7ff]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code> to enable the map picker.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-[#89e7ff]">Pin the pitch</h3>
+        <p className="text-xs text-[#b9cde4]">
+          Click the map or drag the pin to set coordinates.
+        </p>
+      </div>
+      <div
+        ref={mapContainerRef}
+        className="h-72 w-full overflow-hidden rounded-lg border border-[#22344a] bg-[#0b1624]"
+      />
+      <div className="flex gap-3 text-xs text-[#d7e9ff]">
+        <div className="rounded-md bg-[#102033] px-3 py-2">
+          <span className="text-[#89e7ff]">Lat:</span>{" "}
+          {(
+            Number.isFinite(Number(latitude))
+              ? Number(latitude)
+              : initialCoords[1]
+          ).toFixed(6)}
+        </div>
+        <div className="rounded-md bg-[#102033] px-3 py-2">
+          <span className="text-[#89e7ff]">Lng:</span>{" "}
+          {(
+            Number.isFinite(Number(longitude))
+              ? Number(longitude)
+              : initialCoords[0]
+          ).toFixed(6)}
+        </div>
+      </div>
+    </div>
   );
 }
