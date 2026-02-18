@@ -8,11 +8,11 @@ export default function HeroSection() {
       <div className="absolute inset-6 -z-20 rounded-[32px] border border-[#1c2f42] bg-[#0f1f31]/60 blur-[1px]" />
       {/* Pitch arc motif */}
       <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[680px] -translate-x-1/2 -translate-y-1/2 opacity-70">
-        <div className="absolute inset-0 rounded-[320px_320px_60px_60px] border-[10px] border-[#00E5FF] blur-[0.2px]" />
-        <div className="absolute inset-10 rounded-[280px_280px_48px_48px] border-[2px] border-[#00E5FF]/60" />
-        <div className="absolute inset-24 rounded-[240px_240px_40px_40px] border-[2px] border-[#22FF88]/50" />
+        <div className="absolute inset-0 rounded-[320px_320px_60px_60px] border-10 border-[#00E5FF] blur-[0.2px]" />
+        <div className="absolute inset-10 rounded-[280px_280px_48px_48px] border-2 border-[#00E5FF]/60" />
+        <div className="absolute inset-24 rounded-[240px_240px_40px_40px] border-2 border-[#22FF88]/50" />
         <div className="absolute left-1/2 top-6 h-12 w-12 -translate-x-1/2 rounded-full border-[6px] border-[#00E5FF] bg-[#0B1C2D]" />
-        <div className="absolute inset-y-16 left-1/2 w-[2px] -translate-x-1/2 bg-gradient-to-b from-[#00E5FF]/80 via-[#22FF88]/80 to-transparent" />
+        <div className="absolute inset-y-16 left-1/2 w-[2px] -translate-x-1/2 bg-linear-to-b from-[#00E5FF]/80 via-[#22FF88]/80 to-transparent" />
       </div>
 
       <div className="relative z-20 flex w-full justify-start">
@@ -31,7 +31,7 @@ export default function HeroSection() {
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
               href="/matches"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00E5FF] to-[#22FF88] px-8 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#001021] shadow-lg shadow-[#00E5FF40] transition duration-200 hover:-translate-y-0.5 hover:shadow-[#22FF8840] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00E5FF]/60"
+              className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-8 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#001021] shadow-lg shadow-[#00E5FF40] transition duration-200 hover:-translate-y-0.5 hover:shadow-[#22FF8840] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00E5FF]/60"
             >
               Join a Match
             </Link>

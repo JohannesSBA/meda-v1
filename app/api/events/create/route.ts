@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-    const { eventName, category, description, startDate, endDate, location, image, capacity, price, userId } = await request.json();
+    const { eventName, category, description, startDate, endDate, location, longitude, latitude, image, capacity, price, userId } = await request.json();
     const { categoryId } = category;
     const event = await prisma.event.create({
         data: {
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
             description,
             eventDatetime: new Date(startDate),
             eventEndtime: new Date(endDate),
-            eventLocation: location,
+            eventLocation: `${location}!longitude=${longitude}&latitude=${latitude}`,
             pictureUrl: image,
             capacity: parseInt(capacity),
             priceField: parseInt(price),

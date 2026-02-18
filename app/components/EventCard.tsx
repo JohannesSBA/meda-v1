@@ -7,7 +7,6 @@
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
-// import { decodeEventLocation } from "@/helpers/locationCodec";
 import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
 
 type EventCardProps = {
@@ -53,11 +52,18 @@ export function EventCard({
   ...rest
 }: EventCardProps) {
   const dateLabel = formatDateRange(event);
-//   const decodedLocation = decodeEventLocation(event.event_location);
-//   const locationLabel =
-//     decodedLocation?.address ??
-//     event.event_location ??
-//     "Location to be announced";
+  const locationLabel =
+    event.addressLabel ?? event.eventLocation ?? "Location to be announced";
+
+  const priceLabel =
+    event.priceField == null || event.priceField === 0
+      ? "Free"
+      : `ETB ${event.priceField}`;
+
+  const slotsLeft =
+    event.capacity != null && event.attendeeCount != null
+      ? Math.max(event.capacity - event.attendeeCount, 0)
+      : event.capacity ?? null;
 
   return (
     <Link
@@ -70,9 +76,9 @@ export function EventCard({
           <h3 className="text-xl font-semibold text-white transition group-hover:text-[#22FF88]">
             {event.event_name}
           </h3>
-          {event.capacity ? (
+          {slotsLeft != null ? (
             <span className="rounded-full border border-[#1f3850] bg-[#0b1c2d] px-3 py-1 text-xs font-medium text-[#89e7ff]">
-              {event.capacity - (event.attendee_count ?? 0)} player slots left
+              {slotsLeft} slots left
             </span>
           ) : null}
         </div>
@@ -83,6 +89,10 @@ export function EventCard({
           </p>
         ) : null}
 
+        <div className="flex items-center gap-2 text-xs font-medium text-[#22FF88]">
+          <span className="rounded-full bg-[#12313f] px-3 py-1">{priceLabel}</span>
+        </div>
+
         <p className="line-clamp-3 text-sm text-[#9fb6ce]">
           {event.description ?? "No additional details yet. Check back soon!"}
         </p>
@@ -90,7 +100,7 @@ export function EventCard({
         <div className="mt-auto flex items-center justify-between text-sm text-[#9fb6ce]">
           <span className="flex items-center gap-2">
             <FaLocationDot className="size-4" />
-            {/* {locationLabel} */}
+            <span className="line-clamp-1">{locationLabel}</span>
           </span>
           <span className="font-medium items-center gap-2 flex text-[#22FF88] transition group-hover:text-[#00E5FF]">
             View details <FaArrowRight className="size-4" />

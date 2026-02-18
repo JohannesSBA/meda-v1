@@ -1,21 +1,24 @@
-
-
 import { z } from "zod";
+
 export const EventSchema = z.object({
-  event_id: z.uuid(),
-  event_name: z.string(),
-  event_datetime: z.string(),
-  event_endtime: z.string(),
-  event_location: z.string().nullable().optional(),
+  eventId: z.string(),
+  eventName: z.string(),
+  eventDatetime: z.string(),
+  eventEndtime: z.string(),
+  eventLocation: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  picture_url: z.string().nullable().optional(),
+  pictureUrl: z.string().nullable().optional(),
   capacity: z.number().nullable().optional(),
-  price_field: z.number().nullable().optional(),
-  user_id: z.uuid(),
-  category_id: z.uuid(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
-  attendee_count: z.number().int().nonnegative().nullable().optional(),
+  priceField: z.number().nullable().optional(),
+  userId: z.string(),
+  categoryId: z.string(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  attendeeCount: z.number().int().nonnegative().nullable().optional(),
+  // derived
+  addressLabel: z.string().nullable().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 });
 
 export type EventResponse = z.infer<typeof EventSchema>;
@@ -30,16 +33,16 @@ export const EventListSchema = z.object({
 export type EventListResponse = z.infer<typeof EventListSchema>;
 
 export const EventCreatePayloadSchema = z.object({
-  event_name: z.string().min(1),
-  event_datetime: z.string().min(1),
-  event_endtime: z.string().min(1),
-  event_location: z.string().min(1),
+  eventName: z.string().min(1),
+  eventDatetime: z.string().min(1),
+  eventEndtime: z.string().min(1),
+  eventLocation: z.string().min(1),
   description: z.string().nullable().optional(),
-  picture_url: z.string().nullable().optional(),
+  pictureUrl: z.string().nullable().optional(),
   capacity: z.number().int().positive().nullable().optional(),
-  price_field: z.number().int().nonnegative().nullable().optional(),
-  user_id: z.uuid(),
-  category_id: z.uuid(),
+  priceField: z.number().int().nonnegative().nullable().optional(),
+  userId: z.string(),
+  categoryId: z.string(),
 });
 
 export type EventCreatePayload = z.infer<typeof EventCreatePayloadSchema>;
