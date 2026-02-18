@@ -106,8 +106,9 @@ export default function EventsPage() {
   };
 
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <main className="mx-auto flex min-h-screen min-w-screen flex-col gap-6 px-6 py-8 bg-[#0f1f2d]">
+      <div className="w-full flex flex-col gap-6 px-6 py-8 mx-auto">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Find an Event</h1>
           <p className="text-sm text-[#9fb6ce]">Search, sort, and explore near you.</p>
@@ -179,6 +180,7 @@ export default function EventsPage() {
           </div>
         </>
       )}
+      </div>
     </main>
   );
 }
