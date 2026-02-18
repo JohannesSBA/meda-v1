@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+// Prisma Schema for Event Manager Database
+// This schema matches the existing PostgreSQL database structure defined in db/init/02_event_manager_db_schema.sql
+
+// Enums
+enum AttendeeStatus {
+  RSVPed
+  Maybe
+  NotGoing
+
+  @@map("attendee_status")
+}
+
+enum InvitationStatus {
+  Active
+  Expired
+  Revoked
+
+  @@map("invitation_status")
+}
+
+enum PaymentStatus {
+  created
+  processing
+  succeeded
+  failed
+  canceled
+
+  @@map("payment_status")
+}
+
+model Category {
+  categoryId    String   @id @default(uuid()) @db.Uuid @map("category_id")
+  categoryName  String   @db.VarChar(50) @map("category_name")
+  description   String?  @db.Text
+
+  // Relations
+  events        Event[]
+
+  @@map("categories")
+}
+
+model Event {
+  eventId       String   @id @default(uuid()) @db.Uuid @map("event_id")
+  eventName     String   @db.VarChar(100) @map("event_name")
+  eventDatetime DateTime @map("event_datetime") @db.Timestamptz(6)
+  eventEndtime  DateTime @map("event_endtime") @db.Timestamptz(6)
+  eventLocation String?   @db.VarChar(255) @map("event_location")
+  description   String?   @db.Text
+  pictureUrl    String?   @db.VarChar(255) @map("picture_url")
+  capacity      Int?
+  priceField    Int?      @map("price_field")
+  userId        String   @map("user_id") @db.Uuid
+  categoryId    String   @map("category_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  category      Category          @relation(fields: [categoryId], references: [categoryId])
+  attendees     EventAttendee[]
+  invitations   Invitation[]
+  payments      Payment[]
+
+  @@map("events")
+}
+
+model EventAttendee {
+  attendeeId    String         @id @default(uuid()) @db.Uuid @map("attendee_id")
+  eventId       String         @map("event_id") @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  status        AttendeeStatus?
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  event         Event          @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@map("eventattendees")
+}
+
+model Invitation {
+  invitationId  String           @id @default(uuid()) @db.Uuid @map("invitation_id")
+  eventId       String           @map("event_id") @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  expiresAt     DateTime         @map("expires_at") @db.Timestamptz(6)
+  tokenHash     String           @unique @db.VarChar(64) @map("token_hash")
+  status        InvitationStatus
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  event         Event           @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+model Payment {
+  paymentId           String        @id @default(uuid()) @db.Uuid @map("payment_id")
+  eventId             String       @map("event_id") @db.Uuid
+  userId              String       @map("user_id") @db.Uuid
+  amountEtb           Decimal      @db.Decimal(10, 2) @map("amount_etb")
+  currency            String        @default("ETB") @db.VarChar(10)
+  status              PaymentStatus @default(created)
+  telebirrPrepayId    String?       @db.VarChar(128) @map("telebirr_prepay_id")
+  telebirrCheckoutUrl String?       @db.VarChar(512) @map("telebirr_checkout_url")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  // Relations
+  event               Event         @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@map("payments")
+}
