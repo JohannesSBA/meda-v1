@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
-// import { decodeEventLocation } from "@/helpers/locationCodec";
 import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
 
 type EventCardProps = {
@@ -49,48 +48,80 @@ export function EventCard({
   ...rest
 }: EventCardProps) {
   const dateLabel = formatDateRange(event);
-//   const decodedLocation = decodeEventLocation(event.event_location);
-//   const locationLabel =
-//     decodedLocation?.address ??
-//     event.event_location ??
-//     "Location to be announced";
+  const locationLabel =
+    event.addressLabel ?? event.eventLocation ?? "Location to be announced";
+
+  const priceLabel =
+    event.priceField == null || event.priceField === 0
+      ? "Free"
+      : `ETB ${event.priceField}`;
+
+  const slotsLeft =
+    event.capacity != null && event.attendeeCount != null
+      ? Math.max(event.capacity - event.attendeeCount, 0)
+      : event.capacity ?? null;
 
   return (
     <Link
       href={href}
-      className={`group block h-full rounded-3xl border border-[#18344b] bg-[#0f2235]/90 shadow-lg shadow-[#00e5ff1a] transition hover:-translate-y-1 hover:border-[#22FF88] hover:shadow-[#00e5ff33] focus-visible:-translate-y-1 focus-visible:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
+      className={`group block h-full overflow-hidden rounded-3xl border border-white/8 bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-xl shadow-[#00e5ff1a] backdrop-blur-sm transition hover:-translate-y-2 hover:border-[#22FF88]/70 hover:shadow-[#00e5ff33] focus-visible:-translate-y-2 focus-visible:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
       {...rest}
     >
-      <article className="flex h-full flex-col gap-5 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <h3 className="text-xl font-semibold text-white transition group-hover:text-[#22FF88]">
-            {event.eventName}
-          </h3>
-          {event.capacity ? (
-            <span className="rounded-full border border-[#1f3850] bg-[#0b1c2d] px-3 py-1 text-xs font-medium text-[#89e7ff]">
-              {event.capacity - (event.attendeeCount ?? 0)} player slots left
+      <article className="flex h-full flex-col">
+        <div className="relative h-36 overflow-hidden">
+          <div
+            className="absolute inset-0 transition duration-700 group-hover:scale-105 group-hover:brightness-110"
+            style={{
+              backgroundImage: event.pictureUrl
+                ? `linear-gradient(180deg,rgba(4,12,20,0.25),rgba(4,12,20,0.7)), url(${event.pictureUrl})`
+                : "radial-gradient(circle at 20% 20%, rgba(0,229,255,0.25), transparent 35%), radial-gradient(circle at 80% 0%, rgba(34,255,136,0.22), transparent 38%), linear-gradient(135deg, #0f2b3f 0%, #0b1d2d 100%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+          <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#c8e9ff] shadow-lg shadow-black/20 backdrop-blur-sm">
+              {dateLabel ?? "Date TBA"}
             </span>
-          ) : null}
+            {slotsLeft != null ? (
+              <span className="rounded-full bg-[#22FF88]/90 px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]">
+                {slotsLeft} seats left
+              </span>
+            ) : null}
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0d1a27] via-[#0d1a27]/60 to-transparent" />
         </div>
 
-        {dateLabel ? (
-          <p className="text-sm font-medium text-[#c0d5ec]">
-            {dateLabel}
+        <div className="flex flex-1 flex-col gap-4 p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold text-white transition group-hover:text-[#22FF88]">
+                {event.eventName}
+              </h3>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-[#7cd8ff]">
+                {event.categoryId ? "Featured event" : "Community pick"}
+              </p>
+            </div>
+            <span className="rounded-xl bg-[#10283a] px-3 py-1 text-xs font-semibold text-[#00E5FF] shadow-inner shadow-[#00e5ff1f]">
+              {priceLabel}
+            </span>
+          </div>
+
+          <p className="line-clamp-3 text-sm leading-relaxed text-[#b3c7de]">
+            {event.description ?? "No additional details yet. Check back soon!"}
           </p>
-        ) : null}
 
-        <p className="line-clamp-3 text-sm text-[#9fb6ce]">
-          {event.description ?? "No additional details yet. Check back soon!"}
-        </p>
-
-        <div className="mt-auto flex items-center justify-between text-sm text-[#9fb6ce]">
-          <span className="flex items-center gap-2">
-            <FaLocationDot className="size-4" />
-            {/* {locationLabel} */}
-          </span>
-          <span className="font-medium items-center gap-2 flex text-[#22FF88] transition group-hover:text-[#00E5FF]">
-            View details <FaArrowRight className="size-4" />
-          </span>
+          <div className="mt-auto flex items-center justify-between text-sm text-[#c4d8ef]">
+            <span className="flex items-center gap-2 text-[#9bd4ff]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#123046] text-[#22FF88] shadow-inner shadow-black/20">
+                <FaLocationDot className="size-3.5" />
+              </span>
+              <span className="line-clamp-1 text-sm">{locationLabel}</span>
+            </span>
+            <span className="flex items-center gap-2 rounded-full bg-[#15293d] px-3 py-2 text-[12px] font-semibold text-[#22FF88] transition group-hover:bg-[#1c3552] group-hover:text-[#00E5FF]">
+              View details <FaArrowRight className="size-4" />
+            </span>
+          </div>
         </div>
       </article>
     </Link>

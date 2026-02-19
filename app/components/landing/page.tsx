@@ -30,16 +30,10 @@ export default function HeroSection() {
           </p>
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
-              href="/matches"
+              href="/events"
               className="inline-flex items-center justify-center rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-8 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-[#001021] shadow-lg shadow-[#00E5FF40] transition duration-200 hover:-translate-y-0.5 hover:shadow-[#22FF8840] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00E5FF]/60"
             >
               Join a Match
-            </Link>
-            <Link
-              href="/host"
-              className="inline-flex items-center justify-center rounded-full border border-[#1f3850] bg-white/5 px-8 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition duration-200 hover:-translate-y-0.5 hover:border-[#22FF88] hover:text-[#22FF88] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#22FF88]/60"
-            >
-              Host a Game
             </Link>
           </div>
         </div>

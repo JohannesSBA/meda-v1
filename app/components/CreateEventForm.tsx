@@ -17,7 +17,7 @@ export default function CreateEventForm({ categories }: { categories: Category[]
 
   const [form, setForm] = useState({
     eventName: "",
-    category: categories[0],
+    categoryId: categories[0]?.categoryId ?? "",
     description: "",
     image: null as File | null,
     imagePreview: "",
@@ -48,6 +48,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
+    if (file && file.size > 6 * 1024 * 1024) {
+      toast.error("Image too large (max 6MB)");
+      return;
+    }
     setForm(prev => ({ ...prev, image: file }));
     if (file) {
       const reader = new FileReader();
@@ -60,16 +64,32 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // You can handle submission logic here
-    axios.post(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`, { ...form, userId: user?.id, categoryId: form.category.categoryId }).then(res => {
-        toast.success("Event created successfully");
-        router.push(`/events/${res.data.event.eventId}`);
-    }).catch(err => {
+    const fd = new FormData();
+    fd.append("eventName", form.eventName);
+    fd.append("categoryId", form.categoryId);
+    if (form.description) fd.append("description", form.description);
+    fd.append("startDate", form.startDate);
+    fd.append("endDate", form.endDate);
+    fd.append("location", form.location);
+    fd.append("latitude", form.latitude);
+    fd.append("longitude", form.longitude);
+    if (form.capacity) fd.append("capacity", form.capacity);
+    if (form.price) fd.append("price", form.price);
+    if (user?.id) fd.append("userId", user.id);
+    if (form.image) fd.append("image", form.image);
+
+    try {
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("Event created successfully");
+      router.push(`/events/${res.data.event.eventId}`);
+    } catch (err) {
       console.error(err);
       toast.error("Failed to create event");
-    });
+    }
   };
 
   return (
@@ -98,9 +118,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         </label>
         <select
           id="category"
-          name="category"
+          name="categoryId"
           className="w-full rounded-lg border-none bg-[#112030] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-          value={form.category.categoryId}
+          value={form.categoryId}
           onChange={handleChange}
         >
           {categories.map(category => (

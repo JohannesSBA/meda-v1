@@ -18,15 +18,21 @@ export async function GET(request: Request) {
   const nearLng = Number(searchParams.get("nearLng"));
   const radiusKm = Number(searchParams.get("radiusKm")) || DEFAULT_RADIUS_KM;
 
-  const where: Prisma.EventWhereInput | undefined = search
-    ? {
-        OR: [
-          { eventName: { contains: search, mode: Prisma.QueryMode.insensitive } },
-          { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
-          { eventLocation: { contains: search, mode: Prisma.QueryMode.insensitive } },
-        ],
-      }
-    : undefined;
+  const predicates: Prisma.EventWhereInput[] = [
+    { eventDatetime: { gte: new Date() } }, // only upcoming events
+  ];
+
+  if (search) {
+    predicates.push({
+      OR: [
+        { eventName: { contains: search, mode: Prisma.QueryMode.insensitive } },
+        { description: { contains: search, mode: Prisma.QueryMode.insensitive } },
+        { eventLocation: { contains: search, mode: Prisma.QueryMode.insensitive } },
+      ],
+    });
+  }
+
+  const where: Prisma.EventWhereInput = { AND: predicates };
 
   const orderBy =
     sort === "price"

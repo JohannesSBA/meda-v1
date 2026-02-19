@@ -60,18 +60,40 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
     // clear old markers (simple approach: remove and re-add)
     const markers: mapboxgl.Marker[] = [];
     eventsWithCoords.forEach((e) => {
+      const dateLabel = new Date(e.eventDatetime).toLocaleString();
+      const priceLabel = e.priceField == null || e.priceField === 0 ? "Free" : `ETB ${e.priceField}`;
+
       const marker = new mapboxgl.Marker({ color: "#22FF88" })
         .setLngLat([e.longitude!, e.latitude!])
         .setPopup(
-          new mapboxgl.Popup({ offset: 12 }).setHTML(
-            `<div style="color:#0f2235;font-family:sans-serif">
-              <strong>${e.eventName}</strong><br/>
-              <span>${new Date(e.eventDatetime).toLocaleString()}</span><br/>
-              <a href="/events/${e.eventId}" style="color:#0b7bff">View</a>
+          new mapboxgl.Popup({ offset: 10, closeButton: true }).setHTML(
+            `<div style="font-family:Inter, system-ui, sans-serif; min-width:200px; color:#e8f4ff; background:#0d1c2c; border:1px solid #1f3850; border-radius:10px; box-shadow:0 8px 22px rgba(0,229,255,0.16); overflow:hidden">
+              <div style="padding:10px 12px 6px; border-bottom:1px solid #1f3850; display:flex; justify-content:space-between; align-items:center; gap:8px">
+                <div style="font-weight:700; font-size:13px; line-height:1.3; color:#22FF88;">${e.eventName}</div>
+                <span style="background:#12313f; color:#00E5FF; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:700;">${priceLabel}</span>
+              </div>
+              <div style="padding:8px 12px; display:grid; gap:4px; font-size:11px; line-height:1.35; color:#c0d5ec;">
+                <div style="display:flex; gap:6px; align-items:flex-start;">
+                  <span style="color:#00E5FF; font-weight:600;">Date:</span>
+                  <span>${dateLabel}</span>
+                </div>
+                ${e.addressLabel ? `<div style="display:flex; gap:6px; align-items:flex-start;"><span style="color:#00E5FF; font-weight:600;">Where:</span><span>${e.addressLabel}</span></div>` : ""}
+              </div>
+              <a href="/events/${e.eventId}" style="display:block; text-align:center; margin:0 10px 10px; padding:8px 10px; background:linear-gradient(90deg,#00E5FF,#22FF88); color:#001021; font-weight:800; font-size:11px; border-radius:9px; text-decoration:none;">
+                View details
+              </a>
             </div>`
           )
         )
         .addTo(mapRef.current!);
+      marker.getElement().addEventListener("click", () => {
+        mapRef.current?.flyTo({
+          center: [e.longitude!, e.latitude!],
+          zoom: Math.max(mapRef.current?.getZoom() ?? 12, 13),
+          speed: 1.2,
+          curve: 1.4,
+        });
+      });
       markers.push(marker);
     });
 
@@ -107,6 +129,8 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
       { enableHighAccuracy: true, timeout: 8000 }
     );
   }, []);
+
+ 
 
   return (
     <div className="flex flex-col gap-3 p-3">
