@@ -26,7 +26,14 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { data: initialSession } = await auth.getSession();
+  let initialSession: unknown | null = null;
+  try {
+    const { data } = await auth.getSession();
+    initialSession = data ?? null;
+  } catch (error) {
+    // Fail-open: auth issues should not take down the entire app shell.
+    console.error("Failed to load auth session in layout", error);
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>
