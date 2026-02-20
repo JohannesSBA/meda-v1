@@ -49,7 +49,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
   };
 
   return (
-    <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
+    <header className="border-b border-slate-200 bg-white/80 backdrop-blur z-50">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
