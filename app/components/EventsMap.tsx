@@ -67,17 +67,17 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         .setLngLat([e.longitude!, e.latitude!])
         .setPopup(
           new mapboxgl.Popup({ offset: 10, closeButton: true }).setHTML(
-            `<div style="font-family:Inter, system-ui, sans-serif; min-width:200px; color:#e8f4ff; background:#0d1c2c; border:1px solid #1f3850; border-radius:10px; box-shadow:0 8px 22px rgba(0,229,255,0.16); overflow:hidden">
-              <div style="padding:10px 12px 6px; border-bottom:1px solid #1f3850; display:flex; justify-content:space-between; align-items:center; gap:8px">
-                <div style="font-weight:700; font-size:13px; line-height:1.3; color:#22FF88;">${e.eventName}</div>
-                <span style="background:#12313f; color:#00E5FF; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:700;">${priceLabel}</span>
+            `<div style="font-family:Inter, system-ui, sans-serif; min-width:200px; margin:0; padding:0; background:#ffffff; border:1px solid #e3ebf5; border-radius:10px; box-shadow:0 10px 26px rgba(0,0,0,0.14); overflow:hidden">
+              <div style="padding:10px 12px 6px; border-bottom:1px solid #e9f1fb; display:flex; justify-content:space-between; align-items:center; gap:8px">
+                <div style="font-weight:700; font-size:13px; line-height:1.3; color:#0f2235;">${e.eventName}</div>
+                <span style="background:#e8f6ff; color:#0a6fcb; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:700;">${priceLabel}</span>
               </div>
-              <div style="padding:8px 12px; display:grid; gap:4px; font-size:11px; line-height:1.35; color:#c0d5ec;">
+              <div style="padding:8px 12px; display:grid; gap:4px; font-size:11px; line-height:1.35; color:#2f3e52;">
                 <div style="display:flex; gap:6px; align-items:flex-start;">
-                  <span style="color:#00E5FF; font-weight:600;">Date:</span>
+                  <span style="color:#0a6fcb; font-weight:600;">Date:</span>
                   <span>${dateLabel}</span>
                 </div>
-                ${e.addressLabel ? `<div style="display:flex; gap:6px; align-items:flex-start;"><span style="color:#00E5FF; font-weight:600;">Where:</span><span>${e.addressLabel}</span></div>` : ""}
+                ${e.addressLabel ? `<div style="display:flex; gap:6px; align-items:flex-start;"><span style="color:#0a6fcb; font-weight:600;">Where:</span><span>${e.addressLabel}</span></div>` : ""}
               </div>
               <a href="/events/${e.eventId}" style="display:block; text-align:center; margin:0 10px 10px; padding:8px 10px; background:linear-gradient(90deg,#00E5FF,#22FF88); color:#001021; font-weight:800; font-size:11px; border-radius:9px; text-decoration:none;">
                 View details
