@@ -1,13 +1,8 @@
-import { authClient } from '@/lib/auth/client';
-import { auth } from '@/lib/auth/server';
-import { NeonAuthUIProvider } from '@neondatabase/auth/react';
+import { auth } from "@/lib/auth/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import HeaderNav from './components/HeaderNav';
-
-type SessionPayload = ReturnType<typeof authClient.useSession>["data"];
-
+import AuthProviders from "./components/AuthProviders";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,13 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'My Neon App',
-  description: 'A Next.js application with Neon Auth',
+  title: "My Neon App",
+  description: "A Next.js application with Neon Auth",
 };
 
-type NeonUIAuthClient = React.ComponentProps<typeof NeonAuthUIProvider>['authClient'];
-
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export default async function RootLayout({
   children,
@@ -40,18 +33,9 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased `}
       >
-        <NeonAuthUIProvider
-          authClient={authClient as unknown as NeonUIAuthClient}
-          redirectTo="/account/settings"
-          emailOTP
-          social={{  
-            providers: ['google']  
-          }} 
-          credentials={{ forgotPassword: true }} 
-        >
-          <HeaderNav initialSession={initialSession as SessionPayload} />
+        <AuthProviders initialSession={initialSession}>
           {children}
-        </NeonAuthUIProvider>
+        </AuthProviders>
       </body>
     </html>
   );
