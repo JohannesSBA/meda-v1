@@ -1,4 +1,4 @@
-name = "meda"
+name = "meda-v1"
 compatibility_date = "2026-02-20"
 compatibility_flags = ["nodejs_compat"]
 main = ".open-next/worker.js"

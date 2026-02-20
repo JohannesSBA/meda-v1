@@ -15,6 +15,7 @@ export const EventSchema = z.object({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
   attendeeCount: z.number().int().nonnegative().nullable().optional(),
+  myTickets: z.number().int().nonnegative().nullable().optional(),
   // derived
   addressLabel: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
