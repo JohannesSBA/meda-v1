@@ -66,6 +66,14 @@ model Event {
   pictureUrl    String?   @db.VarChar(255) @map("picture_url")
   capacity      Int?
   priceField    Int?      @map("price_field")
+  seriesId      String?   @db.Uuid @map("series_id")
+  isRecurring   Boolean   @default(false) @map("is_recurring")
+  recurrenceKind String?  @db.VarChar(20) @map("recurrence_kind")
+  recurrenceInterval Int? @map("recurrence_interval")
+  recurrenceWeekdays String? @db.VarChar(32) @map("recurrence_weekdays")
+  recurrenceUntil DateTime? @db.Timestamptz(6) @map("recurrence_until")
+  occurrenceIndex Int?    @map("occurrence_index")
+  isSeriesMaster Boolean  @default(false) @map("is_series_master")
   userId        String   @map("user_id") @db.Uuid
   categoryId    String   @map("category_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)

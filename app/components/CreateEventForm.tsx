@@ -10,6 +10,21 @@ import { User } from "@neondatabase/auth/types";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+function combineLocalDateAndTime(date: string, time: string) {
+  if (!date || !time) return "";
+  return `${date}T${time}`;
+}
+
+const WEEKDAY_OPTIONS = [
+  { label: "Sun", value: "0" },
+  { label: "Mon", value: "1" },
+  { label: "Tue", value: "2" },
+  { label: "Wed", value: "3" },
+  { label: "Thu", value: "4" },
+  { label: "Fri", value: "5" },
+  { label: "Sat", value: "6" },
+] as const;
+
 
 export default function CreateEventForm({ categories }: { categories: Category[] }) {
 
@@ -22,12 +37,19 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     image: null as File | null,
     imagePreview: "",
     startDate: "",
+    startTime: "",
     endDate: "",
+    endTime: "",
     location: "",
     latitude: "9.01524",
     longitude: "38.814349",
     capacity: "10",
-    price: "0"
+    price: "0",
+    isRecurring: false,
+    recurrenceFrequency: "weekly",
+    recurrenceInterval: "1",
+    recurrenceUntil: "",
+    recurrenceWeekdays: "1",
   });
   const [submitting, setSubmitting] = useState(false);
   const [timezone, setTimezone] = useState("");
@@ -73,8 +95,22 @@ export default function CreateEventForm({ categories }: { categories: Category[]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.startDate && form.endDate && new Date(form.endDate) <= new Date(form.startDate)) {
+    const startDateTime = combineLocalDateAndTime(form.startDate, form.startTime);
+    const endDateTime = combineLocalDateAndTime(form.endDate, form.endTime);
+    if (startDateTime && endDateTime && new Date(endDateTime) <= new Date(startDateTime)) {
       toast.error("End time must be after start time");
+      return;
+    }
+    if (!startDateTime || !endDateTime) {
+      toast.error("Please select both start and end date/time");
+      return;
+    }
+    if (form.isRecurring && !form.recurrenceUntil) {
+      toast.error("Please set when recurrence ends");
+      return;
+    }
+    if (form.isRecurring && form.recurrenceFrequency === "custom" && !form.recurrenceWeekdays) {
+      toast.error("Choose at least one weekday for custom recurrence");
       return;
     }
     setSubmitting(true);
@@ -82,13 +118,22 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     fd.append("eventName", form.eventName);
     fd.append("categoryId", form.categoryId);
     if (form.description) fd.append("description", form.description);
-    fd.append("startDate", form.startDate);
-    fd.append("endDate", form.endDate);
+    fd.append("startDate", startDateTime);
+    fd.append("endDate", endDateTime);
     fd.append("location", form.location);
     fd.append("latitude", form.latitude);
     fd.append("longitude", form.longitude);
     if (form.capacity) fd.append("capacity", form.capacity);
     if (form.price) fd.append("price", form.price);
+    if (form.isRecurring) {
+      fd.append("recurrenceEnabled", "true");
+      fd.append("recurrenceFrequency", form.recurrenceFrequency);
+      fd.append("recurrenceInterval", form.recurrenceInterval || "1");
+      fd.append("recurrenceUntil", combineLocalDateAndTime(form.recurrenceUntil, form.endTime || form.startTime));
+      if (form.recurrenceFrequency === "custom") {
+        fd.append("recurrenceWeekdays", form.recurrenceWeekdays);
+      }
+    }
     if (user?.id) fd.append("userId", user.id);
     if (form.image) fd.append("image", form.image);
 
@@ -132,7 +177,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
   const preview = useMemo(
     () => ({
       title: form.eventName || "Untitled event",
-      date: form.startDate ? new Date(form.startDate).toLocaleString() : "Date TBD",
+      date: combineLocalDateAndTime(form.startDate, form.startTime)
+        ? new Date(combineLocalDateAndTime(form.startDate, form.startTime)).toLocaleString()
+        : "Date TBD",
       location: form.location || "Location pending",
       price:
         form.price && Number(form.price) > 0
@@ -140,7 +187,7 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           : "Free",
       capacity: form.capacity || "—",
     }),
-    [form.eventName, form.startDate, form.location, form.price, form.capacity]
+    [form.eventName, form.startDate, form.startTime, form.location, form.price, form.capacity]
   );
 
   return (
@@ -211,38 +258,158 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between">
-              <label htmlFor="startDate" className="mb-1 block text-sm font-medium text-[#b9cde4]">
-                Start
-              </label>
-              <span className="text-xs text-[#7aa8c6]">Local: {timezone || "device"}</span>
+        <div className="space-y-4 rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Schedule</p>
+              <p className="text-xs text-[#7aa8c6]">Choose date and time in your local timezone</p>
             </div>
-            <input
-              type="datetime-local"
-              id="startDate"
-              name="startDate"
-              required
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-              value={form.startDate}
-              onChange={handleChange}
-            />
+            <span className="text-xs text-[#7aa8c6]">Local: {timezone || "device"}</span>
           </div>
-          <div>
-            <label htmlFor="endDate" className="mb-1 block text-sm font-medium text-[#b9cde4]">
-              End
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
+              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">Starts</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  value={form.startDate}
+                  onChange={handleChange}
+                />
+                <input
+                  type="time"
+                  id="startTime"
+                  name="startTime"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  value={form.startTime}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+            <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
+              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">Ends</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  value={form.endDate}
+                  onChange={handleChange}
+                />
+                <input
+                  type="time"
+                  id="endTime"
+                  name="endTime"
+                  required
+                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  value={form.endTime}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Recurring event</p>
+              <p className="text-xs text-[#7aa8c6]">Repeat this event daily, weekly, or custom weekdays.</p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm text-[#c7d9eb]">
+              <input
+                type="checkbox"
+                checked={form.isRecurring}
+                onChange={(e) => setForm((prev) => ({ ...prev, isRecurring: e.target.checked }))}
+              />
+              Enable
             </label>
-            <input
-              type="datetime-local"
-              id="endDate"
-              name="endDate"
-              required
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-              value={form.endDate}
-              onChange={handleChange}
-            />
           </div>
+
+          {form.isRecurring ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Frequency</label>
+                <select
+                  name="recurrenceFrequency"
+                  value={form.recurrenceFrequency}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="custom">Custom weekly days</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Every</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    name="recurrenceInterval"
+                    value={form.recurrenceInterval}
+                    onChange={handleChange}
+                    className="w-24 rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  />
+                  <span className="text-sm text-[#9fc4e4]">
+                    {form.recurrenceFrequency === "daily" ? "day(s)" : "week(s)"}
+                  </span>
+                </div>
+              </div>
+
+              {form.recurrenceFrequency === "custom" ? (
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium text-[#b9cde4]">On weekdays</label>
+                  <div className="flex flex-wrap gap-2">
+                    {WEEKDAY_OPTIONS.map((day) => {
+                      const selected = new Set(form.recurrenceWeekdays.split(",").filter(Boolean));
+                      const isSelected = selected.has(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => {
+                              const current = new Set(prev.recurrenceWeekdays.split(",").filter(Boolean));
+                              if (current.has(day.value)) current.delete(day.value);
+                              else current.add(day.value);
+                              const sorted = [...current].sort((a, b) => Number(a) - Number(b));
+                              return { ...prev, recurrenceWeekdays: sorted.join(",") };
+                            });
+                          }}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                            isSelected
+                              ? "border-[#22FF88] bg-[#22FF88]/20 text-[#bfffe0]"
+                              : "border-white/15 bg-white/5 text-[#b9cde4] hover:border-[#22FF88]/60"
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Repeat until</label>
+                <input
+                  type="date"
+                  name="recurrenceUntil"
+                  value={form.recurrenceUntil}
+                  onChange={handleChange}
+                  className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div>

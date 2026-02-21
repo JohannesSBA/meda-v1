@@ -6,15 +6,19 @@ import type { EventListResponse, EventResponse } from "../types/eventTypes";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
-const EventsMap = dynamic(() => import("../components/EventsMap"), { ssr: false });
+const EventsMap = dynamic(() => import("../components/EventsMap"), {
+  ssr: false,
+});
 
 const PAGE_SIZE = 8;
+const DEFAULT_CENTER = { lat: 9.0301, lng: 38.7578 };
 
 export default function EventsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const [events, setEvents] = useState<EventResponse[]>([]);
+  const [mapItems, setMapItems] = useState<EventResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +53,9 @@ export default function EventsPage() {
         if (nearLat && nearLng) {
           params.set("nearLat", nearLat);
           params.set("nearLng", nearLng);
+        } else {
+          params.set("nearLat", String(DEFAULT_CENTER.lat));
+          params.set("nearLng", String(DEFAULT_CENTER.lng));
         }
         const res = await fetch(`/api/events/list?${params.toString()}`, {
           signal: controller.signal,
@@ -56,10 +63,12 @@ export default function EventsPage() {
         if (!res.ok) throw new Error("Failed to fetch events");
         const data: EventListResponse = await res.json();
         setEvents(data.items);
+        setMapItems(data.mapItems ?? data.items);
         setTotal(data.total);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        const message = err instanceof Error ? err.message : "Failed to load events";
+        const message =
+          err instanceof Error ? err.message : "Failed to load events";
         setError(message);
       } finally {
         setLoading(false);
@@ -72,7 +81,10 @@ export default function EventsPage() {
     };
   }, [page, search, sort, order, nearLat, nearLng, radiusKm]);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    [total],
+  );
 
   const updateParams = (next: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -106,23 +118,33 @@ export default function EventsPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#08111c] text-white">
+    <main className="relative min-h-screen bg-[#08111c] text-white mt-16">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(0,229,255,0.08),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(34,255,136,0.08),transparent_32%),linear-gradient(140deg,#0b1725_10%,#0c1b2f_40%,#0a1321_100%)]" />
       <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
         <header className="flex flex-col gap-6 rounded-3xl  bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 shadow-2xl shadow-[#00e5ff12] backdrop-blur-lg">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-[#5cc5ff]">Discover • Play • Connect</p>
-              <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">Find your next event</h1>
-              <p className="mt-2 text-sm text-[#a7c5de]">Search, sort, and explore experiences happening around you.</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-[#5cc5ff]">
+                Discover • Play • Connect
+              </p>
+              <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">
+                Find your next event
+              </h1>
+              <p className="mt-2 text-sm text-[#a7c5de]">
+                Search, sort, and explore experiences happening around you.
+              </p>
             </div>
             <div className="flex gap-3">
               <div className="rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-left shadow-inner shadow-[#00e5ff12]">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#6ac9ff]">Live events</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-[#6ac9ff]">
+                  Live events
+                </p>
                 <p className="text-2xl font-bold text-white">{total}</p>
               </div>
               <div className="rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-left shadow-inner shadow-[#22ff8812]">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#7bffb8]">Radius</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-[#7bffb8]">
+                  Radius
+                </p>
                 <p className="text-2xl font-bold text-white">{radiusKm} km</p>
               </div>
             </div>
@@ -155,7 +177,7 @@ export default function EventsPage() {
 
         <section className="rounded-3xl   bg-[#0b1624]/90 shadow-xl shadow-[#00e5ff12]">
           <EventsMap
-            events={events}
+            events={mapItems}
             radiusKm={radiusKm}
             onRadiusChange={handleRadiusChange}
             onSearchHere={handleSearchHere}
@@ -178,13 +200,18 @@ export default function EventsPage() {
           <>
             <div className="grid gap-6 md:grid-cols-2">
               {events.map((event) => (
-                <EventCard key={event.eventId} event={event} href={`/events/${event.eventId}`} />
+                <EventCard
+                  key={event.eventId}
+                  event={event}
+                  href={`/events/${event.eventId}`}
+                />
               ))}
             </div>
 
             <div className="flex flex-col gap-3 rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-sm text-[#c0d5ec] shadow-inner shadow-black/15 md:flex-row md:items-center md:justify-between">
               <div>
-                Page {page} of {totalPages} · Showing {events.length} of {total} events
+                Page {page} of {totalPages} · Showing {events.length} of {total}{" "}
+                events
               </div>
               <div className="flex items-center gap-2">
                 <button

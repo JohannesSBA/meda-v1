@@ -4,27 +4,36 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { EventResponse } from "@/app/types/eventTypes";
+import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
 
 type Props = {
   event: EventResponse;
   isSoldOut: boolean;
+  occurrences?: EventOccurrence[];
 };
 
-export default function RegisterPanel({ event, isSoldOut }: Props) {
+export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Props) {
+  const occurrenceOptions = occurrences.length > 0 ? occurrences : [{ eventId: event.eventId, eventDatetime: event.eventDatetime, eventEndtime: event.eventEndtime, attendeeCount: event.attendeeCount ?? 0, myTickets: event.myTickets ?? 0, capacity: event.capacity ?? null, occurrenceIndex: event.occurrenceIndex ?? null }];
+  const [selectedEventId, setSelectedEventId] = useState(occurrenceOptions[0]?.eventId ?? event.eventId);
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [myTickets, setMyTickets] = useState<number>(event.myTickets ?? 0);
+  const [myTickets, setMyTickets] = useState<number>(occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0);
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
 
-  const remaining = event.capacity != null ? Math.max(event.capacity - (event.attendeeCount ?? 0), 0) : Infinity;
+  const selectedOccurrence =
+    occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ?? occurrenceOptions[0];
+  const selectedEndtime = selectedOccurrence?.eventEndtime ?? event.eventEndtime;
+  const selectedCapacity = selectedOccurrence?.capacity ?? event.capacity;
+  const selectedAttendeeCount = selectedOccurrence?.attendeeCount ?? event.attendeeCount ?? 0;
+  const remaining = selectedCapacity != null ? Math.max(selectedCapacity - selectedAttendeeCount, 0) : Infinity;
   const maxQty = Math.min(20, remaining || 20);
+  const soldOutForSelection = selectedCapacity != null ? remaining <= 0 : isSoldOut;
 
-  const fetchMyTickets = async (uid: string) => {
+  const fetchMyTickets = async (uid: string, targetEventId: string) => {
     try {
-      const res = await fetch(`/api/events/${event.eventId}?userId=${uid}`, { cache: "no-store" });
+      const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       setMyTickets(data.event?.myTickets ?? 0);
@@ -38,28 +47,37 @@ export default function RegisterPanel({ event, isSoldOut }: Props) {
       const id = session.data?.user?.id ?? null;
       setUserId(id);
       if (id) {
-        fetchMyTickets(id);
+        fetchMyTickets(id, selectedEventId);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setMyTickets(selectedOccurrence?.myTickets ?? 0);
+      return;
+    }
+    fetchMyTickets(userId, selectedEventId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, userId]);
 
   const handleRegister = async () => {
     if (!userId) {
       toast.error("Please sign in to register.");
       return;
     }
-    if (event.eventEndtime && new Date(event.eventEndtime) <= new Date()) {
+    if (selectedEndtime && new Date(selectedEndtime) <= new Date()) {
       toast.error("This event has ended");
       return;
     }
-    if (event.capacity != null && qty > remaining) {
+    if (selectedCapacity != null && qty > remaining) {
       toast.error("Not enough seats left");
       return;
     }
     setLoading(true);
     try {
-      await axios.post(`/api/events/${event.eventId}`, {
+      await axios.post(`/api/events/${selectedEventId}`, {
         quantity: qty,
         userId,
       });
@@ -81,7 +99,7 @@ export default function RegisterPanel({ event, isSoldOut }: Props) {
     }
     setLoading(true);
     try {
-      await axios.delete(`/api/events/${event.eventId}`, { data: { quantity: myTickets || 1, userId } });
+      await axios.delete(`/api/events/${selectedEventId}`, { data: { quantity: myTickets || 1, userId } });
       toast.success("Reservation cancelled");
       setMyTickets(0);
       router.refresh();
@@ -106,6 +124,22 @@ export default function RegisterPanel({ event, isSoldOut }: Props) {
       </div>
 
       <div className="space-y-2 text-sm text-[#c5d7ec]">
+        {occurrenceOptions.length > 1 ? (
+          <div className="flex items-center justify-between gap-4">
+            <span>Date</span>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="min-w-[220px] rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+            >
+              {occurrenceOptions.map((entry) => (
+                <option key={entry.eventId} value={entry.eventId}>
+                  {new Date(entry.eventDatetime).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between">
           <span>Available</span>
           <span>{remaining === Infinity ? "No limit" : `${remaining} seats`}</span>
@@ -130,11 +164,11 @@ export default function RegisterPanel({ event, isSoldOut }: Props) {
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          disabled={loading || isSoldOut}
+          disabled={loading || soldOutForSelection}
           onClick={handleRegister}
           className="w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-5 py-3 text-sm font-semibold text-[#001021] shadow-lg shadow-[#00e5ff33] transition hover:from-[#22FF88] hover:to-[#00E5FF] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSoldOut ? "Sold out" : loading ? "Registering…" : "Get tickets"}
+          {soldOutForSelection ? "Sold out" : loading ? "Registering…" : "Get tickets"}
         </button>
         <button
           type="button"

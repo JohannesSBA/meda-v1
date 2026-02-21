@@ -18,7 +18,7 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const hasInitialFitRef = useRef(false);
   const [geoDenied, setGeoDenied] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: DEFAULT_CENTER[1], lng: DEFAULT_CENTER[0] });
 
@@ -97,24 +97,23 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
       markers.push(marker);
     });
 
-    if (eventsWithCoords.length > 0) {
+    if (eventsWithCoords.length > 0 && !hasInitialFitRef.current) {
       const bounds = new mapboxgl.LngLatBounds();
       eventsWithCoords.forEach((e) => bounds.extend([e.longitude!, e.latitude!]));
-      if (userCoords) bounds.extend([userCoords.lng, userCoords.lat]);
       mapRef.current.fitBounds(bounds, { padding: 40, maxZoom: 14 });
+      hasInitialFitRef.current = true;
     }
 
     return () => {
       markers.forEach((m) => m.remove());
     };
-  }, [eventsWithCoords, userCoords]);
+  }, [eventsWithCoords]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserCoords(coords);
         if (!mapRef.current) return;
         if (!userMarkerRef.current) {
           userMarkerRef.current = new mapboxgl.Marker({ color: "#00E5FF" })

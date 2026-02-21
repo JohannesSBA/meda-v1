@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@neondatabase/auth/react";
-
+import Image from "next/image";
 import { authClient } from "@/lib/auth/client";
 
 type SessionPayload = ReturnType<typeof authClient.useSession>["data"];
@@ -36,7 +36,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
         if (item.requiresAdmin && !isAdmin) return false;
         return true;
       }),
-    [isAdmin, isLoggedIn]
+    [isAdmin, isLoggedIn],
   );
 
   const linkClasses = (href: string) => {
@@ -49,23 +49,24 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
   };
 
   return (
-    <header className="border-b border-slate-200 bg-white/80 backdrop-blur z-50">
+    <header className="border-b border-slate-200 bg-white/80 backdrop-blur z-50 fixed top-0 left-0 right-0">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/"
           className="flex items-center gap-3 font-semibold text-slate-900"
         >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm text-white">
-            M
-          </span>
-          <span className="text-base">Meda</span>
+          <Image src="/logo.png" alt="Meda" width={50} height={50} />
         </Link>
 
         <div className="flex items-center gap-3">
           {linksToShow.length > 0 && (
             <nav className="hidden items-center gap-4 md:flex">
               {linksToShow.map((link) => (
-                <Link key={link.href} href={link.href} className={linkClasses(link.href)}>
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={linkClasses(link.href)}
+                >
                   {link.label}
                 </Link>
               ))}

@@ -25,6 +25,54 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     myTickets = await prisma.eventAttendee.count({ where: { eventId: id, userId } });
   }
 
+  let occurrences:
+    | Array<{
+        eventId: string;
+        eventDatetime: string;
+        eventEndtime: string;
+        attendeeCount: number;
+        capacity: number | null;
+        myTickets: number;
+        occurrenceIndex: number | null;
+      }>
+    | undefined;
+  if (event.seriesId) {
+    const seriesEvents = await prisma.event.findMany({
+      where: {
+        seriesId: event.seriesId,
+        eventEndtime: { gte: new Date() },
+      },
+      include: {
+        _count: { select: { attendees: true } },
+      },
+      orderBy: { eventDatetime: "asc" },
+      take: 120,
+    });
+
+    const myTicketCounts = new Map<string, number>();
+    if (userId && /^[0-9a-fA-F-]{36}$/.test(userId) && seriesEvents.length > 0) {
+      const grouped = await prisma.eventAttendee.groupBy({
+        by: ["eventId"],
+        where: {
+          userId,
+          eventId: { in: seriesEvents.map((entry) => entry.eventId) },
+        },
+        _count: { _all: true },
+      });
+      grouped.forEach((entry) => myTicketCounts.set(entry.eventId, entry._count._all));
+    }
+
+    occurrences = seriesEvents.map((entry) => ({
+      eventId: entry.eventId,
+      eventDatetime: entry.eventDatetime.toISOString(),
+      eventEndtime: entry.eventEndtime.toISOString(),
+      attendeeCount: entry._count.attendees,
+      capacity: entry.capacity,
+      myTickets: myTicketCounts.get(entry.eventId) ?? 0,
+      occurrenceIndex: entry.occurrenceIndex,
+    }));
+  }
+
   return NextResponse.json(
     {
       event: {
@@ -34,6 +82,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         latitude: decoded.latitude,
         longitude: decoded.longitude,
         myTickets,
+        occurrences,
       },
     },
     { status: 200 }

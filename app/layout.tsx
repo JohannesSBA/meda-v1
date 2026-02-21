@@ -15,8 +15,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Neon App",
-  description: "A Next.js application with Neon Auth",
+  title: "Meda - Event Management System",
+  description:
+    "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia’s night football and weekend runs.",
+  icons: {
+    icon: "/logo.png",
+  },
+  openGraph: {
+    title: "Meda - Event Management System",
+    description:
+      "A Next.js application with Neon Auth - Meda Event Management System",
+    images: "/logo.png",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export const dynamic = "force-dynamic";
