@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
 
@@ -18,9 +18,11 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
   const [selectedEventId, setSelectedEventId] = useState(occurrenceOptions[0]?.eventId ?? event.eventId);
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [myTickets, setMyTickets] = useState<number>(occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0);
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const selectedOccurrence =
     occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ?? occurrenceOptions[0];
@@ -62,6 +64,43 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId, userId]);
 
+  useEffect(() => {
+    const paymentProvider = searchParams.get("payment");
+    const txRef = searchParams.get("tx_ref");
+    if (!userId || paymentProvider !== "chapa" || !txRef) return;
+
+    let cancelled = false;
+    const confirmPayment = async () => {
+      setConfirmingPayment(true);
+      try {
+        const response = await axios.post("/api/payments/chapa/confirm", { txRef });
+        const addedTickets = Number(response.data?.quantity) || 0;
+        if (!cancelled && addedTickets > 0) {
+          setMyTickets((prev) => prev + addedTickets);
+        }
+        if (!cancelled) {
+          toast.success("Payment confirmed. Ticket added.");
+          router.replace(`/events/${event.eventId}`);
+          router.refresh();
+        }
+      } catch (err) {
+        const maybeAxiosError = err as { response?: { data?: { error?: string } } };
+        if (!cancelled) {
+          toast.error(maybeAxiosError?.response?.data?.error ?? "Unable to confirm payment");
+        }
+      } finally {
+        if (!cancelled) {
+          setConfirmingPayment(false);
+        }
+      }
+    };
+
+    confirmPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [event.eventId, router, searchParams, userId]);
+
   const handleRegister = async () => {
     if (!userId) {
       toast.error("Please sign in to register.");
@@ -77,10 +116,20 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     }
     setLoading(true);
     try {
-      await axios.post(`/api/events/${selectedEventId}`, {
-        quantity: qty,
-        userId,
-      });
+      if ((event.priceField ?? 0) > 0) {
+        const response = await axios.post("/api/payments/chapa/checkout", {
+          eventId: selectedEventId,
+          quantity: qty,
+        });
+        const checkoutUrl = response.data?.checkoutUrl;
+        if (!checkoutUrl) {
+          throw new Error("Checkout URL was not returned");
+        }
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      await axios.post(`/api/events/${selectedEventId}`, { quantity: qty, userId });
       toast.success("Registered!");
       setMyTickets((prev) => prev + qty);
       router.refresh();
@@ -164,11 +213,19 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          disabled={loading || soldOutForSelection}
+          disabled={loading || confirmingPayment || soldOutForSelection}
           onClick={handleRegister}
           className="w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-5 py-3 text-sm font-semibold text-[#001021] shadow-lg shadow-[#00e5ff33] transition hover:from-[#22FF88] hover:to-[#00E5FF] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {soldOutForSelection ? "Sold out" : loading ? "Registering…" : "Get tickets"}
+          {soldOutForSelection
+            ? "Sold out"
+            : confirmingPayment
+              ? "Confirming payment…"
+              : loading
+                ? "Processing…"
+                : (event.priceField ?? 0) > 0
+                  ? "Pay with Chapa"
+                  : "Get tickets"}
         </button>
         <button
           type="button"
