@@ -48,6 +48,13 @@ export async function GET(request: Request) {
         attendeeCount: event._count.attendees,
         isRecurring: event.isRecurring,
         seriesId: event.seriesId,
+        description: event.description,
+        pictureUrl: event.pictureUrl,
+        priceField: event.priceField,
+        capacity: event.capacity,
+        categoryId: event.categoryId,
+        eventLocation: event.eventLocation,
+        updatedAt: event.updatedAt.toISOString(),
         addressLabel: decoded.addressLabel,
       };
     }),

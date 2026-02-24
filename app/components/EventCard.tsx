@@ -8,6 +8,7 @@ import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
 type EventCardProps = {
   event: EventResponse;
   href: string;
+  isSaved?: boolean;
 } & ComponentPropsWithoutRef<"a">;
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -44,6 +45,7 @@ function formatDateRange(event: EventResponse) {
 export function EventCard({
   event,
   href,
+  isSaved = false,
   className = "",
   ...rest
 }: EventCardProps) {
@@ -80,9 +82,16 @@ export function EventCard({
             }}
           />
           <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#c8e9ff] shadow-lg shadow-black/20 backdrop-blur-sm">
-              {dateLabel ?? "Date TBA"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#c8e9ff] shadow-lg shadow-black/20 backdrop-blur-sm">
+                {dateLabel ?? "Date TBA"}
+              </span>
+              {isSaved ? (
+                <span className="rounded-full bg-[#00E5FF]/90 px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#00e5ff1f]">
+                  Saved
+                </span>
+              ) : null}
+            </div>
             {slotsLeft != null ? (
               <span className="rounded-full bg-[#22FF88]/90 px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]">
                 {slotsLeft} seats left

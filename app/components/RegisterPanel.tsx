@@ -38,6 +38,7 @@ export default function RegisterPanel({
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [myTickets, setMyTickets] = useState<number>(
     occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
   );
@@ -92,6 +93,25 @@ export default function RegisterPanel({
     }
     fetchMyTickets(userId, selectedEventId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setIsSaved(false);
+      return;
+    }
+    const loadSaved = async () => {
+      try {
+        const res = await fetch("/api/profile/saved-events", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setIsSaved(items.some((item: { eventId?: string }) => item.eventId === selectedEventId));
+      } catch {
+        // silent
+      }
+    };
+    void loadSaved();
   }, [selectedEventId, userId]);
 
   useEffect(() => {
@@ -185,33 +205,24 @@ export default function RegisterPanel({
     }
   };
 
-  const handleCancel = async () => {
+  const handleToggleSave = async () => {
     if (!userId) {
-      toast.error("Please sign in first.");
+      toast.error("Please sign in to save events.");
       return;
     }
-    setLoading(true);
     try {
-      const response = await axios.delete(`/api/events/${selectedEventId}`, {
-        data: { quantity: myTickets || 1, userId },
+      const res = await fetch("/api/profile/saved-events", {
+        method: isSaved ? "DELETE" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventId: selectedEventId }),
       });
-      const refundedAmount = response.data?.refund?.refundedAmountEtb;
-      if (refundedAmount) {
-        toast.success(
-          `Reservation cancelled. ETB ${refundedAmount} refunded via Chapa.`,
-        );
-      } else {
-        toast.success("Reservation cancelled");
-      }
-      setMyTickets(0);
-      router.refresh();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Save action failed");
+      setIsSaved(!isSaved);
+      toast.success(isSaved ? "Event removed from saved list" : "Event saved");
     } catch (err) {
-      const maybeAxiosError = err as {
-        response?: { data?: { error?: string } };
-      };
-      toast.error(maybeAxiosError?.response?.data?.error ?? "Unable to cancel");
-    } finally {
-      setLoading(false);
+      const maybeErr = err as Error;
+      toast.error(maybeErr.message || "Save action failed");
     }
   };
 
@@ -271,7 +282,7 @@ export default function RegisterPanel({
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2">
         <button
           type="button"
           disabled={loading || confirmingPayment || soldOutForSelection}
@@ -288,18 +299,18 @@ export default function RegisterPanel({
                   ? "Pay with Chapa"
                   : "Get tickets"}
         </button>
-        <button
-          type="button"
-          disabled={loading || myTickets === 0}
-          onClick={handleCancel}
-          className="w-full rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#ffb4b4] hover:text-[#ffb4b4] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Cancel reservation
-        </button>
       </div>
 
+      <button
+        type="button"
+        onClick={handleToggleSave}
+        className="w-full rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#22FF88] hover:text-[#22FF88]"
+      >
+        {isSaved ? "Remove from saved" : "Save event"}
+      </button>
+
       <p className="text-xs text-[#9fc4e4]">
-        Cancellations are disabled within 24 hours of the event start.
+        All reservations are final.
       </p>
     </div>
   );

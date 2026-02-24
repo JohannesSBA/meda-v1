@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 type ProfileUser = {
@@ -9,16 +11,22 @@ type ProfileUser = {
   name: string;
   email: string;
   role: string;
+  image?: string | null;
 };
 
-type MyEventItem = {
+type RegisteredEventItem = {
   eventId: string;
   eventName: string;
   eventDatetime: string;
-  attendeeCount: number;
-  capacity: number | null;
-  isRecurring?: boolean;
-  recurrenceKind?: string | null;
+  ticketCount: number;
+  priceField?: number | null;
+  addressLabel?: string | null;
+};
+
+type SavedEventItem = {
+  eventId: string;
+  eventName: string;
+  eventDatetime: string;
   addressLabel?: string | null;
 };
 
@@ -26,23 +34,22 @@ type AdminEventItem = {
   eventId: string;
   eventName: string;
   eventDatetime: string;
+  eventEndtime: string;
   userId: string;
-  attendeeCount: number;
   isRecurring?: boolean;
-  addressLabel?: string | null;
+  seriesId?: string | null;
+  priceField?: number | null;
+  capacity?: number | null;
+  categoryId?: string;
+  eventLocation?: string | null;
+  pictureUrl?: string | null;
+  description?: string | null;
 };
 
-type TabId = "overview" | "myEvents" | "users" | "events" | "stats";
+type CategoryItem = { categoryId: string; categoryName: string };
 
-const userTabs: Array<{ id: TabId; label: string }> = [
-  { id: "overview", label: "Overview" },
-  { id: "myEvents", label: "My Events" },
-];
-const adminTabs: Array<{ id: TabId; label: string }> = [
-  { id: "users", label: "Admin Users" },
-  { id: "events", label: "Admin Events" },
-  { id: "stats", label: "Statistics" },
-];
+type UserTab = "registered" | "saved";
+type AdminTab = "users" | "events" | "stats";
 
 function readUser(user: unknown) {
   const row = user as Record<string, unknown>;
@@ -56,14 +63,27 @@ function readUser(user: unknown) {
 }
 
 export default function ProfileDashboard({ user }: { user: ProfileUser }) {
+  const router = useRouter();
   const isAdmin = user.role === "admin";
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const avatarUrl =
+    user.image ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || "User")}&background=0F2235&color=22FF88&size=160`;
 
-  const [myEvents, setMyEvents] = useState<MyEventItem[]>([]);
-  const [myEventsStatus, setMyEventsStatus] = useState("upcoming");
-  const [myEventsLoading, setMyEventsLoading] = useState(false);
+  const [userTab, setUserTab] = useState<UserTab>("registered");
+  const [adminTab, setAdminTab] = useState<AdminTab>("events");
 
-  const [adminUsers, setAdminUsers] = useState<Array<ReturnType<typeof readUser>>>([]);
+  const [registeredStatus, setRegisteredStatus] = useState("upcoming");
+  const [registeredEvents, setRegisteredEvents] = useState<
+    RegisteredEventItem[]
+  >([]);
+  const [registeredLoading, setRegisteredLoading] = useState(false);
+
+  const [savedEvents, setSavedEvents] = useState<SavedEventItem[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+
+  const [adminUsers, setAdminUsers] = useState<
+    Array<ReturnType<typeof readUser>>
+  >([]);
   const [adminUsersLoading, setAdminUsersLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
 
@@ -74,26 +94,61 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const tabs = useMemo(
-    () => (isAdmin ? [...userTabs, ...adminTabs] : userTabs),
-    [isAdmin]
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [editingEvent, setEditingEvent] = useState<AdminEventItem | null>(null);
+  const [applyToSeries, setApplyToSeries] = useState(false);
+  const [seriesCount, setSeriesCount] = useState<number>(1);
+  const [savingEvent, setSavingEvent] = useState(false);
+
+  const savedIds = useMemo(
+    () => new Set(savedEvents.map((event) => event.eventId)),
+    [savedEvents],
+  );
+  const adminUserNameById = useMemo(
+    () => new Map(adminUsers.map((entry) => [entry.id, entry.name])),
+    [adminUsers]
   );
 
-  useEffect(() => {
-    if (!tabs.some((t) => t.id === activeTab)) setActiveTab("overview");
-  }, [tabs, activeTab]);
-
-  const loadMyEvents = async () => {
-    setMyEventsLoading(true);
+  const loadRegisteredEvents = async () => {
+    setRegisteredLoading(true);
     try {
-      const res = await fetch(`/api/profile/events?status=${myEventsStatus}`, { cache: "no-store" });
+      const res = await fetch(
+        `/api/profile/registered-events?status=${registeredStatus}`,
+        {
+          cache: "no-store",
+        },
+      );
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to load events");
-      setMyEvents(data.items ?? []);
+      if (!res.ok)
+        throw new Error(data?.error || "Failed to load registered events");
+      setRegisteredEvents(data.items ?? []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load events");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to load registered events",
+      );
     } finally {
-      setMyEventsLoading(false);
+      setRegisteredLoading(false);
+    }
+  };
+
+  const loadSavedEvents = async () => {
+    setSavedLoading(true);
+    try {
+      const res = await fetch("/api/profile/saved-events", {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data?.error || "Failed to load saved events");
+      setSavedEvents(data.items ?? []);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load saved events",
+      );
+    } finally {
+      setSavedLoading(false);
     }
   };
 
@@ -107,7 +162,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       if (!res.ok) throw new Error(data?.error || "Failed to load users");
       setAdminUsers((data.users ?? []).map(readUser));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load users");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load users",
+      );
     } finally {
       setAdminUsersLoading(false);
     }
@@ -123,7 +180,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       if (!res.ok) throw new Error(data?.error || "Failed to load events");
       setAdminEvents(data.items ?? []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load admin events");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load admin events",
+      );
     } finally {
       setAdminEventsLoading(false);
     }
@@ -138,21 +197,67 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       if (!res.ok) throw new Error(data?.error || "Failed to load stats");
       setStats(data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load statistics");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load statistics",
+      );
     } finally {
       setStatsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (activeTab === "myEvents") void loadMyEvents();
-    if (activeTab === "users") void loadAdminUsers();
-    if (activeTab === "events") void loadAdminEvents();
-    if (activeTab === "stats") void loadStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, myEventsStatus]);
+  const loadCategories = async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await fetch("/api/categories/get", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load categories");
+      setCategories(data.categories ?? []);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load categories",
+      );
+    }
+  };
 
-  const handleSetRole = async (targetUserId: string, role: "admin" | "user") => {
+  useEffect(() => {
+    if (!isAdmin) {
+      if (userTab === "registered") void loadRegisteredEvents();
+      if (userTab === "saved") void loadSavedEvents();
+      return;
+    }
+
+    if (adminTab === "users") void loadAdminUsers();
+    if (adminTab === "events") {
+      void loadAdminEvents();
+      void loadCategories();
+      void loadAdminUsers();
+    }
+    if (adminTab === "stats") void loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, userTab, adminTab, registeredStatus]);
+
+  const toggleSavedEvent = async (eventId: string, isSaved: boolean) => {
+    try {
+      const res = await fetch("/api/profile/saved-events", {
+        method: isSaved ? "DELETE" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Save action failed");
+      toast.success(isSaved ? "Event removed from saved list" : "Event saved");
+      await loadSavedEvents();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Save action failed",
+      );
+    }
+  };
+
+  const handleSetRole = async (
+    targetUserId: string,
+    role: "admin" | "user",
+  ) => {
     try {
       const res = await fetch(`/api/admin/users/${targetUserId}/role`, {
         method: "PATCH",
@@ -164,7 +269,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       toast.success(`Role updated to ${role}`);
       void loadAdminUsers();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Role update failed");
+      toast.error(
+        error instanceof Error ? error.message : "Role update failed",
+      );
     }
   };
 
@@ -190,14 +297,67 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   const handleDeleteEvent = async (eventId: string) => {
     if (!confirm("Delete this event permanently?")) return;
     try {
-      const res = await fetch(`/api/admin/events/${eventId}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/events/${eventId}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Delete failed");
       toast.success("Event deleted");
       void loadAdminEvents();
-      if (activeTab === "myEvents") void loadMyEvents();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Delete failed");
+    }
+  };
+
+  const startEditEvent = async (eventId: string) => {
+    router.push(`/admin/events/${eventId}/edit`);
+  };
+
+  const handleSaveEventChanges = async () => {
+    if (!editingEvent) return;
+    if (applyToSeries && seriesCount > 1) {
+      const confirmed = window.confirm(
+        `This will update ${seriesCount} occurrences in this recurring series. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
+    setSavingEvent(true);
+    try {
+      const res = await fetch(`/api/admin/events/${editingEvent.eventId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          eventName: editingEvent.eventName,
+          description: editingEvent.description ?? null,
+          pictureUrl: editingEvent.pictureUrl ?? null,
+          eventDatetime: editingEvent.eventDatetime,
+          eventEndtime: editingEvent.eventEndtime,
+          eventLocation: editingEvent.eventLocation ?? null,
+          capacity: editingEvent.capacity ?? null,
+          priceField: editingEvent.priceField ?? null,
+          categoryId: editingEvent.categoryId,
+          applyToSeries,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to update event");
+      if (data?.bulkUpdated) {
+        const count = Number(data?.updatedCount) || seriesCount;
+        toast.success(`Updated ${count} occurrences successfully`);
+      } else {
+        toast.success("Event updated");
+      }
+      setEditingEvent(null);
+      setApplyToSeries(false);
+      setSeriesCount(1);
+      await loadAdminEvents();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update event",
+      );
+    } finally {
+      setSavingEvent(false);
     }
   };
 
@@ -205,270 +365,583 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
     <section className="space-y-6">
       <header className="rounded-3xl bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 shadow-2xl shadow-[#00e5ff12]">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[#7ccfff]">Profile center</p>
-            <h1 className="mt-2 text-3xl font-bold text-white">{user.name}</h1>
-            <p className="mt-1 text-sm text-[#a7c5de]">{user.email}</p>
+          <div className="flex items-center gap-4">
+            <Image
+              src={avatarUrl}
+              alt={`${user.name} profile`}
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded-full border border-white/15 object-cover"
+            />
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-[#7ccfff]">
+                {isAdmin ? "Admin profile" : "My profile"}
+              </p>
+              <h1 className="mt-2 text-3xl font-bold text-white">
+                {user.name}
+              </h1>
+              <p className="mt-1 text-sm text-[#a7c5de]">{user.email}</p>
+            </div>
           </div>
-          <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
-            Role: {user.role}
-          </span>
+          {isAdmin ? (
+            <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
+              Role: admin
+            </span>
+          ) : (
+            <Link
+              href="/events"
+              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#22FF88] hover:border-[#22FF88]"
+            >
+              Browse events
+            </Link>
+          )}
         </div>
       </header>
 
-      <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab.id
-                ? "bg-[#00E5FF] text-[#001021]"
-                : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-
-      {activeTab === "overview" ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-            <p className="text-xs uppercase tracking-[0.14em] text-[#7ccfff]">Account</p>
-            <p className="mt-2 text-lg font-semibold text-white">Authenticated with Neon Auth</p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-            <p className="text-xs uppercase tracking-[0.14em] text-[#7ccfff]">Quick action</p>
-            <Link href="/create-events" className="mt-2 inline-flex text-sm font-semibold text-[#22FF88] hover:underline">
-              Create a new event
-            </Link>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-            <p className="text-xs uppercase tracking-[0.14em] text-[#7ccfff]">Admin access</p>
-            <p className="mt-2 text-sm text-[#c4d8ef]">
-              {isAdmin
-                ? "You can manage users, moderation, and platform statistics."
-                : "Ask an admin for elevated access if you need moderation tools."}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {activeTab === "myEvents" ? (
-        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">My events</h2>
-            <select
-              value={myEventsStatus}
-              onChange={(e) => setMyEventsStatus(e.target.value)}
-              className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+      {!isAdmin ? (
+        <>
+          <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
+            <button
+              type="button"
+              onClick={() => setUserTab("registered")}
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                userTab === "registered"
+                  ? "bg-[#00E5FF] text-[#001021]"
+                  : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+              }`}
             >
-              <option value="upcoming">Upcoming</option>
-              <option value="past">Past</option>
-              <option value="all">All</option>
-            </select>
-          </div>
-          {myEventsLoading ? (
-            <p className="text-sm text-[#a7c5de]">Loading your events...</p>
-          ) : myEvents.length === 0 ? (
-            <p className="text-sm text-[#a7c5de]">No events found for this filter.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="text-[#7ccfff]">
-                  <tr>
-                    <th className="py-2 pr-4">Name</th>
-                    <th className="py-2 pr-4">Date</th>
-                    <th className="py-2 pr-4">Attendees</th>
-                    <th className="py-2 pr-4">Type</th>
-                    <th className="py-2 pr-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[#d5e7fb]">
-                  {myEvents.map((event) => (
-                    <tr key={event.eventId} className="border-t border-white/10">
-                      <td className="py-3 pr-4">{event.eventName}</td>
-                      <td className="py-3 pr-4">{new Date(event.eventDatetime).toLocaleString()}</td>
-                      <td className="py-3 pr-4">
-                        {event.attendeeCount}/{event.capacity ?? "∞"}
-                      </td>
-                      <td className="py-3 pr-4">{event.isRecurring ? `Recurring (${event.recurrenceKind ?? "series"})` : "Single"}</td>
-                      <td className="py-3 pr-4">
+              Registered Events
+            </button>
+            <button
+              type="button"
+              onClick={() => setUserTab("saved")}
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                userTab === "saved"
+                  ? "bg-[#00E5FF] text-[#001021]"
+                  : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              Saved Events
+            </button>
+          </nav>
+
+          {userTab === "registered" ? (
+            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">
+                  Registered events
+                </h2>
+                <select
+                  value={registeredStatus}
+                  onChange={(e) => setRegisteredStatus(e.target.value)}
+                  className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                >
+                  <option value="upcoming">Upcoming</option>
+                  <option value="past">Past</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              {registeredLoading ? (
+                <p className="text-sm text-[#a7c5de]">
+                  Loading registered events...
+                </p>
+              ) : registeredEvents.length === 0 ? (
+                <p className="text-sm text-[#a7c5de]">
+                  No registered events found.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {registeredEvents.map((event) => (
+                    <article
+                      key={event.eventId}
+                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-white">
+                            {event.eventName}
+                          </h3>
+                          <p className="text-xs text-[#9ec0df]">
+                            {new Date(event.eventDatetime).toLocaleString()} •{" "}
+                            {event.addressLabel ?? "Location pending"}
+                          </p>
+                          <p className="mt-1 text-xs text-[#9ec0df]">
+                            Tickets: {event.ticketCount} • Price: ETB{" "}
+                            {event.priceField ?? 0}
+                          </p>
+                        </div>
                         <div className="flex gap-2">
-                          <Link href={`/events/${event.eventId}`} className="rounded-lg border border-white/15 px-3 py-1 hover:border-[#22FF88]">
+                          <Link
+                            href={`/events/${event.eventId}`}
+                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
+                          >
                             View
                           </Link>
-                          {isAdmin ? (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteEvent(event.eventId)}
-                              className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
-                            >
-                              Delete
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {isAdmin && activeTab === "users" ? (
-        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-white">User administration</h2>
-            <div className="flex gap-2">
-              <input
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Search by email/name"
-                className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
-              />
-              <button onClick={() => void loadAdminUsers()} className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]">
-                Search
-              </button>
-            </div>
-          </div>
-
-          {adminUsersLoading ? (
-            <p className="text-sm text-[#a7c5de]">Loading users...</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="text-[#7ccfff]">
-                  <tr>
-                    <th className="py-2 pr-4">User</th>
-                    <th className="py-2 pr-4">Role</th>
-                    <th className="py-2 pr-4">Status</th>
-                    <th className="py-2 pr-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[#d5e7fb]">
-                  {adminUsers.map((row) => (
-                    <tr key={row.id || row.email} className="border-t border-white/10">
-                      <td className="py-3 pr-4">
-                        <p>{row.name}</p>
-                        <p className="text-xs text-[#9ec0df]">{row.email}</p>
-                      </td>
-                      <td className="py-3 pr-4">{row.role}</td>
-                      <td className="py-3 pr-4">{row.banned ? "Banned" : "Active"}</td>
-                      <td className="py-3 pr-4">
-                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => void handleSetRole(row.id, row.role === "admin" ? "user" : "admin")}
-                            className="rounded-lg border border-white/15 px-3 py-1 hover:border-[#22FF88]"
+                            onClick={() =>
+                              void toggleSavedEvent(
+                                event.eventId,
+                                savedIds.has(event.eventId),
+                              )
+                            }
+                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
                           >
-                            {row.role === "admin" ? "Remove admin" : "Make admin"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleBanToggle(row.id, !row.banned)}
-                            className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
-                          >
-                            {row.banned ? "Unban" : "Ban"}
+                            {savedIds.has(event.eventId) ? "Unsave" : "Save"}
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </article>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      ) : null}
-
-      {isAdmin && activeTab === "events" ? (
-        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-white">Event moderation</h2>
-            <div className="flex gap-2">
-              <input
-                value={eventSearch}
-                onChange={(e) => setEventSearch(e.target.value)}
-                placeholder="Search events"
-                className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
-              />
-              <button onClick={() => void loadAdminEvents()} className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]">
-                Search
-              </button>
-            </div>
-          </div>
-          {adminEventsLoading ? (
-            <p className="text-sm text-[#a7c5de]">Loading events...</p>
+                </div>
+              )}
+            </section>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="text-[#7ccfff]">
-                  <tr>
-                    <th className="py-2 pr-4">Event</th>
-                    <th className="py-2 pr-4">Date</th>
-                    <th className="py-2 pr-4">Host</th>
-                    <th className="py-2 pr-4">Attendees</th>
-                    <th className="py-2 pr-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="text-[#d5e7fb]">
-                  {adminEvents.map((event) => (
-                    <tr key={event.eventId} className="border-t border-white/10">
-                      <td className="py-3 pr-4">
-                        <p>{event.eventName}</p>
-                        <p className="text-xs text-[#9ec0df]">{event.addressLabel ?? "No location label"}</p>
-                      </td>
-                      <td className="py-3 pr-4">{new Date(event.eventDatetime).toLocaleString()}</td>
-                      <td className="py-3 pr-4">{event.userId}</td>
-                      <td className="py-3 pr-4">{event.attendeeCount}</td>
-                      <td className="py-3 pr-4">
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteEvent(event.eventId)}
-                          className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
+            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+              <h2 className="text-xl font-semibold text-white">Saved events</h2>
+              {savedLoading ? (
+                <p className="text-sm text-[#a7c5de]">
+                  Loading saved events...
+                </p>
+              ) : savedEvents.length === 0 ? (
+                <p className="text-sm text-[#a7c5de]">No saved events yet.</p>
+              ) : (
+                <div className="grid gap-3">
+                  {savedEvents.map((event) => (
+                    <article
+                      key={event.eventId}
+                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-white">
+                            {event.eventName}
+                          </h3>
+                          <p className="text-xs text-[#9ec0df]">
+                            {new Date(event.eventDatetime).toLocaleString()} •{" "}
+                            {event.addressLabel ?? "Location pending"}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/events/${event.eventId}`}
+                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
+                          >
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void toggleSavedEvent(event.eventId, true)
+                            }
+                            className="rounded-lg border border-red-300/30 px-3 py-1 text-sm text-red-200 hover:border-red-300/60"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
+            {(["users", "events", "stats"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setAdminTab(tab)}
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                  adminTab === tab
+                    ? "bg-[#00E5FF] text-[#001021]"
+                    : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {tab === "users"
+                  ? "Admin Users"
+                  : tab === "events"
+                    ? "Admin Events"
+                    : "Statistics"}
+              </button>
+            ))}
+          </nav>
+
+          {adminTab === "users" ? (
+            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-white">
+                  User administration
+                </h2>
+                <div className="flex gap-2">
+                  <input
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search by email/name"
+                    className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                  />
+                  <button
+                    onClick={() => void loadAdminUsers()}
+                    className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+              {adminUsersLoading ? (
+                <p className="text-sm text-[#a7c5de]">Loading users...</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="text-[#7ccfff]">
+                      <tr>
+                        <th className="py-2 pr-4">User</th>
+                        <th className="py-2 pr-4">Role</th>
+                        <th className="py-2 pr-4">Status</th>
+                        <th className="py-2 pr-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[#d5e7fb]">
+                      {adminUsers.map((row) => (
+                        <tr
+                          key={row.id || row.email}
+                          className="border-t border-white/10"
                         >
-                          Delete event
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      ) : null}
+                          <td className="py-3 pr-4">
+                            <p>{row.name}</p>
+                            <p className="text-xs text-[#9ec0df]">
+                              {row.email}
+                            </p>
+                          </td>
+                          <td className="py-3 pr-4">{row.role}</td>
+                          <td className="py-3 pr-4">
+                            {row.banned ? "Banned" : "Active"}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleSetRole(
+                                    row.id,
+                                    row.role === "admin" ? "user" : "admin",
+                                  )
+                                }
+                                className="rounded-lg border border-white/15 px-3 py-1 hover:border-[#22FF88]"
+                              >
+                                {row.role === "admin"
+                                  ? "Remove admin"
+                                  : "Make admin"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleBanToggle(row.id, !row.banned)
+                                }
+                                className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
+                              >
+                                {row.banned ? "Unban" : "Ban"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ) : null}
 
-      {isAdmin && activeTab === "stats" ? (
-        <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
-          <h2 className="text-xl font-semibold text-white">Platform statistics</h2>
-          {statsLoading ? (
-            <p className="text-sm text-[#a7c5de]">Loading stats...</p>
-          ) : stats ? (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {Object.entries((stats.cards as Record<string, unknown>) ?? {}).map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-[#0a1927] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-[#7ccfff]">{label}</p>
-                  <p className="mt-2 text-2xl font-bold text-white">{String(value)}</p>
+          {adminTab === "events" ? (
+            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-white">
+                  Event moderation
+                </h2>
+                <div className="flex gap-2">
+                  <input
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    placeholder="Search events"
+                    className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                  />
+                  <button
+                    onClick={() => void loadAdminEvents()}
+                    className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]"
+                  >
+                    Search
+                  </button>
                 </div>
-              ))}
-              {Object.entries((stats.trends as Record<string, unknown>) ?? {}).map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-white/10 bg-[#0a1927] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-[#7ccfff]">{label}</p>
-                  <p className="mt-2 text-2xl font-bold text-white">{String(value)}</p>
+              </div>
+              {adminEventsLoading ? (
+                <p className="text-sm text-[#a7c5de]">Loading events...</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="text-[#7ccfff]">
+                      <tr>
+                        <th className="py-2 pr-4">Event</th>
+                        <th className="py-2 pr-4">Date</th>
+                        <th className="py-2 pr-4">Host</th>
+                        <th className="py-2 pr-4">Price</th>
+                        <th className="py-2 pr-4">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-[#d5e7fb]">
+                      {adminEvents.map((event) => (
+                        <tr
+                          key={event.eventId}
+                          className="border-t border-white/10"
+                        >
+                          <td className="py-3 pr-4">{event.eventName}</td>
+                          <td className="py-3 pr-4">
+                            {new Date(event.eventDatetime).toLocaleString()}
+                          </td>
+                          <td className="py-3 pr-4">
+                            {adminUserNameById.get(event.userId) ?? event.userId}
+                          </td>
+                          <td className="py-3 pr-4">
+                            ETB {event.priceField ?? 0}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void startEditEvent(event.eventId)
+                                }
+                                className="rounded-lg  cursor-pointer border border-white/15 px-3 py-1 hover:border-[#22FF88]"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleDeleteEvent(event.eventId)
+                                }
+                                className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[#a7c5de]">No statistics available.</p>
-          )}
-        </section>
-      ) : null}
+              )}
+
+              {editingEvent ? (
+                <div
+                  id="admin-event-editor"
+                  className="space-y-3 rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                >
+                  <h3 className="text-lg font-semibold text-white">
+                    Edit event details
+                  </h3>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <input
+                      value={editingEvent.eventName}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev ? { ...prev, eventName: e.target.value } : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      placeholder="Event name"
+                    />
+                    <input
+                      value={editingEvent.pictureUrl ?? ""}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev ? { ...prev, pictureUrl: e.target.value } : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      placeholder="Picture URL"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={editingEvent.eventDatetime.slice(0, 16)}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                eventDatetime: new Date(
+                                  e.target.value,
+                                ).toISOString(),
+                              }
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    />
+                    <input
+                      type="datetime-local"
+                      value={editingEvent.eventEndtime.slice(0, 16)}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                eventEndtime: new Date(
+                                  e.target.value,
+                                ).toISOString(),
+                              }
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    />
+                    <input
+                      type="number"
+                      value={editingEvent.priceField ?? 0}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev
+                            ? { ...prev, priceField: Number(e.target.value) }
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      placeholder="Price ETB"
+                    />
+                    <input
+                      type="number"
+                      value={editingEvent.capacity ?? 0}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev
+                            ? { ...prev, capacity: Number(e.target.value) }
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      placeholder="Capacity"
+                    />
+                    <select
+                      value={editingEvent.categoryId ?? ""}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev ? { ...prev, categoryId: e.target.value } : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    >
+                      {categories.map((category) => (
+                        <option
+                          key={category.categoryId}
+                          value={category.categoryId}
+                        >
+                          {category.categoryName}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={editingEvent.eventLocation ?? ""}
+                      onChange={(e) =>
+                        setEditingEvent((prev) =>
+                          prev
+                            ? { ...prev, eventLocation: e.target.value }
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      placeholder="Event location"
+                    />
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={editingEvent.description ?? ""}
+                    onChange={(e) =>
+                      setEditingEvent((prev) =>
+                        prev ? { ...prev, description: e.target.value } : prev,
+                      )
+                    }
+                    className="w-full rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    placeholder="Description"
+                  />
+                  {editingEvent.isRecurring && editingEvent.seriesId ? (
+                    <label className="flex items-center gap-2 text-sm text-[#c4d8ef]">
+                      <input
+                        type="checkbox"
+                        checked={applyToSeries}
+                        onChange={(e) => setApplyToSeries(e.target.checked)}
+                      />
+                      Apply changes to all occurrences in this recurring series
+                    </label>
+                  ) : null}
+                  {editingEvent.isRecurring && editingEvent.seriesId && applyToSeries ? (
+                    <p className="rounded-lg border border-[#22FF88]/40 bg-[#22FF88]/10 px-3 py-2 text-sm text-[#d9ffea]">
+                      This will update {seriesCount} occurrence
+                      {seriesCount === 1 ? "" : "s"} in this series.
+                    </p>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={savingEvent}
+                      onClick={() => void handleSaveEventChanges()}
+                      className="rounded-lg bg-[#00E5FF] px-4 py-2 text-sm font-semibold text-[#001021] disabled:opacity-60"
+                    >
+                      {savingEvent ? "Saving..." : "Save changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEvent(null);
+                        setApplyToSeries(false);
+                      }}
+                      className="rounded-lg cursor-pointer border border-white/15 px-4 py-2 text-sm text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {adminTab === "stats" ? (
+            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+              <h2 className="text-xl font-semibold text-white">
+                Platform statistics
+              </h2>
+              {statsLoading ? (
+                <p className="text-sm text-[#a7c5de]">Loading stats...</p>
+              ) : stats ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {Object.entries(
+                    (stats.cards as Record<string, unknown>) ?? {},
+                  ).map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                    >
+                      <p className="text-xs uppercase tracking-[0.12em] text-[#7ccfff]">
+                        {label}
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-white">
+                        {String(value)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#a7c5de]">
+                  No statistics available.
+                </p>
+              )}
+            </section>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }

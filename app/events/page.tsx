@@ -5,6 +5,7 @@ import { EventCard } from "../components/EventCard";
 import type { EventListResponse, EventResponse } from "../types/eventTypes";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { authClient } from "@/lib/auth/client";
 
 const EventsMap = dynamic(() => import("../components/EventsMap"), {
   ssr: false,
@@ -23,6 +24,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
+  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set());
 
   const page = Number(searchParams.get("page")) || 1;
   const search = searchParams.get("search") || "";
@@ -35,6 +37,35 @@ export default function EventsPage() {
   useEffect(() => {
     if (radiusParam) setRadiusKm(Number(radiusParam));
   }, [radiusParam]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSaved = async () => {
+      try {
+        const session = await authClient.getSession();
+        if (!session.data?.user?.id) {
+          if (!cancelled) setSavedEventIds(new Set());
+          return;
+        }
+        const res = await fetch("/api/profile/saved-events", { cache: "no-store" });
+        if (!res.ok) {
+          if (!cancelled) setSavedEventIds(new Set());
+          return;
+        }
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) {
+          setSavedEventIds(new Set(items.map((item: { eventId?: string }) => item.eventId).filter(Boolean)));
+        }
+      } catch {
+        if (!cancelled) setSavedEventIds(new Set());
+      }
+    };
+    void loadSaved();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -204,6 +235,7 @@ export default function EventsPage() {
                   key={event.eventId}
                   event={event}
                   href={`/events/${event.eventId}`}
+                  isSaved={savedEventIds.has(event.eventId)}
                 />
               ))}
             </div>

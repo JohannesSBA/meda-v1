@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const { data } = await auth.getSession();
   const user = (data?.user ?? null) as
-    | { id: string; name?: string | null; email?: string | null; role?: string | null }
+    | {
+        id: string;
+        name?: string | null;
+        email?: string | null;
+        role?: string | null;
+        image?: string | null;
+      }
     | null;
   if (!user) redirect("/auth/sign-in");
 
@@ -21,6 +27,7 @@ export default async function ProfilePage() {
             name: user.name ?? "Unknown user",
             email: user.email ?? "",
             role: user.role ?? "user",
+            image: user.image ?? null,
           }}
         />
       </div>

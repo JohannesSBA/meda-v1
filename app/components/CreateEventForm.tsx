@@ -2,7 +2,13 @@
 import Image from "next/image";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Category } from "../types/catagory";
 import axios from "axios";
 import { authClient } from "@/lib/auth/client";
@@ -25,11 +31,58 @@ const WEEKDAY_OPTIONS = [
   { label: "Sat", value: "6" },
 ] as const;
 
+type InitialEventData = {
+  eventId: string;
+  eventName: string;
+  categoryId: string;
+  description?: string | null;
+  pictureUrl?: string | null;
+  eventDatetime: string;
+  eventEndtime: string;
+  addressLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  capacity?: number | null;
+  priceField?: number | null;
+  isRecurring?: boolean;
+  recurrenceKind?: string | null;
+  recurrenceInterval?: number | null;
+  recurrenceUntil?: string | null;
+  recurrenceWeekdays?: string | null;
+  seriesId?: string | null;
+  seriesCount?: number;
+};
 
-export default function CreateEventForm({ categories }: { categories: Category[] }) {
+type CreateEventFormProps = {
+  categories: Category[];
+  mode?: "create" | "edit";
+  initialEvent?: InitialEventData;
+};
 
-   
+function toDateInput(value?: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
+function toTimeInput(value?: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const hour = String(d.getHours()).padStart(2, "0");
+  const minute = String(d.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+export default function CreateEventForm({
+  categories,
+  mode = "create",
+  initialEvent,
+}: CreateEventFormProps) {
   const [form, setForm] = useState({
     eventName: "",
     categoryId: categories[0]?.categoryId ?? "",
@@ -52,13 +105,16 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     recurrenceWeekdays: "1",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [applyToSeries, setApplyToSeries] = useState(false);
   const [timezone, setTimezone] = useState("");
-  const [locStatus, setLocStatus] = useState<"idle" | "locating" | "error" | "done">("idle");
+  const [locStatus, setLocStatus] = useState<
+    "idle" | "locating" | "error" | "done"
+  >("idle");
   const [user, setUser] = useState<User | null>(null);
 
   const router = useRouter();
 
-   useEffect(() => {
+  useEffect(() => {
     authClient.getSession().then((result) => {
       if (result.data?.user) {
         setUser(result.data.user);
@@ -66,9 +122,47 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     });
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  useEffect(() => {
+    if (!initialEvent) return;
+    setForm((prev) => ({
+      ...prev,
+      eventName: initialEvent.eventName ?? "",
+      categoryId: initialEvent.categoryId ?? categories[0]?.categoryId ?? "",
+      description: initialEvent.description ?? "",
+      image: null,
+      imagePreview: initialEvent.pictureUrl ?? "",
+      startDate: toDateInput(initialEvent.eventDatetime),
+      startTime: toTimeInput(initialEvent.eventDatetime),
+      endDate: toDateInput(initialEvent.eventEndtime),
+      endTime: toTimeInput(initialEvent.eventEndtime),
+      location: initialEvent.addressLabel ?? "",
+      latitude: String(initialEvent.latitude ?? "9.01524"),
+      longitude: String(initialEvent.longitude ?? "38.814349"),
+      capacity:
+        initialEvent.capacity == null ? "" : String(Math.max(1, initialEvent.capacity)),
+      price:
+        initialEvent.priceField == null ? "0" : String(Math.max(0, initialEvent.priceField)),
+      isRecurring: Boolean(initialEvent.isRecurring),
+      recurrenceFrequency:
+        initialEvent.recurrenceKind === "daily" ||
+        initialEvent.recurrenceKind === "weekly" ||
+        initialEvent.recurrenceKind === "custom"
+          ? initialEvent.recurrenceKind
+          : "weekly",
+      recurrenceInterval: String(initialEvent.recurrenceInterval ?? 1),
+      recurrenceUntil: toDateInput(initialEvent.recurrenceUntil),
+      recurrenceWeekdays: initialEvent.recurrenceWeekdays ?? "1",
+    }));
+    setApplyToSeries(Boolean(initialEvent.isRecurring && initialEvent.seriesId));
+  }, [initialEvent, categories]);
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   useEffect(() => {
@@ -81,23 +175,30 @@ export default function CreateEventForm({ categories }: { categories: Category[]
       toast.error("Image too large (max 6MB)");
       return;
     }
-    setForm(prev => ({ ...prev, image: file }));
+    setForm((prev) => ({ ...prev, image: file }));
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setForm(prev => ({ ...prev, imagePreview: reader.result as string }));
+        setForm((prev) => ({ ...prev, imagePreview: reader.result as string }));
       };
       reader.readAsDataURL(file);
     } else {
-      setForm(prev => ({ ...prev, imagePreview: "" }));
+      setForm((prev) => ({ ...prev, imagePreview: "" }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const startDateTime = combineLocalDateAndTime(form.startDate, form.startTime);
+    const startDateTime = combineLocalDateAndTime(
+      form.startDate,
+      form.startTime,
+    );
     const endDateTime = combineLocalDateAndTime(form.endDate, form.endTime);
-    if (startDateTime && endDateTime && new Date(endDateTime) <= new Date(startDateTime)) {
+    if (
+      startDateTime &&
+      endDateTime &&
+      new Date(endDateTime) <= new Date(startDateTime)
+    ) {
       toast.error("End time must be after start time");
       return;
     }
@@ -109,11 +210,24 @@ export default function CreateEventForm({ categories }: { categories: Category[]
       toast.error("Please set when recurrence ends");
       return;
     }
-    if (form.isRecurring && form.recurrenceFrequency === "custom" && !form.recurrenceWeekdays) {
+    if (
+      form.isRecurring &&
+      form.recurrenceFrequency === "custom" &&
+      !form.recurrenceWeekdays
+    ) {
       toast.error("Choose at least one weekday for custom recurrence");
       return;
     }
     setSubmitting(true);
+    if (mode === "edit" && applyToSeries && (initialEvent?.seriesCount ?? 1) > 1) {
+      const confirmed = window.confirm(
+        `This will update ${initialEvent?.seriesCount} occurrences in this recurring series. Continue?`
+      );
+      if (!confirmed) {
+        setSubmitting(false);
+        return;
+      }
+    }
     const fd = new FormData();
     fd.append("eventName", form.eventName);
     fd.append("categoryId", form.categoryId);
@@ -129,23 +243,52 @@ export default function CreateEventForm({ categories }: { categories: Category[]
       fd.append("recurrenceEnabled", "true");
       fd.append("recurrenceFrequency", form.recurrenceFrequency);
       fd.append("recurrenceInterval", form.recurrenceInterval || "1");
-      fd.append("recurrenceUntil", combineLocalDateAndTime(form.recurrenceUntil, form.endTime || form.startTime));
+      fd.append(
+        "recurrenceUntil",
+        combineLocalDateAndTime(
+          form.recurrenceUntil,
+          form.endTime || form.startTime,
+        ),
+      );
       if (form.recurrenceFrequency === "custom") {
         fd.append("recurrenceWeekdays", form.recurrenceWeekdays);
       }
     }
-    if (user?.id) fd.append("userId", user.id);
+    if (mode === "create" && user?.id) fd.append("userId", user.id);
+    if (mode === "edit" && initialEvent?.seriesId) fd.append("seriesId", initialEvent.seriesId);
     if (form.image) fd.append("image", form.image);
 
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Event created successfully");
-      router.push(`/events/${res.data.event.eventId}`);
+      if (mode === "create") {
+        const res = await axios.post(
+          `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`,
+          fd,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+        toast.success("Event created successfully");
+        router.push(`/events/${res.data.event.eventId}`);
+      } else {
+        fd.append("applyToSeries", applyToSeries ? "true" : "false");
+        const res = await axios.patch(
+          `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/admin/events/${initialEvent?.eventId}`,
+          fd,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          },
+        );
+        const count = Number(res.data?.updatedCount) || 1;
+        toast.success(
+          res.data?.bulkUpdated
+            ? `Updated ${count} occurrences`
+            : "Event updated successfully",
+        );
+        router.push("/profile");
+      }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to create event");
+      toast.error(mode === "create" ? "Failed to create event" : "Failed to update event");
     } finally {
       setSubmitting(false);
     }
@@ -170,7 +313,7 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         setLocStatus("error");
         toast.error("Could not fetch location");
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 8000 },
     );
   };
 
@@ -178,7 +321,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
     () => ({
       title: form.eventName || "Untitled event",
       date: combineLocalDateAndTime(form.startDate, form.startTime)
-        ? new Date(combineLocalDateAndTime(form.startDate, form.startTime)).toLocaleString()
+        ? new Date(
+            combineLocalDateAndTime(form.startDate, form.startTime),
+          ).toLocaleString()
         : "Date TBD",
       location: form.location || "Location pending",
       price:
@@ -187,7 +332,14 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           : "Free",
       capacity: form.capacity || "—",
     }),
-    [form.eventName, form.startDate, form.startTime, form.location, form.price, form.capacity]
+    [
+      form.eventName,
+      form.startDate,
+      form.startTime,
+      form.location,
+      form.price,
+      form.capacity,
+    ],
   );
 
   return (
@@ -198,15 +350,22 @@ export default function CreateEventForm({ categories }: { categories: Category[]
       >
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">Event basics</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">
+              Event basics
+            </p>
             <h2 className="text-xl font-semibold text-white">Details</h2>
           </div>
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">TZ: {timezone || "Auto"}</span>
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">
+            TZ: {timezone || "Auto"}
+          </span>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label htmlFor="eventName" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+            <label
+              htmlFor="eventName"
+              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            >
               Event name
             </label>
             <input
@@ -222,7 +381,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           </div>
 
           <div>
-            <label htmlFor="category" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+            <label
+              htmlFor="category"
+              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            >
               Category
             </label>
             <select
@@ -241,7 +403,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           </div>
 
           <div>
-            <label htmlFor="price" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+            <label
+              htmlFor="price"
+              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            >
               Price (ETB)
             </label>
             <input
@@ -262,13 +427,19 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-white">Schedule</p>
-              <p className="text-xs text-[#7aa8c6]">Choose date and time in your local timezone</p>
+              <p className="text-xs text-[#7aa8c6]">
+                Choose date and time in your local timezone
+              </p>
             </div>
-            <span className="text-xs text-[#7aa8c6]">Local: {timezone || "device"}</span>
+            <span className="text-xs text-[#7aa8c6]">
+              Local: {timezone || "device"}
+            </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
-              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">Starts</p>
+              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
+                Starts
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
@@ -291,7 +462,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
               </div>
             </div>
             <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
-              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">Ends</p>
+              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
+                Ends
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
                   type="date"
@@ -319,14 +492,23 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         <div className="space-y-4 rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Recurring event</p>
-              <p className="text-xs text-[#7aa8c6]">Repeat this event daily, weekly, or custom weekdays.</p>
+              <p className="text-sm font-semibold text-white">
+                Recurring event
+              </p>
+              <p className="text-xs text-[#7aa8c6]">
+                Repeat this event daily, weekly, or custom weekdays.
+              </p>
             </div>
             <label className="inline-flex items-center gap-2 text-sm text-[#c7d9eb]">
               <input
                 type="checkbox"
                 checked={form.isRecurring}
-                onChange={(e) => setForm((prev) => ({ ...prev, isRecurring: e.target.checked }))}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    isRecurring: e.target.checked,
+                  }))
+                }
               />
               Enable
             </label>
@@ -335,7 +517,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
           {form.isRecurring ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Frequency</label>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                  Frequency
+                </label>
                 <select
                   name="recurrenceFrequency"
                   value={form.recurrenceFrequency}
@@ -348,7 +532,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Every</label>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                  Every
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -359,17 +545,23 @@ export default function CreateEventForm({ categories }: { categories: Category[]
                     className="w-24 rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
                   />
                   <span className="text-sm text-[#9fc4e4]">
-                    {form.recurrenceFrequency === "daily" ? "day(s)" : "week(s)"}
+                    {form.recurrenceFrequency === "daily"
+                      ? "day(s)"
+                      : "week(s)"}
                   </span>
                 </div>
               </div>
 
               {form.recurrenceFrequency === "custom" ? (
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-[#b9cde4]">On weekdays</label>
+                  <label className="mb-2 block text-sm font-medium text-[#b9cde4]">
+                    On weekdays
+                  </label>
                   <div className="flex flex-wrap gap-2">
                     {WEEKDAY_OPTIONS.map((day) => {
-                      const selected = new Set(form.recurrenceWeekdays.split(",").filter(Boolean));
+                      const selected = new Set(
+                        form.recurrenceWeekdays.split(",").filter(Boolean),
+                      );
                       const isSelected = selected.has(day.value);
                       return (
                         <button
@@ -377,11 +569,21 @@ export default function CreateEventForm({ categories }: { categories: Category[]
                           type="button"
                           onClick={() => {
                             setForm((prev) => {
-                              const current = new Set(prev.recurrenceWeekdays.split(",").filter(Boolean));
-                              if (current.has(day.value)) current.delete(day.value);
+                              const current = new Set(
+                                prev.recurrenceWeekdays
+                                  .split(",")
+                                  .filter(Boolean),
+                              );
+                              if (current.has(day.value))
+                                current.delete(day.value);
                               else current.add(day.value);
-                              const sorted = [...current].sort((a, b) => Number(a) - Number(b));
-                              return { ...prev, recurrenceWeekdays: sorted.join(",") };
+                              const sorted = [...current].sort(
+                                (a, b) => Number(a) - Number(b),
+                              );
+                              return {
+                                ...prev,
+                                recurrenceWeekdays: sorted.join(","),
+                              };
                             });
                           }}
                           className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
@@ -399,7 +601,9 @@ export default function CreateEventForm({ categories }: { categories: Category[]
               ) : null}
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">Repeat until</label>
+                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                  Repeat until
+                </label>
                 <input
                   type="date"
                   name="recurrenceUntil"
@@ -413,7 +617,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         </div>
 
         <div>
-          <label htmlFor="description" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+          <label
+            htmlFor="description"
+            className="mb-1 block text-sm font-medium text-[#b9cde4]"
+          >
             Description
           </label>
           <textarea
@@ -425,14 +632,18 @@ export default function CreateEventForm({ categories }: { categories: Category[]
             value={form.description}
             onChange={handleChange}
           />
-          <div className="mt-1 text-xs text-[#7aa8c6]">Keep it crisp. Players decide fast.</div>
+          <div className="mt-1 text-xs text-[#7aa8c6]">
+            Keep it crisp. Players decide fast.
+          </div>
         </div>
 
         <div className="rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/30">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-white">Location</p>
-              <p className="text-xs text-[#7aa8c6]">Searchable label + precise pin</p>
+              <p className="text-xs text-[#7aa8c6]">
+                Searchable label + precise pin
+              </p>
             </div>
             <button
               type="button"
@@ -480,7 +691,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="capacity" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+            <label
+              htmlFor="capacity"
+              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            >
               Capacity
             </label>
             <input
@@ -495,7 +709,10 @@ export default function CreateEventForm({ categories }: { categories: Category[]
             />
           </div>
           <div>
-            <label htmlFor="image" className="mb-1 block text-sm font-medium text-[#b9cde4]">
+            <label
+              htmlFor="image"
+              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            >
               Event image (≤6MB)
             </label>
             <input
@@ -521,38 +738,70 @@ export default function CreateEventForm({ categories }: { categories: Category[]
         </div>
 
         <div>
+          {mode === "edit" && form.isRecurring && initialEvent?.seriesId ? (
+            <div className="mb-3 space-y-2 rounded-xl border border-white/10 bg-[#0f1f2d] p-3 text-sm text-[#c4d8ef]">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={applyToSeries}
+                  onChange={(e) => setApplyToSeries(e.target.checked)}
+                />
+                Apply edits to all occurrences in this series
+              </label>
+              {applyToSeries ? (
+                <p className="text-xs text-[#9fc4e4]">
+                  This will update {initialEvent.seriesCount ?? 1} occurrence
+                  {(initialEvent.seriesCount ?? 1) === 1 ? "" : "s"}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <button
             type="submit"
             disabled={submitting}
             className="mt-2 w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-6 py-3 text-base font-bold uppercase tracking-wider text-[#001021] transition duration-200 hover:from-[#22FF88] hover:to-[#00E5FF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00E5FF]/60 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Saving…" : "Create Event"}
+            {submitting ? "Saving…" : mode === "create" ? "Create Event" : "Save Changes"}
           </button>
         </div>
       </form>
 
       <aside className="space-y-4 rounded-2xl border border-white/6 bg-[#0d1d2e]/70 p-6 shadow-xl shadow-black/30 backdrop-blur">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#7ccfff]">Live preview</p>
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#0f2235] to-[#0b1624] p-5 shadow-lg shadow-black/30">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#7ccfff]">
+            Live preview
+          </p>
+          <div className="rounded-2xl border border-white/10 bg-linear-to-br from-[#0f2235] to-[#0b1624] p-5 shadow-lg shadow-black/30">
             <div className="flex items-center justify-between text-xs text-[#9fc4e4]">
               <span>{preview.date}</span>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#22FF88]">{preview.price}</span>
+              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#22FF88]">
+                {preview.price}
+              </span>
             </div>
-            <h3 className="mt-3 text-lg font-semibold text-white">{preview.title}</h3>
+            <h3 className="mt-3 text-lg font-semibold text-white">
+              {preview.title}
+            </h3>
             <p className="mt-1 text-sm text-[#9fc4e4]">{preview.location}</p>
             <div className="mt-3 flex items-center gap-2 text-xs text-[#7aa8c6]">
-              <span className="rounded-full bg-white/5 px-2 py-1">Capacity: {preview.capacity}</span>
-              <span className="rounded-full bg-white/5 px-2 py-1">TZ: {timezone || "local"}</span>
+              <span className="rounded-full bg-white/5 px-2 py-1">
+                Capacity: {preview.capacity}
+              </span>
+              <span className="rounded-full bg-white/5 px-2 py-1">
+                TZ: {timezone || "local"}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/8 bg-[#0f2235] p-4 text-sm text-[#b9cde4] shadow-inner shadow-black/20">
-          <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[#7ccfff]">Tips</p>
+          <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[#7ccfff]">
+            Tips
+          </p>
           <ul className="space-y-2 list-disc pl-4">
             <li>Lead with format and level so players self-select.</li>
-            <li>Add exact pin; we’ll surface it on the map for nearby players.</li>
+            <li>
+              Add exact pin; we’ll surface it on the map for nearby players.
+            </li>
             <li>Images load best at 1200x630, under 6MB.</li>
           </ul>
         </div>
@@ -580,7 +829,7 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
   const [initialCoords] = useState<[number, number]>(() =>
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))
       ? [Number(longitude), Number(latitude)]
-      : DEFAULT_CENTER
+      : DEFAULT_CENTER,
   );
 
   useEffect(() => {
@@ -637,7 +886,8 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
     const marker = markerRef.current;
     const latNum = Number(latitude);
     const lngNum = Number(longitude);
-    if (!map || !marker || !Number.isFinite(latNum) || !Number.isFinite(lngNum)) return;
+    if (!map || !marker || !Number.isFinite(latNum) || !Number.isFinite(lngNum))
+      return;
     const nextCoords: [number, number] = [lngNum, latNum];
     marker.setLngLat(nextCoords);
     map.easeTo({ center: nextCoords, duration: 250 });
@@ -646,7 +896,9 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
   if (!token) {
     return (
       <div className="rounded-lg border border-[#22344a] bg-[#0f1f2f] p-4 text-sm text-[#b9cde4]">
-        Set <code className="text-[#89e7ff]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code> to enable the map picker.
+        Set{" "}
+        <code className="text-[#89e7ff]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code>{" "}
+        to enable the map picker.
       </div>
     );
   }
@@ -666,18 +918,16 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
       <div className="flex gap-3 text-xs text-[#d7e9ff]">
         <div className="rounded-md bg-[#102033] px-3 py-2">
           <span className="text-[#89e7ff]">Lat:</span>{" "}
-          {(
-            Number.isFinite(Number(latitude))
-              ? Number(latitude)
-              : initialCoords[1]
+          {(Number.isFinite(Number(latitude))
+            ? Number(latitude)
+            : initialCoords[1]
           ).toFixed(6)}
         </div>
         <div className="rounded-md bg-[#102033] px-3 py-2">
           <span className="text-[#89e7ff]">Lng:</span>{" "}
-          {(
-            Number.isFinite(Number(longitude))
-              ? Number(longitude)
-              : initialCoords[0]
+          {(Number.isFinite(Number(longitude))
+            ? Number(longitude)
+            : initialCoords[0]
           ).toFixed(6)}
         </div>
       </div>

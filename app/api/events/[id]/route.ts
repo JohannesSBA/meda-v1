@@ -156,63 +156,9 @@ export async function POST(
   );
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const { quantity, userId } = await request.json();
-  const qty = Number(quantity) || 1;
-
-  const isUuid =
-    typeof userId === "string" && /^[0-9a-fA-F-]{36}$/.test(userId);
-  if (!isUuid)
-    return NextResponse.json(
-      { error: "Valid userId required" },
-      { status: 400 },
-    );
-
-  const event = await prisma.event.findUnique({ where: { eventId: id } });
-  if (!event)
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-
-  // No cancellations within 24h of start
-  const now = new Date();
-  const start = event.eventDatetime;
-  const hoursToStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60);
-  if (hoursToStart < 24) {
-    return NextResponse.json(
-      { error: "Cancellations are disabled within 24 hours of the event" },
-      { status: 400 },
-    );
-  }
-
-  const tickets = await prisma.eventAttendee.findMany({
-    where: { eventId: id, userId },
-    select: { attendeeId: true },
-    take: qty,
-  });
-
-  if (tickets.length === 0) {
-    return NextResponse.json(
-      { error: "No reservations to cancel" },
-      { status: 400 },
-    );
-  }
-
-  await prisma.eventAttendee.deleteMany({
-    where: { attendeeId: { in: tickets.map((t) => t.attendeeId) } },
-  });
-
-  const remainingForUser = await prisma.eventAttendee.count({
-    where: { eventId: id, userId },
-  });
-  const totalAttendees = await prisma.eventAttendee.count({
-    where: { eventId: id },
-  });
-
+export async function DELETE() {
   return NextResponse.json(
-    { ok: true, myTickets: remainingForUser, attendeeCount: totalAttendees },
-    { status: 200 },
+    { error: "Reservations are final and cannot be canceled." },
+    { status: 405 },
   );
 }
