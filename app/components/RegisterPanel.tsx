@@ -13,29 +13,59 @@ type Props = {
   occurrences?: EventOccurrence[];
 };
 
-export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Props) {
-  const occurrenceOptions = occurrences.length > 0 ? occurrences : [{ eventId: event.eventId, eventDatetime: event.eventDatetime, eventEndtime: event.eventEndtime, attendeeCount: event.attendeeCount ?? 0, myTickets: event.myTickets ?? 0, capacity: event.capacity ?? null, occurrenceIndex: event.occurrenceIndex ?? null }];
-  const [selectedEventId, setSelectedEventId] = useState(occurrenceOptions[0]?.eventId ?? event.eventId);
+export default function RegisterPanel({
+  event,
+  isSoldOut,
+  occurrences = [],
+}: Props) {
+  const occurrenceOptions =
+    occurrences.length > 0
+      ? occurrences
+      : [
+          {
+            eventId: event.eventId,
+            eventDatetime: event.eventDatetime,
+            eventEndtime: event.eventEndtime,
+            attendeeCount: event.attendeeCount ?? 0,
+            myTickets: event.myTickets ?? 0,
+            capacity: event.capacity ?? null,
+            occurrenceIndex: event.occurrenceIndex ?? null,
+          },
+        ];
+  const [selectedEventId, setSelectedEventId] = useState(
+    occurrenceOptions[0]?.eventId ?? event.eventId,
+  );
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [myTickets, setMyTickets] = useState<number>(occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0);
+  const [myTickets, setMyTickets] = useState<number>(
+    occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
+  );
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const selectedOccurrence =
-    occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ?? occurrenceOptions[0];
-  const selectedEndtime = selectedOccurrence?.eventEndtime ?? event.eventEndtime;
+    occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ??
+    occurrenceOptions[0];
+  const selectedEndtime =
+    selectedOccurrence?.eventEndtime ?? event.eventEndtime;
   const selectedCapacity = selectedOccurrence?.capacity ?? event.capacity;
-  const selectedAttendeeCount = selectedOccurrence?.attendeeCount ?? event.attendeeCount ?? 0;
-  const remaining = selectedCapacity != null ? Math.max(selectedCapacity - selectedAttendeeCount, 0) : Infinity;
+  const selectedAttendeeCount =
+    selectedOccurrence?.attendeeCount ?? event.attendeeCount ?? 0;
+  const remaining =
+    selectedCapacity != null
+      ? Math.max(selectedCapacity - selectedAttendeeCount, 0)
+      : Infinity;
   const maxQty = Math.min(20, remaining || 20);
-  const soldOutForSelection = selectedCapacity != null ? remaining <= 0 : isSoldOut;
+  const soldOutForSelection =
+    selectedCapacity != null ? remaining <= 0 : isSoldOut;
 
   const fetchMyTickets = async (uid: string, targetEventId: string) => {
     try {
-      const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, { cache: "no-store" });
+      const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const data = await res.json();
       setMyTickets(data.event?.myTickets ?? 0);
@@ -73,7 +103,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     const confirmPayment = async () => {
       setConfirmingPayment(true);
       try {
-        const response = await axios.post("/api/payments/chapa/confirm", { txRef });
+        const response = await axios.post("/api/payments/chapa/confirm", {
+          txRef,
+        });
         const addedTickets = Number(response.data?.quantity) || 0;
         if (!cancelled && addedTickets > 0) {
           setMyTickets((prev) => prev + addedTickets);
@@ -84,9 +116,14 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
           router.refresh();
         }
       } catch (err) {
-        const maybeAxiosError = err as { response?: { data?: { error?: string } } };
+        const maybeAxiosError = err as {
+          response?: { data?: { error?: string } };
+        };
         if (!cancelled) {
-          toast.error(maybeAxiosError?.response?.data?.error ?? "Unable to confirm payment");
+          toast.error(
+            maybeAxiosError?.response?.data?.error ??
+              "Unable to confirm payment",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -129,13 +166,20 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
         return;
       }
 
-      await axios.post(`/api/events/${selectedEventId}`, { quantity: qty, userId });
+      await axios.post(`/api/events/${selectedEventId}`, {
+        quantity: qty,
+        userId,
+      });
       toast.success("Registered!");
       setMyTickets((prev) => prev + qty);
       router.refresh();
     } catch (err) {
-      const maybeAxiosError = err as { response?: { data?: { error?: string } } };
-      toast.error(maybeAxiosError?.response?.data?.error ?? "Failed to register");
+      const maybeAxiosError = err as {
+        response?: { data?: { error?: string } };
+      };
+      toast.error(
+        maybeAxiosError?.response?.data?.error ?? "Failed to register",
+      );
     } finally {
       setLoading(false);
     }
@@ -148,12 +192,23 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     }
     setLoading(true);
     try {
-      await axios.delete(`/api/events/${selectedEventId}`, { data: { quantity: myTickets || 1, userId } });
-      toast.success("Reservation cancelled");
+      const response = await axios.delete(`/api/events/${selectedEventId}`, {
+        data: { quantity: myTickets || 1, userId },
+      });
+      const refundedAmount = response.data?.refund?.refundedAmountEtb;
+      if (refundedAmount) {
+        toast.success(
+          `Reservation cancelled. ETB ${refundedAmount} refunded via Chapa.`,
+        );
+      } else {
+        toast.success("Reservation cancelled");
+      }
       setMyTickets(0);
       router.refresh();
     } catch (err) {
-      const maybeAxiosError = err as { response?: { data?: { error?: string } } };
+      const maybeAxiosError = err as {
+        response?: { data?: { error?: string } };
+      };
       toast.error(maybeAxiosError?.response?.data?.error ?? "Unable to cancel");
     } finally {
       setLoading(false);
@@ -164,7 +219,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     <div className="space-y-4 rounded-3xl border border-white/8 bg-[#0f2235] p-6 shadow-xl shadow-black/30">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">Tickets</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">
+            Tickets
+          </p>
           <h3 className="text-lg font-semibold text-white">Register to play</h3>
         </div>
         <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">
@@ -191,7 +248,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
         ) : null}
         <div className="flex items-center justify-between">
           <span>Available</span>
-          <span>{remaining === Infinity ? "No limit" : `${remaining} seats`}</span>
+          <span>
+            {remaining === Infinity ? "No limit" : `${remaining} seats`}
+          </span>
         </div>
         <div className="flex items-center justify-between">
           <span>Your tickets</span>
@@ -204,7 +263,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
             min={1}
             max={maxQty}
             value={qty}
-            onChange={(e) => setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))}
+            onChange={(e) =>
+              setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))
+            }
             className="w-24 rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
           />
         </div>
@@ -237,7 +298,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
         </button>
       </div>
 
-      <p className="text-xs text-[#9fc4e4]">Cancellations are disabled within 24 hours of the event start.</p>
+      <p className="text-xs text-[#9fc4e4]">
+        Cancellations are disabled within 24 hours of the event start.
+      </p>
     </div>
   );
 }
