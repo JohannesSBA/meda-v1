@@ -1,9 +1,10 @@
 import HeroSection from "./components/landing/page";
+import { PageShell } from "./components/ui/page-shell";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen mt-16">
+    <PageShell containerClassName="max-w-[1240px] px-4 py-4">
       <HeroSection />
-    </div>
+    </PageShell>
   );
 }

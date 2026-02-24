@@ -15,6 +15,13 @@ import { authClient } from "@/lib/auth/client";
 import { User } from "@neondatabase/auth/types";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Input } from "./ui/input";
+import { Select } from "./ui/select";
+import { Textarea } from "./ui/textarea";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { EventDateTimePicker } from "./ui/event-date-time-picker";
 
 function combineLocalDateAndTime(date: string, time: string) {
   if (!date || !time) return "";
@@ -76,6 +83,12 @@ function toTimeInput(value?: string | null) {
   const hour = String(d.getHours()).padStart(2, "0");
   const minute = String(d.getMinutes()).padStart(2, "0");
   return `${hour}:${minute}`;
+}
+
+function toLocalDateTime(date: string, time: string) {
+  if (!date) return undefined;
+  const parsed = new Date(`${date}T${time || "00:00"}`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
 export default function CreateEventForm({
@@ -342,10 +355,20 @@ export default function CreateEventForm({
     ],
   );
 
+  const endMinDate = useMemo(
+    () => {
+      const start = toLocalDateTime(form.startDate, form.startTime);
+      if (!start) return undefined;
+      return new Date(start.getTime() + 60_000);
+    },
+    [form.startDate, form.startTime],
+  );
+  const startMinDate = useMemo(() => new Date(), []);
+
   return (
     <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
       <form
-        className="space-y-7 rounded-2xl border border-white/6 bg-[#0f1f2d]/80 px-6 py-8 shadow-xl shadow-black/30 backdrop-blur"
+        className="relative z-20 space-y-7 rounded-2xl border border-white/6 bg-[#0f1f2d]/80 px-6 py-8 shadow-xl shadow-black/30 backdrop-blur"
         onSubmit={handleSubmit}
       >
         <div className="flex items-center justify-between">
@@ -355,9 +378,9 @@ export default function CreateEventForm({
             </p>
             <h2 className="text-xl font-semibold text-white">Details</h2>
           </div>
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">
+          <Badge className="bg-white/10 text-xs text-[#b9cde4]">
             TZ: {timezone || "Auto"}
-          </span>
+          </Badge>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -368,13 +391,13 @@ export default function CreateEventForm({
             >
               Event name
             </label>
-            <input
+            <Input
               type="text"
               id="eventName"
               name="eventName"
               required
               placeholder="e.g. Friday Night 5v5"
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+              className="h-12 bg-[#112030] px-4"
               value={form.eventName}
               onChange={handleChange}
             />
@@ -387,10 +410,10 @@ export default function CreateEventForm({
             >
               Category
             </label>
-            <select
+            <Select
               id="category"
               name="categoryId"
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+              className="h-12 bg-[#112030] px-4"
               value={form.categoryId}
               onChange={handleChange}
             >
@@ -399,7 +422,7 @@ export default function CreateEventForm({
                   {category.categoryName}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div>
@@ -409,14 +432,14 @@ export default function CreateEventForm({
             >
               Price (ETB)
             </label>
-            <input
+            <Input
               type="number"
               id="price"
               name="price"
               min="0"
               step="1"
               placeholder="0 for free"
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
+              className="h-12 bg-[#112030] px-4"
               value={form.price}
               onChange={handleChange}
             />
@@ -440,51 +463,43 @@ export default function CreateEventForm({
               <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
                 Starts
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  type="date"
-                  id="startDate"
-                  name="startDate"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-                  value={form.startDate}
-                  onChange={handleChange}
-                />
-                <input
-                  type="time"
-                  id="startTime"
-                  name="startTime"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-                  value={form.startTime}
-                  onChange={handleChange}
-                />
-              </div>
+              <EventDateTimePicker
+                id="startDateTime"
+                label="Start date & time"
+                dateValue={form.startDate}
+                timeValue={form.startTime}
+                onChange={(date, time) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    startDate: date,
+                    startTime: time,
+                  }))
+                }
+                placeholder="Select start date & time"
+                minuteInterval={15}
+                minDate={startMinDate}
+              />
             </div>
             <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
               <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
                 Ends
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input
-                  type="date"
-                  id="endDate"
-                  name="endDate"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-                  value={form.endDate}
-                  onChange={handleChange}
-                />
-                <input
-                  type="time"
-                  id="endTime"
-                  name="endTime"
-                  required
-                  className="w-full rounded-lg border border-white/10 bg-[#0d1b2a] px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
-                  value={form.endTime}
-                  onChange={handleChange}
-                />
-              </div>
+              <EventDateTimePicker
+                id="endDateTime"
+                label="End date & time"
+                dateValue={form.endDate}
+                timeValue={form.endTime}
+                onChange={(date, time) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    endDate: date,
+                    endTime: time,
+                  }))
+                }
+                minDate={endMinDate}
+                placeholder="Select end date & time"
+                minuteInterval={15}
+              />
             </div>
           </div>
         </div>
@@ -520,29 +535,29 @@ export default function CreateEventForm({
                 <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
                   Frequency
                 </label>
-                <select
+                <Select
                   name="recurrenceFrequency"
                   value={form.recurrenceFrequency}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  className="h-12 bg-[#112030] px-4"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="custom">Custom weekly days</option>
-                </select>
+                </Select>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
                   Every
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="number"
                     min={1}
                     name="recurrenceInterval"
                     value={form.recurrenceInterval}
                     onChange={handleChange}
-                    className="w-24 rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                    className="h-12 w-24 bg-[#112030] px-4"
                   />
                   <span className="text-sm text-[#9fc4e4]">
                     {form.recurrenceFrequency === "daily"
@@ -604,12 +619,12 @@ export default function CreateEventForm({
                 <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
                   Repeat until
                 </label>
-                <input
+                <Input
                   type="date"
                   name="recurrenceUntil"
                   value={form.recurrenceUntil}
                   onChange={handleChange}
-                  className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                  className="h-12 bg-[#112030] px-4"
                 />
               </div>
             </div>
@@ -623,12 +638,12 @@ export default function CreateEventForm({
           >
             Description
           </label>
-          <textarea
+          <Textarea
             id="description"
             name="description"
             rows={4}
             placeholder="Format, skill level, what to bring, etc."
-            className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+            className="bg-[#112030] px-4 py-3"
             value={form.description}
             onChange={handleChange}
           />
@@ -645,23 +660,25 @@ export default function CreateEventForm({
                 Searchable label + precise pin
               </p>
             </div>
-            <button
+            <Button
               type="button"
               onClick={handleUseMyLocation}
-              className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-[#00E5FF]"
+              variant="secondary"
+              size="sm"
+              className="rounded-full px-3"
             >
               {locStatus === "locating" ? "Locating…" : "Use my location"}
-            </button>
+            </Button>
           </div>
 
           <div className="mt-3 space-y-3">
-            <input
+            <Input
               type="text"
               id="location"
               name="location"
               placeholder="e.g. Gulele Stadium"
               required
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+              className="h-12 bg-[#112030] px-4"
               value={form.location}
               onChange={handleChange}
             />
@@ -697,13 +714,13 @@ export default function CreateEventForm({
             >
               Capacity
             </label>
-            <input
+            <Input
               type="number"
               id="capacity"
               name="capacity"
               min="1"
               placeholder="eg. 10"
-              className="w-full rounded-xl border border-white/10 bg-[#112030] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
+              className="h-12 bg-[#112030] px-4"
               value={form.capacity}
               onChange={handleChange}
             />
@@ -756,17 +773,19 @@ export default function CreateEventForm({
               ) : null}
             </div>
           ) : null}
-          <button
+          <Button
             type="submit"
             disabled={submitting}
-            className="mt-2 w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-6 py-3 text-base font-bold uppercase tracking-wider text-[#001021] transition duration-200 hover:from-[#22FF88] hover:to-[#00E5FF] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00E5FF]/60 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="primary"
+            size="lg"
+            className="mt-2 h-12 w-full rounded-full px-6 text-base uppercase tracking-wider"
           >
             {submitting ? "Saving…" : mode === "create" ? "Create Event" : "Save Changes"}
-          </button>
+          </Button>
         </div>
       </form>
 
-      <aside className="space-y-4 rounded-2xl border border-white/6 bg-[#0d1d2e]/70 p-6 shadow-xl shadow-black/30 backdrop-blur">
+      <Card className="relative z-10 space-y-4 rounded-2xl bg-[#0d1d2e]/70 p-6 backdrop-blur">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.2em] text-[#7ccfff]">
             Live preview
@@ -805,7 +824,7 @@ export default function CreateEventForm({
             <li>Images load best at 1200x630, under 6MB.</li>
           </ul>
         </div>
-      </aside>
+      </Card>
     </div>
   );
 }

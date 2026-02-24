@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
 import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
+import { Badge } from "./ui/badge";
 
 type EventCardProps = {
   event: EventResponse;
@@ -66,7 +67,7 @@ export function EventCard({
   return (
     <Link
       href={href}
-      className={`group block h-full overflow-hidden rounded-3xl border border-white/8 bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-xl shadow-[#00e5ff1a] backdrop-blur-sm transition hover:-translate-y-2 hover:border-[#22FF88]/70 hover:shadow-[#00e5ff33] focus-visible:-translate-y-2 focus-visible:border-[#00E5FF] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
+      className={`group block h-full overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-xl shadow-black/40 backdrop-blur-sm transition hover:-translate-y-2 hover:border-[var(--color-brand-alt)]/70 hover:shadow-[#00e5ff33] focus-visible:-translate-y-2 focus-visible:border-[var(--color-brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
       {...rest}
     >
       <article className="flex h-full flex-col">
@@ -83,19 +84,19 @@ export function EventCard({
           />
           <div className="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#c8e9ff] shadow-lg shadow-black/20 backdrop-blur-sm">
+              <Badge className="bg-white/10 px-3 py-1 text-[11px] uppercase tracking-wide text-[#c8e9ff] shadow-lg shadow-black/20 backdrop-blur-sm">
                 {dateLabel ?? "Date TBA"}
-              </span>
+              </Badge>
               {isSaved ? (
-                <span className="rounded-full bg-[#00E5FF]/90 px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#00e5ff1f]">
+                <Badge variant="accent" className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#00e5ff1f]">
                   Saved
-                </span>
+                </Badge>
               ) : null}
             </div>
             {slotsLeft != null ? (
-              <span className="rounded-full bg-[#22FF88]/90 px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]">
+              <Badge variant="success" className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]">
                 {slotsLeft} seats left
-              </span>
+              </Badge>
             ) : null}
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0d1a27] via-[#0d1a27]/60 to-transparent" />

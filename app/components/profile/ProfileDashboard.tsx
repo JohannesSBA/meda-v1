@@ -5,6 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Button, buttonVariants } from "@/app/components/ui/button";
+import { Card } from "@/app/components/ui/card";
+import { Input } from "@/app/components/ui/input";
+import { Select } from "@/app/components/ui/select";
+import { Table } from "@/app/components/ui/table";
+import { Badge } from "@/app/components/ui/badge";
+import { cn } from "@/app/components/ui/cn";
 
 type ProfileUser = {
   id: string;
@@ -363,7 +370,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
 
   return (
     <section className="space-y-6">
-      <header className="rounded-3xl bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 shadow-2xl shadow-[#00e5ff12]">
+      <Card className="rounded-3xl bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Image
@@ -384,45 +391,50 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
             </div>
           </div>
           {isAdmin ? (
-            <span className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
+            <Badge className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
               Role: admin
-            </span>
+            </Badge>
           ) : (
             <Link
               href="/events"
-              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#22FF88] hover:border-[#22FF88]"
+              className={cn(
+                buttonVariants("secondary", "sm"),
+                "rounded-full border-white/15 bg-white/5 text-[#22FF88] hover:border-[#22FF88]",
+              )}
             >
               Browse events
             </Link>
           )}
         </div>
-      </header>
+      </Card>
 
       {!isAdmin ? (
         <>
           <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
-            <button
+            <Button
               type="button"
               onClick={() => setUserTab("registered")}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              variant={userTab === "registered" ? "primary" : "ghost"}
+              className={`rounded-xl px-4 py-2 text-sm font-medium ${
                 userTab === "registered"
-                  ? "bg-[#00E5FF] text-[#001021]"
+                  ? "text-[#001021]"
                   : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
               }`}
             >
               Registered Events
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => setUserTab("saved")}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              variant={userTab === "saved" ? "primary" : "ghost"}
+              className={`rounded-xl px-4 py-2 text-sm font-medium ${
                 userTab === "saved"
-                  ? "bg-[#00E5FF] text-[#001021]"
+                  ? "text-[#001021]"
                   : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
               }`}
             >
               Saved Events
-            </button>
+            </Button>
           </nav>
 
           {userTab === "registered" ? (
@@ -431,15 +443,15 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                 <h2 className="text-xl font-semibold text-white">
                   Registered events
                 </h2>
-                <select
+                <Select
                   value={registeredStatus}
                   onChange={(e) => setRegisteredStatus(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                  className="max-w-[140px] bg-[#0a1927]"
                 >
                   <option value="upcoming">Upcoming</option>
                   <option value="past">Past</option>
                   <option value="all">All</option>
-                </select>
+                </Select>
               </div>
               {registeredLoading ? (
                 <p className="text-sm text-[#a7c5de]">
@@ -477,7 +489,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           >
                             View
                           </Link>
-                          <button
+                          <Button
                             type="button"
                             onClick={() =>
                               void toggleSavedEvent(
@@ -485,10 +497,12 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                 savedIds.has(event.eventId),
                               )
                             }
-                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
+                            variant="secondary"
+                            size="sm"
+                            className="rounded-lg"
                           >
                             {savedIds.has(event.eventId) ? "Unsave" : "Save"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </article>
@@ -529,15 +543,17 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           >
                             View
                           </Link>
-                          <button
+                          <Button
                             type="button"
                             onClick={() =>
                               void toggleSavedEvent(event.eventId, true)
                             }
-                            className="rounded-lg border border-red-300/30 px-3 py-1 text-sm text-red-200 hover:border-red-300/60"
+                            variant="danger"
+                            size="sm"
+                            className="rounded-lg"
                           >
                             Remove
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </article>
@@ -551,13 +567,14 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
         <>
           <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
             {(["users", "events", "stats"] as const).map((tab) => (
-              <button
+              <Button
                 key={tab}
                 type="button"
                 onClick={() => setAdminTab(tab)}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                variant={adminTab === tab ? "primary" : "ghost"}
+                className={`rounded-xl px-4 py-2 text-sm font-medium ${
                   adminTab === tab
-                    ? "bg-[#00E5FF] text-[#001021]"
+                    ? "text-[#001021]"
                     : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
                 }`}
               >
@@ -566,7 +583,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   : tab === "events"
                     ? "Admin Events"
                     : "Statistics"}
-              </button>
+              </Button>
             ))}
           </nav>
 
@@ -577,25 +594,26 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   User administration
                 </h2>
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Search by email/name"
-                    className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                    className="h-10 min-w-[220px] bg-[#0a1927]"
                   />
-                  <button
+                  <Button
                     onClick={() => void loadAdminUsers()}
-                    className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]"
+                    variant="primary"
+                    size="sm"
                   >
                     Search
-                  </button>
+                  </Button>
                 </div>
               </div>
               {adminUsersLoading ? (
                 <p className="text-sm text-[#a7c5de]">Loading users...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
+                  <Table className="table-shell">
                     <thead className="text-[#7ccfff]">
                       <tr>
                         <th className="py-2 pr-4">User</th>
@@ -650,7 +668,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
               )}
             </section>
@@ -663,25 +681,26 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   Event moderation
                 </h2>
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     value={eventSearch}
                     onChange={(e) => setEventSearch(e.target.value)}
                     placeholder="Search events"
-                    className="rounded-lg border border-white/15 bg-[#0a1927] px-3 py-2 text-sm text-white"
+                    className="h-10 min-w-[220px] bg-[#0a1927]"
                   />
-                  <button
+                  <Button
                     onClick={() => void loadAdminEvents()}
-                    className="rounded-lg bg-[#00E5FF] px-3 py-2 text-sm font-semibold text-[#001021]"
+                    variant="primary"
+                    size="sm"
                   >
                     Search
-                  </button>
+                  </Button>
                 </div>
               </div>
               {adminEventsLoading ? (
                 <p className="text-sm text-[#a7c5de]">Loading events...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
+                  <Table className="table-shell">
                     <thead className="text-[#7ccfff]">
                       <tr>
                         <th className="py-2 pr-4">Event</th>
@@ -732,7 +751,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
               )}
 

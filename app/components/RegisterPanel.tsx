@@ -6,6 +6,11 @@ import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
+import { Card } from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
+import { Select } from "@/app/components/ui/select";
+import { Input } from "@/app/components/ui/input";
+import { Button } from "@/app/components/ui/button";
 
 type Props = {
   event: EventResponse;
@@ -227,34 +232,34 @@ export default function RegisterPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-white/8 bg-[#0f2235] p-6 shadow-xl shadow-black/30">
+    <Card className="space-y-4 rounded-3xl bg-[#0f2235] p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">
+          <p className="heading-kicker">
             Tickets
           </p>
           <h3 className="text-lg font-semibold text-white">Register to play</h3>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">
+        <Badge className="bg-white/10 text-xs text-[#b9cde4]">
           {event.priceField ? `ETB ${event.priceField}` : "Free"}
-        </span>
+        </Badge>
       </div>
 
-      <div className="space-y-2 text-sm text-[#c5d7ec]">
+      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
         {occurrenceOptions.length > 1 ? (
           <div className="flex items-center justify-between gap-4">
             <span>Date</span>
-            <select
+            <Select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="min-w-[220px] rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+              className="min-w-[220px] bg-[#0a1927] text-right"
             >
               {occurrenceOptions.map((entry) => (
                 <option key={entry.eventId} value={entry.eventId}>
                   {new Date(entry.eventDatetime).toLocaleString()}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         ) : null}
         <div className="flex items-center justify-between">
@@ -269,7 +274,7 @@ export default function RegisterPanel({
         </div>
         <div className="flex items-center justify-between">
           <span>Quantity to add</span>
-          <input
+          <Input
             type="number"
             min={1}
             max={maxQty}
@@ -277,17 +282,18 @@ export default function RegisterPanel({
             onChange={(e) =>
               setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))
             }
-            className="w-24 rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
+            className="w-24 bg-[#0a1927] text-right"
           />
         </div>
       </div>
 
       <div className="grid gap-2">
-        <button
+        <Button
           type="button"
           disabled={loading || confirmingPayment || soldOutForSelection}
           onClick={handleRegister}
-          className="w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-5 py-3 text-sm font-semibold text-[#001021] shadow-lg shadow-[#00e5ff33] transition hover:from-[#22FF88] hover:to-[#00E5FF] disabled:cursor-not-allowed disabled:opacity-50"
+          variant="primary"
+          className="h-11 w-full rounded-full px-5"
         >
           {soldOutForSelection
             ? "Sold out"
@@ -298,20 +304,21 @@ export default function RegisterPanel({
                 : (event.priceField ?? 0) > 0
                   ? "Pay with Chapa"
                   : "Get tickets"}
-        </button>
+        </Button>
       </div>
 
-      <button
+      <Button
         type="button"
         onClick={handleToggleSave}
-        className="w-full rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#22FF88] hover:text-[#22FF88]"
+        variant="secondary"
+        className="h-11 w-full rounded-full px-5"
       >
         {isSaved ? "Remove from saved" : "Save event"}
-      </button>
+      </Button>
 
-      <p className="text-xs text-[#9fc4e4]">
+      <p className="text-xs text-[var(--color-text-muted)]">
         All reservations are final.
       </p>
-    </div>
+    </Card>
   );
 }

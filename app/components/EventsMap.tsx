@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { EventResponse } from "../types/eventTypes";
+import { Select } from "./ui/select";
+import { Button } from "./ui/button";
 
 type Props = {
   events: EventResponse[];
@@ -140,16 +142,16 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="radius" className="text-xs text-[#9fb6ce]">Radius (km)</label>
-          <select
+          <Select
             id="radius"
             value={radiusKm}
             onChange={(e) => onRadiusChange(Number(e.target.value))}
-            className="rounded-md border border-[#1f3850] bg-[#0f1f2d] px-2 py-1 text-xs text-white"
+            className="h-8 rounded-md border-[#1f3850] bg-[#0f1f2d] px-2 text-xs text-white"
           >
             {[10, 25, 50, 100].map((r) => (
               <option key={r} value={r}>{r} km</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -158,13 +160,15 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         className="h-80 w-full overflow-hidden rounded-xl border border-[#1f3850] bg-[#0b1624]"
       />
       <div className="flex justify-center">
-        <button
+        <Button
           type="button"
           onClick={() => onSearchHere(mapCenter)}
-          className="rounded-full bg-[#00E5FF] px-4 py-2 text-sm font-semibold text-[#001021] shadow-lg shadow-[#00e5ff44] transition hover:bg-[#22FF88]"
+          variant="primary"
+          size="sm"
+          className="rounded-full"
         >
           Search this area
-        </button>
+        </Button>
       </div>
       {geoDenied ? (
         <p className="text-xs text-[#ffb4b4]">Location permission denied. Showing all events.</p>
