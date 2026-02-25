@@ -13,14 +13,17 @@
     "@neondatabase/auth": "^0.2.0-beta.1",
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "^7.4.0",
+    "@rehookify/datepicker": "^6.6.8",
     "@supabase/supabase-js": "^2.97.0",
     "axios": "^1.13.5",
+    "chapa-nodejs": "^2.1.1",
     "dotenv": "^17.3.1",
     "mapbox-gl": "^3.18.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-icons": "^5.5.0",
+    "resend": "^6.9.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

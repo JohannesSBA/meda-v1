@@ -5,6 +5,12 @@ import { EventCard } from "../components/EventCard";
 import type { EventListResponse, EventResponse } from "../types/eventTypes";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { authClient } from "@/lib/auth/client";
+import { PageShell } from "../components/ui/page-shell";
+import { Card } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Select } from "../components/ui/select";
+import { Button } from "../components/ui/button";
 
 const EventsMap = dynamic(() => import("../components/EventsMap"), {
   ssr: false,
@@ -23,6 +29,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
+  const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set());
 
   const page = Number(searchParams.get("page")) || 1;
   const search = searchParams.get("search") || "";
@@ -35,6 +42,35 @@ export default function EventsPage() {
   useEffect(() => {
     if (radiusParam) setRadiusKm(Number(radiusParam));
   }, [radiusParam]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSaved = async () => {
+      try {
+        const session = await authClient.getSession();
+        if (!session.data?.user?.id) {
+          if (!cancelled) setSavedEventIds(new Set());
+          return;
+        }
+        const res = await fetch("/api/profile/saved-events", { cache: "no-store" });
+        if (!res.ok) {
+          if (!cancelled) setSavedEventIds(new Set());
+          return;
+        }
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (!cancelled) {
+          setSavedEventIds(new Set(items.map((item: { eventId?: string }) => item.eventId).filter(Boolean)));
+        }
+      } catch {
+        if (!cancelled) setSavedEventIds(new Set());
+      }
+    };
+    void loadSaved();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -118,31 +154,30 @@ export default function EventsPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#08111c] text-white mt-16">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(0,229,255,0.08),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(34,255,136,0.08),transparent_32%),linear-gradient(140deg,#0b1725_10%,#0c1b2f_40%,#0a1321_100%)]" />
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-6 py-10">
-        <header className="flex flex-col gap-6 rounded-3xl  bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 shadow-2xl shadow-[#00e5ff12] backdrop-blur-lg">
+    <PageShell>
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-8">
+        <Card className="flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 backdrop-blur-lg">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-[#5cc5ff]">
+              <p className="heading-kicker">
                 Discover • Play • Connect
               </p>
               <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">
                 Find your next event
               </h1>
-              <p className="mt-2 text-sm text-[#a7c5de]">
+              <p className="muted-copy mt-2 text-sm">
                 Search, sort, and explore experiences happening around you.
               </p>
             </div>
             <div className="flex gap-3">
-              <div className="rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-left shadow-inner shadow-[#00e5ff12]">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#6ac9ff]">
+              <div className="rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-left shadow-inner shadow-black/20">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-brand)]">
                   Live events
                 </p>
                 <p className="text-2xl font-bold text-white">{total}</p>
               </div>
-              <div className="rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-left shadow-inner shadow-[#22ff8812]">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#7bffb8]">
+              <div className="rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-left shadow-inner shadow-black/20">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-brand-alt)]">
                   Radius
                 </p>
                 <p className="text-2xl font-bold text-white">{radiusKm} km</p>
@@ -151,51 +186,51 @@ export default function EventsPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-[2fr_1fr] md:items-center">
-            <div className="flex items-center gap-3 rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 shadow-inner shadow-black/20">
-              <input
+            <div className="rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 shadow-inner shadow-black/20">
+              <Input
                 type="search"
                 placeholder="Search events by name, vibe, or location..."
                 defaultValue={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="h-11 w-full rounded-xl border border-[#16324a] bg-[#0a1927] px-4 text-sm text-white placeholder:text-[#6c8eb1] focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+                className="bg-[#0a1927]"
               />
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <select
+              <Select
                 defaultValue={`${sort}:${order}`}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="h-11 min-w-[180px] rounded-xl   bg-[#0a1927] px-4 text-sm text-white shadow-inner shadow-black/30 focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
+                className="min-w-[180px] bg-[#0a1927]"
               >
                 <option value="date:asc">Soonest first</option>
                 <option value="date:desc">Latest first</option>
                 <option value="price:asc">Lowest price</option>
                 <option value="price:desc">Highest price</option>
-              </select>
+              </Select>
             </div>
           </div>
-        </header>
+        </Card>
 
-        <section className="rounded-3xl   bg-[#0b1624]/90 shadow-xl shadow-[#00e5ff12]">
+        <Card className="rounded-3xl bg-[#0b1624]/90">
           <EventsMap
             events={mapItems}
             radiusKm={radiusKm}
             onRadiusChange={handleRadiusChange}
             onSearchHere={handleSearchHere}
           />
-        </section>
+        </Card>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl   bg-[#0c1d2e]/70 px-6 py-10 text-[#d6faff] shadow-inner shadow-black/20">
+          <Card className="flex items-center justify-center rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-[var(--color-text-secondary)] shadow-inner shadow-black/20">
             Loading events…
-          </div>
+          </Card>
         ) : error ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-900/20 px-6 py-4 text-red-200">
+          <Card className="rounded-2xl border-red-500/40 bg-red-900/30 px-6 py-4 text-red-200">
             {error}
-          </div>
+          </Card>
         ) : events.length === 0 ? (
-          <div className="rounded-2xl   bg-[#0c1d2e]/70 px-6 py-10 text-center text-lg text-[#d6faff] shadow-inner shadow-black/20">
+          <Card className="rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-center text-lg text-[var(--color-text-secondary)] shadow-inner shadow-black/20">
             No events found. Try adjusting your search or radius.
-          </div>
+          </Card>
         ) : (
           <>
             <div className="grid gap-6 md:grid-cols-2">
@@ -204,35 +239,40 @@ export default function EventsPage() {
                   key={event.eventId}
                   event={event}
                   href={`/events/${event.eventId}`}
+                  isSaved={savedEventIds.has(event.eventId)}
                 />
               ))}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl   bg-[#0c1d2e]/80 px-4 py-3 text-sm text-[#c0d5ec] shadow-inner shadow-black/15 md:flex-row md:items-center md:justify-between">
+            <Card className="flex flex-col gap-3 rounded-2xl bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)] shadow-inner shadow-black/15 md:flex-row md:items-center md:justify-between">
               <div>
                 Page {page} of {totalPages} · Showing {events.length} of {total}{" "}
                 events
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  className="rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-[#22FF88] hover:text-[#22FF88] disabled:opacity-40"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1}
                 >
                   Prev
-                </button>
-                <button
-                  className="rounded-full border border-white/10 px-4 py-2 text-white transition hover:border-[#22FF88] hover:text-[#22FF88] disabled:opacity-40"
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full"
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= totalPages}
                 >
                   Next
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           </>
         )}
       </div>
-    </main>
+    </PageShell>
   );
 }

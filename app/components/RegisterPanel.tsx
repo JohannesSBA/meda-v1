@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import axios, { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
+import { Card } from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
+import { Select } from "@/app/components/ui/select";
+import { Input } from "@/app/components/ui/input";
+import { Button } from "@/app/components/ui/button";
+
+function getErrorMessage(err: unknown): string {
+  if (isAxiosError(err) && typeof err.response?.data?.error === "string") {
+    return err.response.data.error;
+  }
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return "An error occurred";
+}
 
 type Props = {
   event: EventResponse;
@@ -13,44 +27,97 @@ type Props = {
   occurrences?: EventOccurrence[];
 };
 
-export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Props) {
-  const occurrenceOptions = occurrences.length > 0 ? occurrences : [{ eventId: event.eventId, eventDatetime: event.eventDatetime, eventEndtime: event.eventEndtime, attendeeCount: event.attendeeCount ?? 0, myTickets: event.myTickets ?? 0, capacity: event.capacity ?? null, occurrenceIndex: event.occurrenceIndex ?? null }];
-  const [selectedEventId, setSelectedEventId] = useState(occurrenceOptions[0]?.eventId ?? event.eventId);
+export default function RegisterPanel({
+  event,
+  isSoldOut,
+  occurrences = [],
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const decodedSelectedFromQuery = useMemo(() => {
+    const q = searchParams.get("occurrence");
+    if (!q) return null;
+    try {
+      return decodeURIComponent(q);
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
+
+  const occurrenceOptions = useMemo(
+    () =>
+      occurrences.length > 0
+        ? occurrences
+        : [
+            {
+              eventId: event.eventId,
+              eventDatetime: event.eventDatetime,
+              eventEndtime: event.eventEndtime,
+              attendeeCount: event.attendeeCount ?? 0,
+              myTickets: event.myTickets ?? 0,
+              capacity: event.capacity ?? null,
+              occurrenceIndex: event.occurrenceIndex ?? null,
+            },
+          ],
+    [event, occurrences],
+  );
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (decodedSelectedFromQuery && occurrenceOptions.some((o) => o.eventId === decodedSelectedFromQuery))
+      return decodedSelectedFromQuery;
+    return occurrenceOptions[0]?.eventId ?? event.eventId;
+  });
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [myTickets, setMyTickets] = useState<number>(occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [myTickets, setMyTickets] = useState<number>(
+    occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
+  );
   const [userId, setUserId] = useState<string | null>(null);
-  const router = useRouter();
 
   const selectedOccurrence =
-    occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ?? occurrenceOptions[0];
-  const selectedEndtime = selectedOccurrence?.eventEndtime ?? event.eventEndtime;
+    occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ??
+    occurrenceOptions[0];
+  const selectedEndtime =
+    selectedOccurrence?.eventEndtime ?? event.eventEndtime;
   const selectedCapacity = selectedOccurrence?.capacity ?? event.capacity;
-  const selectedAttendeeCount = selectedOccurrence?.attendeeCount ?? event.attendeeCount ?? 0;
-  const remaining = selectedCapacity != null ? Math.max(selectedCapacity - selectedAttendeeCount, 0) : Infinity;
+  const remaining =
+    selectedCapacity != null ? Math.max(selectedCapacity, 0) : Infinity;
   const maxQty = Math.min(20, remaining || 20);
-  const soldOutForSelection = selectedCapacity != null ? remaining <= 0 : isSoldOut;
+  const soldOutForSelection =
+    selectedCapacity != null ? remaining <= 0 : isSoldOut;
 
-  const fetchMyTickets = async (uid: string, targetEventId: string) => {
-    try {
-      const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setMyTickets(data.event?.myTickets ?? 0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  useEffect(() => {
+    if (!decodedSelectedFromQuery) return;
+    const exists = occurrenceOptions.some(
+      (entry) => entry.eventId === decodedSelectedFromQuery,
+    );
+    if (!exists) return;
+    setSelectedEventId(decodedSelectedFromQuery);
+  }, [decodedSelectedFromQuery, occurrenceOptions]);
+
+  const fetchMyTickets = useCallback(
+    async (uid: string, targetEventId: string) => {
+      try {
+        const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setMyTickets(data.event?.myTickets ?? 0);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     authClient.getSession().then((session) => {
       const id = session.data?.user?.id ?? null;
       setUserId(id);
-      if (id) {
-        fetchMyTickets(id, selectedEventId);
-      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -59,12 +126,111 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
       return;
     }
     fetchMyTickets(userId, selectedEventId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, userId, fetchMyTickets, selectedOccurrence?.myTickets]);
+
+  useEffect(() => {
+    if (!userId) {
+      setIsSaved(false);
+      return;
+    }
+    const loadSaved = async () => {
+      try {
+        const res = await fetch("/api/profile/saved-events", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setIsSaved(
+          items.some(
+            (item: { eventId?: string }) => item.eventId === selectedEventId,
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to load saved events:", err);
+      }
+    };
+    void loadSaved();
   }, [selectedEventId, userId]);
+
+  const paymentProvider = useMemo(
+    () =>
+      searchParams.get("payment") ?? searchParams.get("amp;payment"),
+    [searchParams],
+  );
+  const txRef = useMemo(
+    () =>
+      searchParams.get("tx_ref") ??
+      searchParams.get("txRef") ??
+      searchParams.get("amp;tx_ref") ??
+      searchParams.get("amp%3Btx_ref"),
+    [searchParams],
+  );
+
+  const confirmedTxRefRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!userId || paymentProvider !== "chapa" || !txRef) {
+      setConfirmingPayment(false);
+      confirmedTxRefRef.current = null;
+      return;
+    }
+    if (confirmedTxRefRef.current === txRef) return;
+    confirmedTxRefRef.current = txRef;
+
+    let cancelled = false;
+    const confirmPayment = async () => {
+      setConfirmingPayment(true);
+      try {
+        const response = await axios.post("/api/payments/chapa/confirm", {
+          txRef,
+        });
+        const addedTickets = Number(response.data?.quantity) || 0;
+        if (!cancelled && addedTickets > 0) {
+          setMyTickets((prev) => prev + addedTickets);
+        }
+        if (!cancelled) {
+          toast.success("Payment confirmed. Ticket added.");
+          const returnEventId =
+            decodedSelectedFromQuery && occurrenceOptions.some(
+              (entry) => entry.eventId === decodedSelectedFromQuery,
+            )
+              ? decodedSelectedFromQuery
+              : selectedEventId;
+          const encodedOccurrence = encodeURIComponent(returnEventId);
+          router.replace(`/events/${returnEventId}?occurrence=${encodedOccurrence}`);
+          router.refresh();
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(getErrorMessage(err) || "Unable to confirm payment");
+        }
+      } finally {
+        if (!cancelled) {
+          setConfirmingPayment(false);
+        }
+      }
+    };
+
+    confirmPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    decodedSelectedFromQuery,
+    occurrenceOptions,
+    router,
+    paymentProvider,
+    txRef,
+    selectedEventId,
+    userId,
+  ]);
 
   const handleRegister = async () => {
     if (!userId) {
-      toast.error("Please sign in to register.");
+      const redirect =
+        pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.push(`/auth/sign-in?redirect=${encodeURIComponent(redirect)}`);
       return;
     }
     if (selectedEndtime && new Date(selectedEndtime) <= new Date()) {
@@ -77,6 +243,20 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
     }
     setLoading(true);
     try {
+      if ((event.priceField ?? 0) > 0) {
+        const response = await axios.post("/api/payments/chapa/checkout", {
+          eventId: selectedEventId,
+          quantity: qty,
+        });
+        const checkoutUrl = response.data?.checkoutUrl;
+        if (!checkoutUrl) {
+          throw new Error("Checkout URL was not returned");
+        }
+        setLoading(false);
+        window.location.href = checkoutUrl;
+        return;
+      }
+
       await axios.post(`/api/events/${selectedEventId}`, {
         quantity: qty,
         userId,
@@ -85,64 +265,70 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
       setMyTickets((prev) => prev + qty);
       router.refresh();
     } catch (err) {
-      const maybeAxiosError = err as { response?: { data?: { error?: string } } };
-      toast.error(maybeAxiosError?.response?.data?.error ?? "Failed to register");
+      toast.error(getErrorMessage(err) || "Failed to register");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancel = async () => {
+  const handleToggleSave = async () => {
     if (!userId) {
-      toast.error("Please sign in first.");
+      toast.error("Please sign in to save events.");
       return;
     }
-    setLoading(true);
     try {
-      await axios.delete(`/api/events/${selectedEventId}`, { data: { quantity: myTickets || 1, userId } });
-      toast.success("Reservation cancelled");
-      setMyTickets(0);
-      router.refresh();
+      const res = await fetch("/api/profile/saved-events", {
+        method: isSaved ? "DELETE" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventId: selectedEventId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Save action failed");
+      setIsSaved(!isSaved);
+      toast.success(isSaved ? "Event removed from saved list" : "Event saved");
     } catch (err) {
-      const maybeAxiosError = err as { response?: { data?: { error?: string } } };
-      toast.error(maybeAxiosError?.response?.data?.error ?? "Unable to cancel");
-    } finally {
-      setLoading(false);
+      toast.error(getErrorMessage(err) || "Save action failed");
     }
   };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-white/8 bg-[#0f2235] p-6 shadow-xl shadow-black/30">
+    <Card className="space-y-4 rounded-3xl bg-[#0f2235] p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">Tickets</p>
+          <p className="heading-kicker">Tickets</p>
           <h3 className="text-lg font-semibold text-white">Register to play</h3>
         </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-[#b9cde4]">
+        <Badge className="bg-white/10 text-xs text-[#b9cde4]">
           {event.priceField ? `ETB ${event.priceField}` : "Free"}
-        </span>
+        </Badge>
       </div>
 
-      <div className="space-y-2 text-sm text-[#c5d7ec]">
+      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
         {occurrenceOptions.length > 1 ? (
           <div className="flex items-center justify-between gap-4">
             <span>Date</span>
-            <select
+            <Select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="min-w-[220px] rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#00E5FF]"
+              className="min-w-[220px] bg-[#0a1927] text-right"
             >
               {occurrenceOptions.map((entry) => (
                 <option key={entry.eventId} value={entry.eventId}>
                   {new Date(entry.eventDatetime).toLocaleString()}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         ) : null}
         <div className="flex items-center justify-between">
           <span>Available</span>
-          <span>{remaining === Infinity ? "No limit" : `${remaining} seats`}</span>
+          <span>
+            {soldOutForSelection
+              ? "Sold out"
+              : remaining === Infinity
+                ? "No limit"
+                : `${remaining} seats`}
+          </span>
         </div>
         <div className="flex items-center justify-between">
           <span>Your tickets</span>
@@ -150,37 +336,54 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Pr
         </div>
         <div className="flex items-center justify-between">
           <span>Quantity to add</span>
-          <input
+          <Input
             type="number"
             min={1}
             max={maxQty}
             value={qty}
-            onChange={(e) => setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))}
-            className="w-24 rounded-lg border border-white/10 bg-[#0a1927] px-3 py-2 text-right text-white focus:outline-none focus:ring-2 focus:ring-[#22FF88]"
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setQty(
+                Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
+              );
+            }}
+            className="w-24 bg-[#0a1927] text-right"
           />
         </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button
+      <div className="grid gap-2">
+        <Button
           type="button"
-          disabled={loading || soldOutForSelection}
+          disabled={loading || confirmingPayment || soldOutForSelection}
           onClick={handleRegister}
-          className="w-full rounded-full bg-linear-to-r from-[#00E5FF] to-[#22FF88] px-5 py-3 text-sm font-semibold text-[#001021] shadow-lg shadow-[#00e5ff33] transition hover:from-[#22FF88] hover:to-[#00E5FF] disabled:cursor-not-allowed disabled:opacity-50"
+          variant="primary"
+          className="h-11 w-full rounded-full px-5"
         >
-          {soldOutForSelection ? "Sold out" : loading ? "Registering…" : "Get tickets"}
-        </button>
-        <button
-          type="button"
-          disabled={loading || myTickets === 0}
-          onClick={handleCancel}
-          className="w-full rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#ffb4b4] hover:text-[#ffb4b4] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Cancel reservation
-        </button>
+          {soldOutForSelection
+            ? "Sold out"
+            : confirmingPayment
+              ? "Confirming payment…"
+              : loading
+                ? "Processing…"
+                : (event.priceField ?? 0) > 0
+                  ? "Pay with Chapa"
+                  : "Get tickets"}
+        </Button>
       </div>
 
-      <p className="text-xs text-[#9fc4e4]">Cancellations are disabled within 24 hours of the event start.</p>
-    </div>
+      <Button
+        type="button"
+        onClick={handleToggleSave}
+        variant="secondary"
+        className="h-11 w-full rounded-full px-5"
+      >
+        {isSaved ? "Remove from saved" : "Save event"}
+      </Button>
+
+      <p className="text-xs text-[var(--color-text-muted)]">
+        All reservations are final.
+      </p>
+    </Card>
   );
 }
