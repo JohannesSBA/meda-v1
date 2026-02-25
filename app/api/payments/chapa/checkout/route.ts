@@ -28,9 +28,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const origin = new URL(request.url).origin;
-  const callbackUrl = process.env.CHAPA_CALLBACK_URL ?? `${origin}/api/payments/chapa/confirm`;
-  const returnUrlBase = `${origin}/events/${parsed.data.eventId}?payment=chapa`;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
+    new URL(request.url).origin;
+  const callbackUrl =
+    process.env.CHAPA_CALLBACK_URL ??
+    `${baseUrl}/api/payments/chapa/confirm`;
+  const returnUrlBase = `${baseUrl}/events/${parsed.data.eventId}?payment=chapa`;
 
   try {
     const result = await initializeChapaCheckout({
