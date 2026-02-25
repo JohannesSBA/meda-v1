@@ -63,7 +63,10 @@ export default function RegisterPanel({
     [event, occurrences],
   );
   const [selectedEventId, setSelectedEventId] = useState(() => {
-    if (decodedSelectedFromQuery && occurrenceOptions.some((o) => o.eventId === decodedSelectedFromQuery))
+    if (
+      decodedSelectedFromQuery &&
+      occurrenceOptions.some((o) => o.eventId === decodedSelectedFromQuery)
+    )
       return decodedSelectedFromQuery;
     return occurrenceOptions[0]?.eventId ?? event.eventId;
   });
@@ -154,8 +157,7 @@ export default function RegisterPanel({
   }, [selectedEventId, userId]);
 
   const paymentProvider = useMemo(
-    () =>
-      searchParams.get("payment") ?? searchParams.get("amp;payment"),
+    () => searchParams.get("payment") ?? searchParams.get("amp;payment"),
     [searchParams],
   );
   const txRef = useMemo(
@@ -192,13 +194,16 @@ export default function RegisterPanel({
         if (!cancelled) {
           toast.success("Payment confirmed. Ticket added.");
           const returnEventId =
-            decodedSelectedFromQuery && occurrenceOptions.some(
+            decodedSelectedFromQuery &&
+            occurrenceOptions.some(
               (entry) => entry.eventId === decodedSelectedFromQuery,
             )
               ? decodedSelectedFromQuery
               : selectedEventId;
           const encodedOccurrence = encodeURIComponent(returnEventId);
-          router.replace(`/events/${returnEventId}?occurrence=${encodedOccurrence}`);
+          router.replace(
+            `/events/${returnEventId}?occurrence=${encodedOccurrence}`,
+          );
           router.refresh();
         }
       } catch (err) {
@@ -206,9 +211,7 @@ export default function RegisterPanel({
           toast.error(getErrorMessage(err) || "Unable to confirm payment");
         }
       } finally {
-        if (!cancelled) {
-          setConfirmingPayment(false);
-        }
+        setConfirmingPayment(false);
       }
     };
 
@@ -229,7 +232,8 @@ export default function RegisterPanel({
   const handleRegister = async () => {
     if (!userId) {
       const redirect =
-        pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+        pathname +
+        (searchParams.toString() ? `?${searchParams.toString()}` : "");
       router.push(`/auth/sign-in?redirect=${encodeURIComponent(redirect)}`);
       return;
     }
