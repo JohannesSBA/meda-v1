@@ -11,6 +11,12 @@ import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Table } from "@/app/components/ui/table";
 import { Badge } from "@/app/components/ui/badge";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import {
+  EventListItemSkeleton,
+  TableSkeleton,
+  StatsCardsSkeleton,
+} from "@/app/components/ui/skeleton";
 import { cn } from "@/app/components/ui/cn";
 
 type ProfileUser = {
@@ -113,7 +119,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   );
   const adminUserNameById = useMemo(
     () => new Map(adminUsers.map((entry) => [entry.id, entry.name])),
-    [adminUsers]
+    [adminUsers],
   );
 
   const loadRegisteredEvents = async () => {
@@ -252,7 +258,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Save action failed");
-      toast.success(isSaved ? "Event removed from saved list" : "Event saved");
+      toast.success(isSaved ? "Event removed from saved list" : "Event saved", {
+        id: `save-${eventId}`,
+      });
       await loadSavedEvents();
     } catch (error) {
       toast.error(
@@ -324,7 +332,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
     if (!editingEvent) return;
     if (applyToSeries && seriesCount > 1) {
       const confirmed = window.confirm(
-        `This will update ${seriesCount} occurrences in this recurring series. Continue?`
+        `This will update ${seriesCount} occurrences in this recurring series. Continue?`,
       );
       if (!confirmed) return;
     }
@@ -378,7 +386,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               alt={`${user.name} profile`}
               width={64}
               height={64}
-              className="h-16 w-16 rounded-full border border-white/15 object-cover"
+              className="h-16 w-16 rounded-full    -white/15 object-cover"
             />
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-[#7ccfff]">
@@ -391,7 +399,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
             </div>
           </div>
           {isAdmin ? (
-            <Badge className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
+            <Badge className="rounded-full    -white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
               Role: admin
             </Badge>
           ) : (
@@ -399,7 +407,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               href="/events"
               className={cn(
                 buttonVariants("secondary", "sm"),
-                "rounded-full border-white/15 bg-white/5 text-[#22FF88] hover:border-[#22FF88]",
+                "rounded-full  -white/15 bg-white/5 text-[#22FF88] hover: -[#22FF88]",
               )}
             >
               Browse events
@@ -410,7 +418,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
 
       {!isAdmin ? (
         <>
-          <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
+          <nav className="flex flex-wrap gap-2 rounded-2xl    -white/10 bg-[#0c1d2e]/75 p-2">
             <Button
               type="button"
               onClick={() => setUserTab("registered")}
@@ -438,7 +446,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </nav>
 
           {userTab === "registered" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white">
                   Registered events
@@ -454,19 +462,23 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                 </Select>
               </div>
               {registeredLoading ? (
-                <p className="text-sm text-[#a7c5de]">
-                  Loading registered events...
-                </p>
+                <div className="grid gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <EventListItemSkeleton key={i} />
+                  ))}
+                </div>
               ) : registeredEvents.length === 0 ? (
-                <p className="text-sm text-[#a7c5de]">
-                  No registered events found.
-                </p>
+                <EmptyState
+                  title="No registered events"
+                  description="Browse events and register for your first match."
+                  action={{ label: "Browse events", href: "/events" }}
+                />
               ) : (
                 <div className="grid gap-3">
                   {registeredEvents.map((event) => (
                     <article
                       key={event.eventId}
-                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -485,7 +497,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <div className="flex gap-2">
                           <Link
                             href={`/events/${event.eventId}`}
-                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
+                            className="rounded-lg    -white/15 px-3 py-1 text-sm hover: -[#22FF88]"
                           >
                             View
                           </Link>
@@ -511,20 +523,26 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               )}
             </section>
           ) : (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
               <h2 className="text-xl font-semibold text-white">Saved events</h2>
               {savedLoading ? (
-                <p className="text-sm text-[#a7c5de]">
-                  Loading saved events...
-                </p>
+                <div className="grid gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <EventListItemSkeleton key={i} />
+                  ))}
+                </div>
               ) : savedEvents.length === 0 ? (
-                <p className="text-sm text-[#a7c5de]">No saved events yet.</p>
+                <EmptyState
+                  title="No saved events yet"
+                  description="Save events to find them here."
+                  action={{ label: "Browse events", href: "/events" }}
+                />
               ) : (
                 <div className="grid gap-3">
                   {savedEvents.map((event) => (
                     <article
                       key={event.eventId}
-                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -539,7 +557,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <div className="flex gap-2">
                           <Link
                             href={`/events/${event.eventId}`}
-                            className="rounded-lg border border-white/15 px-3 py-1 text-sm hover:border-[#22FF88]"
+                            className="rounded-lg    -white/15 px-3 py-1 text-sm hover: -[#22FF88]"
                           >
                             View
                           </Link>
@@ -565,7 +583,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
         </>
       ) : (
         <>
-          <nav className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-[#0c1d2e]/75 p-2">
+          <nav className="flex flex-wrap gap-2 rounded-2xl    -white/10 bg-[#0c1d2e]/75 p-2">
             {(["users", "events", "stats"] as const).map((tab) => (
               <Button
                 key={tab}
@@ -588,7 +606,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </nav>
 
           {adminTab === "users" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-white">
                   User administration
@@ -610,7 +628,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                 </div>
               </div>
               {adminUsersLoading ? (
-                <p className="text-sm text-[#a7c5de]">Loading users...</p>
+                <TableSkeleton rows={6} cols={4} />
               ) : (
                 <div className="overflow-x-auto">
                   <Table className="table-shell">
@@ -626,7 +644,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                       {adminUsers.map((row) => (
                         <tr
                           key={row.id || row.email}
-                          className="border-t border-white/10"
+                          className=" -t  -white/10"
                         >
                           <td className="py-3 pr-4">
                             <p>{row.name}</p>
@@ -648,7 +666,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                     row.role === "admin" ? "user" : "admin",
                                   )
                                 }
-                                className="rounded-lg border border-white/15 px-3 py-1 hover:border-[#22FF88]"
+                                className="rounded-lg px-3 py-1 hover: -[#22FF88]"
                               >
                                 {row.role === "admin"
                                   ? "Remove admin"
@@ -659,7 +677,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                 onClick={() =>
                                   void handleBanToggle(row.id, !row.banned)
                                 }
-                                className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
+                                className="rounded-lg  px-3 py-1 text-red-200 hover: -red-300/60"
                               >
                                 {row.banned ? "Unban" : "Ban"}
                               </button>
@@ -675,7 +693,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "events" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-white">
                   Event moderation
@@ -697,7 +715,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                 </div>
               </div>
               {adminEventsLoading ? (
-                <p className="text-sm text-[#a7c5de]">Loading events...</p>
+                <TableSkeleton rows={6} cols={5} />
               ) : (
                 <div className="overflow-x-auto">
                   <Table className="table-shell">
@@ -712,16 +730,14 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                     </thead>
                     <tbody className="text-[#d5e7fb]">
                       {adminEvents.map((event) => (
-                        <tr
-                          key={event.eventId}
-                          className="border-t border-white/10"
-                        >
+                        <tr key={event.eventId} className=" -t  -white/10">
                           <td className="py-3 pr-4">{event.eventName}</td>
                           <td className="py-3 pr-4">
                             {new Date(event.eventDatetime).toLocaleString()}
                           </td>
                           <td className="py-3 pr-4">
-                            {adminUserNameById.get(event.userId) ?? event.userId}
+                            {adminUserNameById.get(event.userId) ??
+                              event.userId}
                           </td>
                           <td className="py-3 pr-4">
                             ETB {event.priceField ?? 0}
@@ -733,7 +749,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                 onClick={() =>
                                   void startEditEvent(event.eventId)
                                 }
-                                className="rounded-lg  cursor-pointer border border-white/15 px-3 py-1 hover:border-[#22FF88]"
+                                className="rounded-lg  cursor-pointer    -white/15 px-3 py-1 hover: -[#22FF88]"
                               >
                                 Edit
                               </button>
@@ -742,7 +758,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                 onClick={() =>
                                   void handleDeleteEvent(event.eventId)
                                 }
-                                className="rounded-lg border border-red-300/30 px-3 py-1 text-red-200 hover:border-red-300/60"
+                                className="rounded-lg    -red-300/30 px-3 py-1 text-red-200 hover: -red-300/60"
                               >
                                 Delete
                               </button>
@@ -758,7 +774,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               {editingEvent ? (
                 <div
                   id="admin-event-editor"
-                  className="space-y-3 rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                  className="space-y-3 rounded-xl    -white/10 bg-[#0a1927] p-4"
                 >
                   <h3 className="text-lg font-semibold text-white">
                     Edit event details
@@ -771,7 +787,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, eventName: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                       placeholder="Event name"
                     />
                     <input
@@ -781,7 +797,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, pictureUrl: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                       placeholder="Picture URL"
                     />
                     <input
@@ -799,7 +815,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                     />
                     <input
                       type="datetime-local"
@@ -816,7 +832,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                     />
                     <input
                       type="number"
@@ -828,7 +844,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                       placeholder="Price ETB"
                     />
                     <input
@@ -841,7 +857,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                       placeholder="Capacity"
                     />
                     <select
@@ -851,7 +867,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, categoryId: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                     >
                       {categories.map((category) => (
                         <option
@@ -871,7 +887,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                       placeholder="Event location"
                     />
                   </div>
@@ -883,7 +899,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         prev ? { ...prev, description: e.target.value } : prev,
                       )
                     }
-                    className="w-full rounded-lg border border-white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
                     placeholder="Description"
                   />
                   {editingEvent.isRecurring && editingEvent.seriesId ? (
@@ -896,8 +912,10 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                       Apply changes to all occurrences in this recurring series
                     </label>
                   ) : null}
-                  {editingEvent.isRecurring && editingEvent.seriesId && applyToSeries ? (
-                    <p className="rounded-lg border border-[#22FF88]/40 bg-[#22FF88]/10 px-3 py-2 text-sm text-[#d9ffea]">
+                  {editingEvent.isRecurring &&
+                  editingEvent.seriesId &&
+                  applyToSeries ? (
+                    <p className="rounded-lg    -[#22FF88]/40 bg-[#22FF88]/10 px-3 py-2 text-sm text-[#d9ffea]">
                       This will update {seriesCount} occurrence
                       {seriesCount === 1 ? "" : "s"} in this series.
                     </p>
@@ -917,7 +935,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         setEditingEvent(null);
                         setApplyToSeries(false);
                       }}
-                      className="rounded-lg cursor-pointer border border-white/15 px-4 py-2 text-sm text-white"
+                      className="rounded-lg cursor-pointer    -white/15 px-4 py-2 text-sm text-white"
                     >
                       Cancel
                     </button>
@@ -928,12 +946,12 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "stats" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
               <h2 className="text-xl font-semibold text-white">
                 Platform statistics
               </h2>
               {statsLoading ? (
-                <p className="text-sm text-[#a7c5de]">Loading stats...</p>
+                <StatsCardsSkeleton count={4} />
               ) : stats ? (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {Object.entries(
@@ -941,7 +959,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   ).map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
                     >
                       <p className="text-xs uppercase tracking-[0.12em] text-[#7ccfff]">
                         {label}

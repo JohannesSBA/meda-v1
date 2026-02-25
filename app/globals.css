@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "@neondatabase/auth/ui/tailwind";
 
+/* Force dark mode via class so it applies regardless of system preference */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #050d17;
   --foreground: #e8f2ff;
@@ -26,11 +29,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #f5f9ff;
-    --foreground: #13263a;
-  }
+html {
+  color-scheme: dark only;
 }
 
 body {

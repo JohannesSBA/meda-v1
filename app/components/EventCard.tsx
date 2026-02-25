@@ -1,5 +1,3 @@
-
-
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
@@ -60,13 +58,12 @@ export function EventCard({
       : `ETB ${event.priceField}`;
 
   // capacity in the Event model is remaining seats (decremented on registration)
-  const slotsLeft =
-    event.capacity != null ? Math.max(0, event.capacity) : null;
+  const slotsLeft = event.capacity != null ? Math.max(0, event.capacity) : null;
 
   return (
     <Link
       href={href}
-      className={`group block h-full overflow-hidden rounded-3xl border border-[var(--color-border)] bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-xl shadow-black/40 backdrop-blur-sm transition hover:-translate-y-2 hover:border-[var(--color-brand-alt)]/70 hover:shadow-[#00e5ff33] focus-visible:-translate-y-2 focus-visible:border-[var(--color-brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
+      className={`group block h-full overflow-hidden rounded-3xl  bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-xl shadow-black/40 backdrop-blur-sm transition hover:-translate-y-2 hover:border-[var(--color-brand-alt)]/70 hover:shadow-[#00e5ff33] focus-visible:-translate-y-2 focus-visible:border-[var(--color-brand)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#00E5FF33] ${className}`}
       {...rest}
     >
       <article className="flex h-full flex-col">
@@ -87,13 +84,19 @@ export function EventCard({
                 {dateLabel ?? "Date TBA"}
               </Badge>
               {isSaved ? (
-                <Badge variant="accent" className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#00e5ff1f]">
+                <Badge
+                  variant="accent"
+                  className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#00e5ff1f]"
+                >
                   Saved
                 </Badge>
               ) : null}
             </div>
             {slotsLeft != null ? (
-              <Badge variant="success" className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]">
+              <Badge
+                variant="success"
+                className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]"
+              >
                 {slotsLeft} seats left
               </Badge>
             ) : null}

@@ -170,6 +170,8 @@ export default function RegisterPanel({
   );
 
   const confirmedTxRefRef = useRef<string | null>(null);
+  const registerSubmittingRef = useRef(false);
+  const saveSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (!userId || paymentProvider !== "chapa" || !txRef) {
@@ -192,7 +194,9 @@ export default function RegisterPanel({
           setMyTickets((prev) => prev + addedTickets);
         }
         if (!cancelled) {
-          toast.success("Payment confirmed. Ticket added.");
+          toast.success("Payment confirmed. Ticket added.", {
+            id: `payment-${txRef}`,
+          });
           const returnEventId =
             decodedSelectedFromQuery &&
             occurrenceOptions.some(
@@ -208,7 +212,9 @@ export default function RegisterPanel({
         }
       } catch (err) {
         if (!cancelled) {
-          toast.error(getErrorMessage(err) || "Unable to confirm payment");
+          toast.error(getErrorMessage(err) || "Unable to confirm payment", {
+            id: `payment-error-${txRef}`,
+          });
         }
       } finally {
         setConfirmingPayment(false);
@@ -230,6 +236,7 @@ export default function RegisterPanel({
   ]);
 
   const handleRegister = async () => {
+    if (registerSubmittingRef.current) return;
     if (!userId) {
       const redirect =
         pathname +
@@ -245,6 +252,7 @@ export default function RegisterPanel({
       toast.error("Not enough seats left");
       return;
     }
+    registerSubmittingRef.current = true;
     setLoading(true);
     try {
       if ((event.priceField ?? 0) > 0) {
@@ -272,14 +280,17 @@ export default function RegisterPanel({
       toast.error(getErrorMessage(err) || "Failed to register");
     } finally {
       setLoading(false);
+      registerSubmittingRef.current = false;
     }
   };
 
   const handleToggleSave = async () => {
+    if (saveSubmittingRef.current) return;
     if (!userId) {
       toast.error("Please sign in to save events.");
       return;
     }
+    saveSubmittingRef.current = true;
     try {
       const res = await fetch("/api/profile/saved-events", {
         method: isSaved ? "DELETE" : "POST",
@@ -289,14 +300,18 @@ export default function RegisterPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Save action failed");
       setIsSaved(!isSaved);
-      toast.success(isSaved ? "Event removed from saved list" : "Event saved");
+      toast.success(isSaved ? "Event removed from saved list" : "Event saved", {
+        id: `save-${selectedEventId}`,
+      });
     } catch (err) {
       toast.error(getErrorMessage(err) || "Save action failed");
+    } finally {
+      saveSubmittingRef.current = false;
     }
   };
 
   return (
-    <Card className="space-y-4 rounded-3xl bg-[#0f2235] p-6">
+    <Card className="space-y-4 rounded-3xl bg-[#0f2235] border-none p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="heading-kicker">Tickets</p>
@@ -351,7 +366,7 @@ export default function RegisterPanel({
                 Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
               );
             }}
-            className="w-24 bg-[#0a1927] text-right"
+            className="w-24 bg-[#0a1927] text-right border-none"
           />
         </div>
       </div>
@@ -380,7 +395,7 @@ export default function RegisterPanel({
         type="button"
         onClick={handleToggleSave}
         variant="secondary"
-        className="h-11 w-full rounded-full px-5"
+        className="h-11 w-full rounded-full px-5 border-none"
       >
         {isSaved ? "Remove from saved" : "Save event"}
       </Button>

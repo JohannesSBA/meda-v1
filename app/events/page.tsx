@@ -8,6 +8,9 @@ import dynamic from "next/dynamic";
 import { authClient } from "@/lib/auth/client";
 import { PageShell } from "../components/ui/page-shell";
 import { Card } from "../components/ui/card";
+import { EmptyState } from "../components/ui/empty-state";
+import { ErrorState } from "../components/ui/error-state";
+import { EventCardSkeleton } from "../components/ui/skeleton";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Button } from "../components/ui/button";
@@ -28,6 +31,7 @@ export default function EventsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [radiusKm, setRadiusKm] = useState(50);
   const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set());
 
@@ -115,7 +119,7 @@ export default function EventsPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [page, search, sort, order, nearLat, nearLng, radiusKm]);
+  }, [page, search, sort, order, nearLat, nearLng, radiusKm, retryCount]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -220,17 +224,25 @@ export default function EventsPage() {
         </Card>
 
         {loading ? (
-          <Card className="flex items-center justify-center rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-[var(--color-text-secondary)] shadow-inner shadow-black/20">
-            Loading events…
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <EventCardSkeleton key={i} />
+            ))}
+          </div>
         ) : error ? (
-          <Card className="rounded-2xl border-red-500/40 bg-red-900/30 px-6 py-4 text-red-200">
-            {error}
-          </Card>
+          <ErrorState
+            message={error}
+            onRetry={() => {
+              setError(null);
+              setRetryCount((c) => c + 1);
+            }}
+          />
         ) : events.length === 0 ? (
-          <Card className="rounded-2xl bg-[var(--color-surface)] px-6 py-10 text-center text-lg text-[var(--color-text-secondary)] shadow-inner shadow-black/20">
-            No events found. Try adjusting your search or radius.
-          </Card>
+          <EmptyState
+            title="No events found"
+            description="Try adjusting your search or radius."
+            action={{ label: "Clear filters", href: "/events" }}
+          />
         ) : (
           <>
             <div className="grid gap-6 md:grid-cols-2">

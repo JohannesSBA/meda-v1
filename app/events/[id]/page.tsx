@@ -27,15 +27,14 @@ export default async function EventDetailPage({
   const event = await getEvent(id);
   if (!event) return notFound();
 
-  const isSoldOut =
-    event.capacity != null && event.capacity <= 0;
+  const isSoldOut = event.capacity != null && event.capacity <= 0;
 
   return (
     <PageShell>
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-8">
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-8 border-none">
         <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
           <Card className="space-y-6 rounded-3xl bg-[#0d1a27]/80 p-6 backdrop-blur">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[#0f2235]/60 p-4">
+            <div className="rounded-2xl bg-[#0f2235]/60 p-4">
               <EventCard event={event} href="#" />
             </div>
             <article className="space-y-4 text-[var(--color-text-secondary)]">
@@ -44,21 +43,22 @@ export default async function EventDetailPage({
                 {event.description ?? "No description yet."}
               </p>
               <div className="grid gap-3 text-sm text-[var(--color-text-muted)] sm:grid-cols-2">
-                <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
                   Starts: {new Date(event.eventDatetime).toLocaleString()}
                 </div>
-                <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
                   Ends: {new Date(event.eventEndtime).toLocaleString()}
                 </div>
-                <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
-                  Seats left: {event.capacity != null ? event.capacity : "Unlimited"}
+                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
+                  Seats left:{" "}
+                  {event.capacity != null ? event.capacity : "Unlimited"}
                 </div>
-                <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
                   Booked: {event.attendeeCount ?? 0}
                 </div>
               </div>
               {event.occurrences && event.occurrences.length > 1 ? (
-                <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3 text-sm text-[var(--color-text-muted)]">
+                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3 text-sm text-[var(--color-text-muted)]">
                   Recurring series with {event.occurrences.length} upcoming
                   dates.
                 </div>
@@ -74,7 +74,7 @@ export default async function EventDetailPage({
                   longitude={event.longitude}
                 />
               ) : (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[#0f1f2d] p-4 text-sm text-[var(--color-text-secondary)]">
+                <div className="rounded-2xl bg-[#0f1f2d] p-4 text-sm text-[var(--color-text-secondary)]">
                   Location not available.
                 </div>
               )}
@@ -82,7 +82,7 @@ export default async function EventDetailPage({
                 <a
                   className={cn(
                     buttonVariants("secondary", "sm"),
-                    "rounded-full border-[var(--color-border)]",
+                    "rounded-full",
                   )}
                   href={buildDirectionsUrl(event)}
                   target="_blank"

@@ -1,6 +1,7 @@
 "use client";
 
 import { NeonAuthUIProvider } from "@neondatabase/auth/react";
+import { Toaster } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import HeaderNav from "./HeaderNav";
 
@@ -28,6 +29,7 @@ export default function AuthProviders({
     >
       <HeaderNav initialSession={initialSession as SessionPayload | null} />
       {children}
+      <Toaster position="top-center" theme="dark" />
     </NeonAuthUIProvider>
   );
 }
