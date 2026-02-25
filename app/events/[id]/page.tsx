@@ -28,7 +28,7 @@ export default async function EventDetailPage({
   if (!event) return notFound();
 
   const isSoldOut =
-    event.capacity != null && (event.attendeeCount ?? 0) >= event.capacity;
+    event.capacity != null && event.capacity <= 0;
 
   return (
     <PageShell>
@@ -51,7 +51,7 @@ export default async function EventDetailPage({
                   Ends: {new Date(event.eventEndtime).toLocaleString()}
                 </div>
                 <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
-                  Capacity: {event.capacity ?? "Unlimited"}
+                  Seats left: {event.capacity != null ? event.capacity : "Unlimited"}
                 </div>
                 <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
                   Booked: {event.attendeeCount ?? 0}

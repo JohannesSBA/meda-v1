@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import axios, { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
 import { Card } from "@/app/components/ui/card";
@@ -11,6 +11,15 @@ import { Badge } from "@/app/components/ui/badge";
 import { Select } from "@/app/components/ui/select";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
+
+function getErrorMessage(err: unknown): string {
+  if (isAxiosError(err) && typeof err.response?.data?.error === "string") {
+    return err.response.data.error;
+  }
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return "An error occurred";
+}
 
 type Props = {
   event: EventResponse;
@@ -23,23 +32,41 @@ export default function RegisterPanel({
   isSoldOut,
   occurrences = [],
 }: Props) {
-  const occurrenceOptions =
-    occurrences.length > 0
-      ? occurrences
-      : [
-          {
-            eventId: event.eventId,
-            eventDatetime: event.eventDatetime,
-            eventEndtime: event.eventEndtime,
-            attendeeCount: event.attendeeCount ?? 0,
-            myTickets: event.myTickets ?? 0,
-            capacity: event.capacity ?? null,
-            occurrenceIndex: event.occurrenceIndex ?? null,
-          },
-        ];
-  const [selectedEventId, setSelectedEventId] = useState(
-    occurrenceOptions[0]?.eventId ?? event.eventId,
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const decodedSelectedFromQuery = useMemo(() => {
+    const q = searchParams.get("occurrence");
+    if (!q) return null;
+    try {
+      return decodeURIComponent(q);
+    } catch {
+      return null;
+    }
+  }, [searchParams]);
+
+  const occurrenceOptions = useMemo(
+    () =>
+      occurrences.length > 0
+        ? occurrences
+        : [
+            {
+              eventId: event.eventId,
+              eventDatetime: event.eventDatetime,
+              eventEndtime: event.eventEndtime,
+              attendeeCount: event.attendeeCount ?? 0,
+              myTickets: event.myTickets ?? 0,
+              capacity: event.capacity ?? null,
+              occurrenceIndex: event.occurrenceIndex ?? null,
+            },
+          ],
+    [event, occurrences],
   );
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (decodedSelectedFromQuery && occurrenceOptions.some((o) => o.eventId === decodedSelectedFromQuery))
+      return decodedSelectedFromQuery;
+    return occurrenceOptions[0]?.eventId ?? event.eventId;
+  });
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -48,8 +75,6 @@ export default function RegisterPanel({
     occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
   );
   const [userId, setUserId] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   const selectedOccurrence =
     occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ??
@@ -57,38 +82,42 @@ export default function RegisterPanel({
   const selectedEndtime =
     selectedOccurrence?.eventEndtime ?? event.eventEndtime;
   const selectedCapacity = selectedOccurrence?.capacity ?? event.capacity;
-  const selectedAttendeeCount =
-    selectedOccurrence?.attendeeCount ?? event.attendeeCount ?? 0;
   const remaining =
-    selectedCapacity != null
-      ? Math.max(selectedCapacity - selectedAttendeeCount, 0)
-      : Infinity;
+    selectedCapacity != null ? Math.max(selectedCapacity, 0) : Infinity;
   const maxQty = Math.min(20, remaining || 20);
   const soldOutForSelection =
     selectedCapacity != null ? remaining <= 0 : isSoldOut;
 
-  const fetchMyTickets = async (uid: string, targetEventId: string) => {
-    try {
-      const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setMyTickets(data.event?.myTickets ?? 0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  useEffect(() => {
+    if (!decodedSelectedFromQuery) return;
+    const exists = occurrenceOptions.some(
+      (entry) => entry.eventId === decodedSelectedFromQuery,
+    );
+    if (!exists) return;
+    setSelectedEventId(decodedSelectedFromQuery);
+  }, [decodedSelectedFromQuery, occurrenceOptions]);
+
+  const fetchMyTickets = useCallback(
+    async (uid: string, targetEventId: string) => {
+      try {
+        const res = await fetch(`/api/events/${targetEventId}?userId=${uid}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setMyTickets(data.event?.myTickets ?? 0);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     authClient.getSession().then((session) => {
       const id = session.data?.user?.id ?? null;
       setUserId(id);
-      if (id) {
-        fetchMyTickets(id, selectedEventId);
-      }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -97,8 +126,7 @@ export default function RegisterPanel({
       return;
     }
     fetchMyTickets(userId, selectedEventId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEventId, userId]);
+  }, [selectedEventId, userId, fetchMyTickets, selectedOccurrence?.myTickets]);
 
   useEffect(() => {
     if (!userId) {
@@ -107,22 +135,48 @@ export default function RegisterPanel({
     }
     const loadSaved = async () => {
       try {
-        const res = await fetch("/api/profile/saved-events", { cache: "no-store" });
+        const res = await fetch("/api/profile/saved-events", {
+          cache: "no-store",
+        });
         if (!res.ok) return;
         const data = await res.json();
         const items = Array.isArray(data?.items) ? data.items : [];
-        setIsSaved(items.some((item: { eventId?: string }) => item.eventId === selectedEventId));
-      } catch {
-        // silent
+        setIsSaved(
+          items.some(
+            (item: { eventId?: string }) => item.eventId === selectedEventId,
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to load saved events:", err);
       }
     };
     void loadSaved();
   }, [selectedEventId, userId]);
 
+  const paymentProvider = useMemo(
+    () =>
+      searchParams.get("payment") ?? searchParams.get("amp;payment"),
+    [searchParams],
+  );
+  const txRef = useMemo(
+    () =>
+      searchParams.get("tx_ref") ??
+      searchParams.get("txRef") ??
+      searchParams.get("amp;tx_ref") ??
+      searchParams.get("amp%3Btx_ref"),
+    [searchParams],
+  );
+
+  const confirmedTxRefRef = useRef<string | null>(null);
+
   useEffect(() => {
-    const paymentProvider = searchParams.get("payment");
-    const txRef = searchParams.get("tx_ref");
-    if (!userId || paymentProvider !== "chapa" || !txRef) return;
+    if (!userId || paymentProvider !== "chapa" || !txRef) {
+      setConfirmingPayment(false);
+      confirmedTxRefRef.current = null;
+      return;
+    }
+    if (confirmedTxRefRef.current === txRef) return;
+    confirmedTxRefRef.current = txRef;
 
     let cancelled = false;
     const confirmPayment = async () => {
@@ -137,18 +191,19 @@ export default function RegisterPanel({
         }
         if (!cancelled) {
           toast.success("Payment confirmed. Ticket added.");
-          router.replace(`/events/${event.eventId}`);
+          const returnEventId =
+            decodedSelectedFromQuery && occurrenceOptions.some(
+              (entry) => entry.eventId === decodedSelectedFromQuery,
+            )
+              ? decodedSelectedFromQuery
+              : selectedEventId;
+          const encodedOccurrence = encodeURIComponent(returnEventId);
+          router.replace(`/events/${returnEventId}?occurrence=${encodedOccurrence}`);
           router.refresh();
         }
       } catch (err) {
-        const maybeAxiosError = err as {
-          response?: { data?: { error?: string } };
-        };
         if (!cancelled) {
-          toast.error(
-            maybeAxiosError?.response?.data?.error ??
-              "Unable to confirm payment",
-          );
+          toast.error(getErrorMessage(err) || "Unable to confirm payment");
         }
       } finally {
         if (!cancelled) {
@@ -161,11 +216,21 @@ export default function RegisterPanel({
     return () => {
       cancelled = true;
     };
-  }, [event.eventId, router, searchParams, userId]);
+  }, [
+    decodedSelectedFromQuery,
+    occurrenceOptions,
+    router,
+    paymentProvider,
+    txRef,
+    selectedEventId,
+    userId,
+  ]);
 
   const handleRegister = async () => {
     if (!userId) {
-      toast.error("Please sign in to register.");
+      const redirect =
+        pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.push(`/auth/sign-in?redirect=${encodeURIComponent(redirect)}`);
       return;
     }
     if (selectedEndtime && new Date(selectedEndtime) <= new Date()) {
@@ -187,6 +252,7 @@ export default function RegisterPanel({
         if (!checkoutUrl) {
           throw new Error("Checkout URL was not returned");
         }
+        setLoading(false);
         window.location.href = checkoutUrl;
         return;
       }
@@ -199,12 +265,7 @@ export default function RegisterPanel({
       setMyTickets((prev) => prev + qty);
       router.refresh();
     } catch (err) {
-      const maybeAxiosError = err as {
-        response?: { data?: { error?: string } };
-      };
-      toast.error(
-        maybeAxiosError?.response?.data?.error ?? "Failed to register",
-      );
+      toast.error(getErrorMessage(err) || "Failed to register");
     } finally {
       setLoading(false);
     }
@@ -226,8 +287,7 @@ export default function RegisterPanel({
       setIsSaved(!isSaved);
       toast.success(isSaved ? "Event removed from saved list" : "Event saved");
     } catch (err) {
-      const maybeErr = err as Error;
-      toast.error(maybeErr.message || "Save action failed");
+      toast.error(getErrorMessage(err) || "Save action failed");
     }
   };
 
@@ -235,9 +295,7 @@ export default function RegisterPanel({
     <Card className="space-y-4 rounded-3xl bg-[#0f2235] p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="heading-kicker">
-            Tickets
-          </p>
+          <p className="heading-kicker">Tickets</p>
           <h3 className="text-lg font-semibold text-white">Register to play</h3>
         </div>
         <Badge className="bg-white/10 text-xs text-[#b9cde4]">
@@ -265,7 +323,11 @@ export default function RegisterPanel({
         <div className="flex items-center justify-between">
           <span>Available</span>
           <span>
-            {remaining === Infinity ? "No limit" : `${remaining} seats`}
+            {soldOutForSelection
+              ? "Sold out"
+              : remaining === Infinity
+                ? "No limit"
+                : `${remaining} seats`}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -279,9 +341,12 @@ export default function RegisterPanel({
             min={1}
             max={maxQty}
             value={qty}
-            onChange={(e) =>
-              setQty(Math.max(1, Math.min(maxQty, Number(e.target.value))))
-            }
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              setQty(
+                Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
+              );
+            }}
             className="w-24 bg-[#0a1927] text-right"
           />
         </div>

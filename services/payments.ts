@@ -61,10 +61,8 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
     throw new Error("This event does not require payment");
   }
 
-  const currentCount = await prisma.eventAttendee.count({
-    where: { eventId: payload.eventId },
-  });
-  if (event.capacity != null && currentCount + payload.quantity > event.capacity) {
+  // capacity in DB is remaining seats (decremented on registration)
+  if (event.capacity != null && payload.quantity > event.capacity) {
     throw new Error("Not enough seats available");
   }
 
@@ -164,7 +162,12 @@ export async function confirmChapaPayment(payload: ConfirmPayload) {
 
   if (!payment) throw new Error("Payment not found");
   if (payment.status === PaymentStatus.succeeded) {
-    return { ok: true, alreadyConfirmed: true as const, quantity: 0 };
+    return {
+      ok: true,
+      alreadyConfirmed: true as const,
+      quantity: 0,
+      eventId: payment.eventId,
+    };
   }
 
   const secretKey = getChapaSecretKey();
@@ -207,10 +210,8 @@ export async function confirmChapaPayment(payload: ConfirmPayload) {
     throw new Error("Event has ended");
   }
 
-  const currentCount = await prisma.eventAttendee.count({
-    where: { eventId: payment.eventId },
-  });
-  if (payment.event.capacity != null && currentCount + quantity > payment.event.capacity) {
+  // capacity in DB is remaining seats (decremented on registration)
+  if (payment.event.capacity != null && quantity > payment.event.capacity) {
     throw new Error("Not enough seats available");
   }
 
@@ -220,6 +221,19 @@ export async function confirmChapaPayment(payload: ConfirmPayload) {
       select: { status: true },
     });
     if (!latest || latest.status === PaymentStatus.succeeded) return;
+
+    if (payment.event.capacity != null) {
+      const updated = await tx.event.updateMany({
+        where: {
+          eventId: payment.eventId,
+          capacity: { gte: quantity },
+        },
+        data: {
+          capacity: { decrement: quantity },
+        },
+      });
+      if (updated.count === 0) throw new Error("Not enough seats available");
+    }
 
     await tx.eventAttendee.createMany({
       data: Array.from({ length: quantity }).map(() => ({
@@ -235,5 +249,10 @@ export async function confirmChapaPayment(payload: ConfirmPayload) {
     });
   });
 
-  return { ok: true, alreadyConfirmed: false as const, quantity };
+  return {
+    ok: true,
+    alreadyConfirmed: false as const,
+    quantity,
+    eventId: payment.eventId,
+  };
 }

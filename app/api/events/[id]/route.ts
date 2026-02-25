@@ -1,7 +1,10 @@
 "use server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { sendTicketConfirmationEmail } from "@/services/email";
 
 export async function GET(
   request: Request,
@@ -105,8 +108,18 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const session = await requireSessionUser();
+  if (!session.user || session.response) return session.response!;
+
   const { id } = await params;
-  const { quantity, userId } = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { quantity, userId } = body;
   const qty = Number(quantity) || 1;
 
   const isUuid =
@@ -116,6 +129,9 @@ export async function POST(
       { error: "Valid userId required" },
       { status: 400 },
     );
+  if (userId !== session.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (qty < 1 || qty > 20)
     return NextResponse.json(
       { error: "Quantity must be between 1 and 20" },
@@ -130,10 +146,7 @@ export async function POST(
     return NextResponse.json({ error: "Event has ended" }, { status: 400 });
   }
 
-  const currentCount = await prisma.eventAttendee.count({
-    where: { eventId: id },
-  });
-  if (event.capacity != null && currentCount + qty > event.capacity) {
+  if (event.capacity != null && qty > event.capacity) {
     return NextResponse.json(
       { error: "Not enough seats available" },
       { status: 400 },
@@ -146,9 +159,49 @@ export async function POST(
     status: "RSVPed" as const,
   }));
 
-  await prisma.eventAttendee.createMany({ data: rows });
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (event.capacity != null) {
+        const updated = await tx.event.updateMany({
+          where: {
+            eventId: id,
+            capacity: { gte: qty },
+          },
+          data: {
+            capacity: { decrement: qty },
+          },
+        });
+        if (updated.count === 0) throw new Error("Not enough seats available");
+      }
 
-  const updatedCount = currentCount + qty;
+      await tx.eventAttendee.createMany({ data: rows });
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to register";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  const updatedCount = await prisma.eventAttendee.count({ where: { eventId: id } });
+
+  revalidatePath(`/events/${id}`);
+  revalidatePath("/events");
+
+  if (session.user.email) {
+    const decodedLocation = decodeEventLocation(event.eventLocation);
+    try {
+      await sendTicketConfirmationEmail({
+        to: session.user.email,
+        buyerName: session.user.name ?? null,
+        eventName: event.eventName,
+        eventDateTime: event.eventDatetime,
+        eventEndTime: event.eventEndtime,
+        locationLabel: decodedLocation.addressLabel,
+        quantity: qty,
+      });
+    } catch (error) {
+      console.error("Failed to send ticket confirmation email:", error);
+    }
+  }
 
   return NextResponse.json(
     { ok: true, attendeeCount: updatedCount },

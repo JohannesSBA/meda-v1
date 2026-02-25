@@ -59,10 +59,9 @@ export function EventCard({
       ? "Free"
       : `ETB ${event.priceField}`;
 
+  // capacity in the Event model is remaining seats (decremented on registration)
   const slotsLeft =
-    event.capacity != null && event.attendeeCount != null
-      ? Math.max(event.capacity - event.attendeeCount, 0)
-      : event.capacity ?? null;
+    event.capacity != null ? Math.max(0, event.capacity) : null;
 
   return (
     <Link
