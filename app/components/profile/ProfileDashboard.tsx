@@ -112,6 +112,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [seriesCount, setSeriesCount] = useState<number>(1);
   const [savingEvent, setSavingEvent] = useState(false);
+  const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
 
   const savedIds = useMemo(
     () => new Set(savedEvents.map((event) => event.eventId)),
@@ -265,6 +266,28 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Save action failed",
+      );
+    }
+  };
+
+  const handleShareLink = async (eventId: string) => {
+    try {
+      const res = await fetch("/api/tickets/share/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Unable to create share link");
+      const shareUrl = String(data?.shareUrl ?? "");
+      if (!shareUrl) throw new Error("Share link was not returned");
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedEventId(eventId);
+      window.setTimeout(() => setCopiedEventId(null), 1500);
+      toast.success("Share link copied");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to create share link",
       );
     }
   };
@@ -501,6 +524,24 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           >
                             View
                           </Link>
+                          {event.ticketCount > 1 ? (
+                            <>
+                              <Button
+                                type="button"
+                                onClick={() => void handleShareLink(event.eventId)}
+                                variant="secondary"
+                                size="sm"
+                                className="rounded-lg"
+                              >
+                                Share link
+                              </Button>
+                              {copiedEventId === event.eventId ? (
+                                <span className="self-center text-xs text-[#22FF88]">
+                                  Copied
+                                </span>
+                              ) : null}
+                            </>
+                          ) : null}
                           <Button
                             type="button"
                             onClick={() =>

@@ -17,6 +17,7 @@ type HeaderNavProps = {
 
 const navItems = [
   { href: "/events", label: "Events", requiresAdmin: false },
+  { href: "/my-events", label: "My Events", requiresAdmin: false },
   { href: "/create-events", label: "Create Event", requiresAdmin: true },
   { href: "/profile", label: "Profile", requiresAdmin: false },
 ];

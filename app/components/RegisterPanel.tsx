@@ -74,6 +74,10 @@ export default function RegisterPanel({
   const [loading, setLoading] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [remainingClaims, setRemainingClaims] = useState<number>(0);
+  const [shareCopied, setShareCopied] = useState(false);
   const [myTickets, setMyTickets] = useState<number>(
     occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
   );
@@ -90,6 +94,7 @@ export default function RegisterPanel({
   const maxQty = Math.min(20, remaining || 20);
   const soldOutForSelection =
     selectedCapacity != null ? remaining <= 0 : isSoldOut;
+  const canShareTickets = myTickets > 1;
 
   useEffect(() => {
     if (!decodedSelectedFromQuery) return;
@@ -124,12 +129,41 @@ export default function RegisterPanel({
   }, []);
 
   useEffect(() => {
+    setShareUrl(null);
+    setRemainingClaims(0);
+    setShareCopied(false);
+  }, [selectedEventId]);
+
+  useEffect(() => {
     if (!userId) {
       setMyTickets(selectedOccurrence?.myTickets ?? 0);
       return;
     }
     fetchMyTickets(userId, selectedEventId);
   }, [selectedEventId, userId, fetchMyTickets, selectedOccurrence?.myTickets]);
+
+  const generateShareLink = useCallback(
+    async (targetEventId: string) => {
+      if (!userId) return;
+      setShareLoading(true);
+      try {
+        const res = await fetch("/api/tickets/share/create", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ eventId: targetEventId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Unable to create share link");
+        setShareUrl(data.shareUrl ?? null);
+        setRemainingClaims(Number(data.remainingClaims) || 0);
+      } catch (err) {
+        toast.error(getErrorMessage(err) || "Unable to create share link");
+      } finally {
+        setShareLoading(false);
+      }
+    },
+    [userId],
+  );
 
   useEffect(() => {
     if (!userId) {
@@ -191,7 +225,18 @@ export default function RegisterPanel({
         });
         const addedTickets = Number(response.data?.quantity) || 0;
         if (!cancelled && addedTickets > 0) {
-          setMyTickets((prev) => prev + addedTickets);
+          const nextTicketCount = myTickets + addedTickets;
+          setMyTickets(nextTicketCount);
+          if (nextTicketCount > 1) {
+            const targetEventId =
+              decodedSelectedFromQuery &&
+              occurrenceOptions.some(
+                (entry) => entry.eventId === decodedSelectedFromQuery,
+              )
+                ? decodedSelectedFromQuery
+                : selectedEventId;
+            void generateShareLink(targetEventId);
+          }
         }
         if (!cancelled) {
           toast.success("Payment confirmed. Ticket added.", {
@@ -227,6 +272,8 @@ export default function RegisterPanel({
     };
   }, [
     decodedSelectedFromQuery,
+    generateShareLink,
+    myTickets,
     occurrenceOptions,
     router,
     paymentProvider,
@@ -274,13 +321,29 @@ export default function RegisterPanel({
         userId,
       });
       toast.success("Registered!");
-      setMyTickets((prev) => prev + qty);
+      const nextTicketCount = myTickets + qty;
+      setMyTickets(nextTicketCount);
+      if (nextTicketCount > 1) {
+        void generateShareLink(selectedEventId);
+      }
       router.refresh();
     } catch (err) {
       toast.error(getErrorMessage(err) || "Failed to register");
     } finally {
       setLoading(false);
       registerSubmittingRef.current = false;
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      window.setTimeout(() => setShareCopied(false), 1500);
+      toast.success("Share link copied");
+    } catch {
+      toast.error("Unable to copy share link");
     }
   };
 
@@ -322,7 +385,7 @@ export default function RegisterPanel({
         </Badge>
       </div>
 
-      <div className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+      <div className="space-y-2 text-sm text-(--color-text-secondary)">
         {occurrenceOptions.length > 1 ? (
           <div className="flex items-center justify-between gap-4">
             <span>Date</span>
@@ -391,6 +454,63 @@ export default function RegisterPanel({
         </Button>
       </div>
 
+      {canShareTickets ? (
+        <Card className="space-y-3 rounded-2xl border border-(--color-border) bg-[#0a1927] p-4">
+          <div>
+            <p className="text-sm font-semibold text-white">Share your extra tickets</p>
+            <p className="text-xs text-(--color-text-secondary)">
+              Friends can claim up to{" "}
+              {shareUrl ? remainingClaims : myTickets - 1} ticket
+              {(shareUrl ? remainingClaims : myTickets - 1) === 1 ? "" : "s"} from
+              this link.
+            </p>
+          </div>
+          {shareLoading ? (
+            <p className="text-xs text-(--color-text-secondary)">
+              Generating link...
+            </p>
+          ) : shareUrl ? (
+            <div className="space-y-2">
+              <Input
+                value={shareUrl}
+                readOnly
+                className="bg-[#06111c] text-xs text-(--color-text-primary)"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 rounded-full px-4"
+                  onClick={handleCopyShareLink}
+                >
+                  Copy link
+                </Button>
+                {shareCopied ? (
+                  <span className="self-center text-xs text-[#22FF88]">Copied</span>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 rounded-full px-4"
+                  onClick={() => void generateShareLink(selectedEventId)}
+                >
+                  Regenerate
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-9 rounded-full px-4"
+              onClick={() => void generateShareLink(selectedEventId)}
+            >
+              Generate share link
+            </Button>
+          )}
+        </Card>
+      ) : null}
+
       <Button
         type="button"
         onClick={handleToggleSave}
@@ -400,7 +520,7 @@ export default function RegisterPanel({
         {isSaved ? "Remove from saved" : "Save event"}
       </Button>
 
-      <p className="text-xs text-[var(--color-text-muted)]">
+      <p className="text-xs text-(--color-text-muted)">
         All reservations are final.
       </p>
     </Card>

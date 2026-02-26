@@ -108,14 +108,30 @@ model Invitation {
   userId        String           @map("user_id") @db.Uuid
   expiresAt     DateTime         @map("expires_at") @db.Timestamptz(6)
   tokenHash     String           @unique @db.VarChar(64) @map("token_hash")
+  maxClaims     Int              @default(0) @map("max_claims")
+  claimedCount  Int              @default(0) @map("claimed_count")
   status        InvitationStatus
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   event         Event           @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  claims        InvitationClaim[]
 
   @@map("invitations")
+}
+
+model InvitationClaim {
+  invitationClaimId String     @id @default(uuid()) @db.Uuid @map("invitation_claim_id")
+  invitationId      String     @map("invitation_id") @db.Uuid
+  claimedByUserId   String     @map("claimed_by_user_id") @db.Uuid
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  invitation        Invitation @relation(fields: [invitationId], references: [invitationId], onDelete: Cascade)
+
+  @@unique([invitationId, claimedByUserId])
+  @@map("invitation_claims")
 }
 
 model Payment {
