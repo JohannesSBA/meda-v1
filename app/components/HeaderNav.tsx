@@ -59,13 +59,13 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
       >
         Skip to main content
       </a>
-      <header className="fixed left-0 right-0 top-0 z-50  bg-[rgba(5,13,23,0.82)] backdrop-blur">
+      <header className="fixed left-0 right-0 top-0 z-50 bg-white/90 backdrop-blur border-b border-[var(--color-border)]">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/"
             className="flex items-center gap-3 font-semibold text-[var(--color-text-primary)]"
           >
-            <Image src="/logo-white.svg" alt="Meda" width={50} height={50} />
+            <Image src="/logo.png" alt="Meda" width={50} height={50} />
             {/* <span className="hidden text-sm tracking-wide sm:inline">MEDA</span> */}
           </Link>
 
@@ -99,7 +99,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
               </button>
             )}
 
-            <UserButton size="icon" className="text-white" />
+            <UserButton size="icon" className="text-[var(--color-text-primary)]" />
           </div>
         </div>
 
@@ -107,7 +107,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
           <div
             className={`md:hidden ${
               isOpen
-                ? "max-h-48 border-t border-[var(--color-border)] bg-[rgba(7,20,33,0.95)] shadow-sm"
+                ? "max-h-48 border-t border-[var(--color-border)] bg-white shadow-sm"
                 : "max-h-0 border-t border-transparent bg-transparent"
             } overflow-hidden transition-all duration-200`}
           >

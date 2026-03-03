@@ -9,13 +9,13 @@ export const buttonBaseClass =
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-alt)] text-[var(--color-brand-text)] shadow-[0_8px_30px_rgba(0,229,255,0.24)] hover:brightness-110",
+    "bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-alt)] text-[var(--color-brand-text)] shadow-[0_8px_30px_rgba(34,255,136,0.25)] hover:brightness-110",
   secondary:
     "border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-alt)] hover:text-[var(--color-brand-alt)]",
   ghost:
     "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]",
   danger:
-    "border border-red-300/40 bg-red-500/10 text-red-100 hover:border-red-300/80",
+    "border border-red-300/60 bg-red-500/10 text-red-700 hover:border-red-400",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

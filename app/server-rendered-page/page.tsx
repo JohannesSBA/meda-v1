@@ -11,7 +11,7 @@ export default async function ServerRenderedPage() {
   return (
     <PageShell containerClassName="mx-auto max-w-3xl px-4 py-10">
       <Card className="space-y-4 p-6">
-        <h1 className="text-2xl font-semibold">Server Rendered Page</h1>
+        <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Server Rendered Page</h1>
 
         <p className="muted-copy">
           Authenticated:{" "}

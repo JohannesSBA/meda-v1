@@ -368,17 +368,17 @@ export default function CreateEventForm({
   return (
     <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
       <form
-        className="relative z-20 space-y-7 rounded-2xl border border-white/6 bg-[#0f1f2d]/80 px-6 py-8 shadow-xl shadow-black/30 backdrop-blur"
+        className="relative z-20 space-y-7 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-8 shadow-xl shadow-black/10 backdrop-blur"
         onSubmit={handleSubmit}
       >
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.18em] text-[#7ccfff]">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-brand)]">
               Event basics
             </p>
-            <h2 className="text-xl font-semibold text-white">Details</h2>
+            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Details</h2>
           </div>
-          <Badge className="bg-white/10 text-xs text-[#b9cde4]">
+          <Badge className="bg-[var(--color-surface-2)] text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)]">
             TZ: {timezone || "Auto"}
           </Badge>
         </div>
@@ -387,7 +387,7 @@ export default function CreateEventForm({
           <div className="md:col-span-2">
             <label
               htmlFor="eventName"
-              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
             >
               Event name
             </label>
@@ -397,7 +397,7 @@ export default function CreateEventForm({
               name="eventName"
               required
               placeholder="e.g. Friday Night 5v5"
-              className="h-12 bg-[#112030] px-4"
+              className="h-12 bg-white px-4"
               value={form.eventName}
               onChange={handleChange}
             />
@@ -406,14 +406,14 @@ export default function CreateEventForm({
           <div>
             <label
               htmlFor="category"
-              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
             >
               Category
             </label>
             <Select
               id="category"
               name="categoryId"
-              className="h-12 bg-[#112030] px-4"
+              className="h-12 bg-white px-4"
               value={form.categoryId}
               onChange={handleChange}
             >
@@ -428,7 +428,7 @@ export default function CreateEventForm({
           <div>
             <label
               htmlFor="price"
-              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
             >
               Price (ETB)
             </label>
@@ -439,28 +439,28 @@ export default function CreateEventForm({
               min="0"
               step="1"
               placeholder="0 for free"
-              className="h-12 bg-[#112030] px-4"
+              className="h-12 bg-white px-4"
               value={form.price}
               onChange={handleChange}
             />
           </div>
         </div>
 
-        <div className="space-y-4 rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/20">
+        <div className="space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 shadow-inner">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Schedule</p>
-              <p className="text-xs text-[#7aa8c6]">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Schedule</p>
+              <p className="text-xs text-[var(--color-text-muted)]">
                 Choose date and time in your local timezone
               </p>
             </div>
-            <span className="text-xs text-[#7aa8c6]">
+            <span className="text-xs text-[var(--color-text-muted)]">
               Local: {timezone || "device"}
             </span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
-              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
+            <div className="space-y-2 rounded-xl border border-[var(--color-border)] bg-white p-3">
+              <p className="text-xs uppercase tracking-wider text-[var(--color-brand)]">
                 Starts
               </p>
               <EventDateTimePicker
@@ -480,8 +480,8 @@ export default function CreateEventForm({
                 minDate={startMinDate}
               />
             </div>
-            <div className="space-y-2 rounded-xl border border-white/10 bg-[#112030] p-3">
-              <p className="text-xs uppercase tracking-wider text-[#7ccfff]">
+            <div className="space-y-2 rounded-xl border border-[var(--color-border)] bg-white p-3">
+              <p className="text-xs uppercase tracking-wider text-[var(--color-brand)]">
                 Ends
               </p>
               <EventDateTimePicker
@@ -504,17 +504,17 @@ export default function CreateEventForm({
           </div>
         </div>
 
-        <div className="space-y-4 rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/20">
+        <div className="space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 shadow-inner">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Recurring event
               </p>
-              <p className="text-xs text-[#7aa8c6]">
+              <p className="text-xs text-[var(--color-text-muted)]">
                 Repeat this event daily, weekly, or custom weekdays.
               </p>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm text-[#c7d9eb]">
+            <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
               <input
                 type="checkbox"
                 checked={form.isRecurring}
@@ -532,14 +532,14 @@ export default function CreateEventForm({
           {form.isRecurring ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
                   Frequency
                 </label>
                 <Select
                   name="recurrenceFrequency"
                   value={form.recurrenceFrequency}
                   onChange={handleChange}
-                  className="h-12 bg-[#112030] px-4"
+                  className="h-12 bg-white px-4"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -547,7 +547,7 @@ export default function CreateEventForm({
                 </Select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
                   Every
                 </label>
                 <div className="flex items-center gap-2">
@@ -557,7 +557,7 @@ export default function CreateEventForm({
                     name="recurrenceInterval"
                     value={form.recurrenceInterval}
                     onChange={handleChange}
-                    className="h-12 w-24 bg-[#112030] px-4"
+                    className="h-12 w-24 bg-white px-4"
                   />
                   <span className="text-sm text-[#9fc4e4]">
                     {form.recurrenceFrequency === "daily"
@@ -569,7 +569,7 @@ export default function CreateEventForm({
 
               {form.recurrenceFrequency === "custom" ? (
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-[#b9cde4]">
+                  <label className="mb-2 block text-sm font-medium text-[var(--color-text-secondary)]">
                     On weekdays
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -604,7 +604,7 @@ export default function CreateEventForm({
                           className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                             isSelected
                               ? "border-[#22FF88] bg-[#22FF88]/20 text-[#bfffe0]"
-                              : "border-white/15 bg-white/5 text-[#b9cde4] hover:border-[#22FF88]/60"
+                              : "border-[var(--color-border)] bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:border-[#22FF88]/60"
                           }`}
                         >
                           {day.label}
@@ -616,7 +616,7 @@ export default function CreateEventForm({
               ) : null}
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#b9cde4]">
+                <label className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]">
                   Repeat until
                 </label>
                 <Input
@@ -624,7 +624,7 @@ export default function CreateEventForm({
                   name="recurrenceUntil"
                   value={form.recurrenceUntil}
                   onChange={handleChange}
-                  className="h-12 bg-[#112030] px-4"
+                  className="h-12 bg-white px-4"
                 />
               </div>
             </div>
@@ -634,7 +634,7 @@ export default function CreateEventForm({
         <div>
           <label
             htmlFor="description"
-            className="mb-1 block text-sm font-medium text-[#b9cde4]"
+            className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
           >
             Description
           </label>
@@ -643,20 +643,20 @@ export default function CreateEventForm({
             name="description"
             rows={4}
             placeholder="Format, skill level, what to bring, etc."
-            className="bg-[#112030] px-4 py-3"
+            className="bg-white px-4 py-3"
             value={form.description}
             onChange={handleChange}
           />
-          <div className="mt-1 text-xs text-[#7aa8c6]">
+          <div className="mt-1 text-xs text-[var(--color-text-muted)]">
             Keep it crisp. Players decide fast.
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/8 bg-[#0f2336] p-4 shadow-inner shadow-black/30">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 shadow-inner">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-white">Location</p>
-              <p className="text-xs text-[#7aa8c6]">
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Location</p>
+              <p className="text-xs text-[var(--color-text-muted)]">
                 Searchable label + precise pin
               </p>
             </div>
@@ -678,7 +678,7 @@ export default function CreateEventForm({
               name="location"
               placeholder="e.g. Gulele Stadium"
               required
-              className="h-12 bg-[#112030] px-4"
+              className="h-12 bg-white px-4"
               value={form.location}
               onChange={handleChange}
             />
@@ -695,12 +695,12 @@ export default function CreateEventForm({
               }
             />
 
-            <div className="grid gap-3 sm:grid-cols-2 text-xs text-[#9fc4e4]">
-              <div className="rounded-lg border border-white/8 bg-[#0f1f2d] px-3 py-2">
-                <span className="text-[#7ccfff]">Lat</span>: {form.latitude}
+            <div className="grid gap-3 sm:grid-cols-2 text-xs text-[var(--color-text-muted)]">
+              <div className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
+                <span className="text-[var(--color-brand)]">Lat</span>: {form.latitude}
               </div>
-              <div className="rounded-lg border border-white/8 bg-[#0f1f2d] px-3 py-2">
-                <span className="text-[#7ccfff]">Lng</span>: {form.longitude}
+              <div className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2">
+                <span className="text-[var(--color-brand)]">Lng</span>: {form.longitude}
               </div>
             </div>
           </div>
@@ -710,7 +710,7 @@ export default function CreateEventForm({
           <div>
             <label
               htmlFor="capacity"
-              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
             >
               Capacity
             </label>
@@ -720,7 +720,7 @@ export default function CreateEventForm({
               name="capacity"
               min="1"
               placeholder="eg. 10"
-              className="h-12 bg-[#112030] px-4"
+              className="h-12 bg-white px-4"
               value={form.capacity}
               onChange={handleChange}
             />
@@ -728,7 +728,7 @@ export default function CreateEventForm({
           <div>
             <label
               htmlFor="image"
-              className="mb-1 block text-sm font-medium text-[#b9cde4]"
+              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
             >
               Event image (≤6MB)
             </label>
@@ -737,11 +737,11 @@ export default function CreateEventForm({
               id="image"
               name="image"
               accept="image/*"
-              className="block w-full text-[#b9cde4]"
+              className="block w-full text-[var(--color-text-secondary)]"
               onChange={handleImageChange}
             />
             {form.imagePreview && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-white/8 bg-[#0f1f2a]">
+              <div className="mt-2 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]">
                 <Image
                   src={form.imagePreview}
                   alt="Event Preview"
@@ -756,7 +756,7 @@ export default function CreateEventForm({
 
         <div>
           {mode === "edit" && form.isRecurring && initialEvent?.seriesId ? (
-            <div className="mb-3 space-y-2 rounded-xl border border-white/10 bg-[#0f1f2d] p-3 text-sm text-[#c4d8ef]">
+            <div className="mb-3 space-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 text-sm text-[var(--color-text-secondary)]">
               <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -766,7 +766,7 @@ export default function CreateEventForm({
                 Apply edits to all occurrences in this series
               </label>
               {applyToSeries ? (
-                <p className="text-xs text-[#9fc4e4]">
+                <p className="text-xs text-[var(--color-text-muted)]">
                   This will update {initialEvent.seriesCount ?? 1} occurrence
                   {(initialEvent.seriesCount ?? 1) === 1 ? "" : "s"}.
                 </p>
@@ -785,35 +785,35 @@ export default function CreateEventForm({
         </div>
       </form>
 
-      <Card className="relative z-10 space-y-4 rounded-2xl bg-[#0d1d2e]/70 p-6 backdrop-blur">
+      <Card className="relative z-10 space-y-4 rounded-2xl bg-[var(--color-surface)] p-6 backdrop-blur border border-[var(--color-border)]">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#7ccfff]">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-brand)]">
             Live preview
           </p>
-          <div className="rounded-2xl border border-white/10 bg-linear-to-br from-[#0f2235] to-[#0b1624] p-5 shadow-lg shadow-black/30">
-            <div className="flex items-center justify-between text-xs text-[#9fc4e4]">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-5 shadow-lg shadow-black/10">
+            <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)]">
               <span>{preview.date}</span>
-              <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#22FF88]">
+              <span className="rounded-full bg-[#22ff88]/15 px-2 py-1 text-[11px] text-[#22FF88]">
                 {preview.price}
               </span>
             </div>
-            <h3 className="mt-3 text-lg font-semibold text-white">
+            <h3 className="mt-3 text-lg font-semibold text-[var(--color-text-primary)]">
               {preview.title}
             </h3>
-            <p className="mt-1 text-sm text-[#9fc4e4]">{preview.location}</p>
-            <div className="mt-3 flex items-center gap-2 text-xs text-[#7aa8c6]">
-              <span className="rounded-full bg-white/5 px-2 py-1">
+            <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{preview.location}</p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+              <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
                 Capacity: {preview.capacity}
               </span>
-              <span className="rounded-full bg-white/5 px-2 py-1">
+              <span className="rounded-full bg-[var(--color-surface)] px-2 py-1">
                 TZ: {timezone || "local"}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/8 bg-[#0f2235] p-4 text-sm text-[#b9cde4] shadow-inner shadow-black/20">
-          <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[#7ccfff]">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 text-sm text-[var(--color-text-secondary)] shadow-inner">
+          <p className="mb-2 text-xs uppercase tracking-[0.14em] text-[var(--color-brand)]">
             Tips
           </p>
           <ul className="space-y-2 list-disc pl-4">
@@ -914,9 +914,9 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
 
   if (!token) {
     return (
-      <div className="rounded-lg border border-[#22344a] bg-[#0f1f2f] p-4 text-sm text-[#b9cde4]">
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 text-sm text-[var(--color-text-secondary)]">
         Set{" "}
-        <code className="text-[#89e7ff]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code>{" "}
+        <code className="text-[var(--color-brand)]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code>{" "}
         to enable the map picker.
       </div>
     );
@@ -925,25 +925,25 @@ function MapPicker({ latitude, longitude, onChange }: MapPickerProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#89e7ff]">Pin the pitch</h3>
-        <p className="text-xs text-[#b9cde4]">
+        <h3 className="text-sm font-semibold text-[var(--color-brand)]">Pin the pitch</h3>
+        <p className="text-xs text-[var(--color-text-muted)]">
           Click the map or drag the pin to set coordinates.
         </p>
       </div>
       <div
         ref={mapContainerRef}
-        className="h-72 w-full overflow-hidden rounded-lg border border-[#22344a] bg-[#0b1624]"
+        className="h-72 w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)]"
       />
-      <div className="flex gap-3 text-xs text-[#d7e9ff]">
-        <div className="rounded-md bg-[#102033] px-3 py-2">
-          <span className="text-[#89e7ff]">Lat:</span>{" "}
+      <div className="flex gap-3 text-xs text-[var(--color-text-secondary)]">
+        <div className="rounded-md bg-[var(--color-surface-2)] px-3 py-2">
+          <span className="text-[var(--color-brand)]">Lat:</span>{" "}
           {(Number.isFinite(Number(latitude))
             ? Number(latitude)
             : initialCoords[1]
           ).toFixed(6)}
         </div>
-        <div className="rounded-md bg-[#102033] px-3 py-2">
-          <span className="text-[#89e7ff]">Lng:</span>{" "}
+        <div className="rounded-md bg-[var(--color-surface-2)] px-3 py-2">
+          <span className="text-[var(--color-brand)]">Lng:</span>{" "}
           {(Number.isFinite(Number(longitude))
             ? Number(longitude)
             : initialCoords[0]

@@ -67,16 +67,16 @@ export default function MyEventsPanel() {
   }, [status]);
 
   return (
-    <section className="space-y-4 rounded-2xl bg-[#0c1d2e]/80 p-5">
+    <section className="space-y-4 rounded-2xl bg-[var(--color-surface)] p-5 border border-[var(--color-border)]">
       <div className="flex items-center justify-between">
         <div>
           <p className="heading-kicker">Tickets</p>
-          <h1 className="text-2xl font-semibold text-white">My events</h1>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">My events</h1>
         </div>
         <Select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="max-w-[140px] bg-[#0a1927]"
+          className="max-w-[140px] bg-white"
         >
           <option value="upcoming">Upcoming</option>
           <option value="past">Past</option>
@@ -98,22 +98,22 @@ export default function MyEventsPanel() {
       ) : (
         <div className="grid gap-3">
           {items.map((event) => (
-            <Card key={event.eventId} className="rounded-xl bg-[#0a1927] p-4">
+            <Card key={event.eventId} className="rounded-xl bg-[var(--color-surface-2)] p-4 border border-[var(--color-border)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-semibold text-white">{event.eventName}</h2>
-                  <p className="text-xs text-[#9ec0df]">
+                  <h2 className="font-semibold text-[var(--color-text-primary)]">{event.eventName}</h2>
+                  <p className="text-xs text-[var(--color-text-muted)]">
                     {new Date(event.eventDatetime).toLocaleString()} •{" "}
                     {event.addressLabel ?? "Location pending"}
                   </p>
-                  <p className="mt-1 text-xs text-[#9ec0df]">
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                     Tickets: {event.ticketCount} • Price: ETB {event.priceField ?? 0}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Link
                     href={`/events/${event.eventId}`}
-                    className="rounded-lg border border-white/15 px-3 py-1 text-sm text-[#d5e7fb] hover:border-[#22FF88]"
+                    className="rounded-lg border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:border-[#22FF88]"
                   >
                     View
                   </Link>
@@ -122,7 +122,7 @@ export default function MyEventsPanel() {
                       <button
                         type="button"
                         onClick={() => void handleShareLink(event.eventId)}
-                        className="rounded-lg border border-white/15 px-3 py-1 text-sm text-[#d5e7fb] hover:border-[#22FF88]"
+                        className="rounded-lg border border-[var(--color-border)] px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:border-[#22FF88]"
                       >
                         Share link
                       </button>

@@ -23,7 +23,7 @@ export default async function CreateEventsPage() {
         <p className="heading-kicker text-sm tracking-[0.28em]">
           Host a match on MEDA
         </p>
-        <h1 className="mt-4 text-4xl font-bold sm:text-5xl text-white">
+        <h1 className="mt-4 text-4xl font-bold sm:text-5xl text-[var(--color-text-primary)]">
           Create a match and open player slots
         </h1>
         <p className="muted-copy mt-3 text-base">

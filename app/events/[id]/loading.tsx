@@ -11,8 +11,8 @@ export default function EventDetailLoading() {
     <PageShell>
       <div className="relative mx-auto flex max-w-6xl flex-col gap-8">
         <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <Card className="space-y-6 rounded-3xl bg-[#0d1a27]/80 p-6 backdrop-blur">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[#0f2235]/60 p-4">
+          <Card className="space-y-6 rounded-3xl bg-[var(--color-surface)] p-6 backdrop-blur border border-[var(--color-border)]">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
               <EventCardSkeleton />
             </div>
             <article className="space-y-4">
@@ -27,13 +27,13 @@ export default function EventDetailLoading() {
           </Card>
 
           <div className="space-y-4">
-            <Card className="space-y-2 rounded-3xl bg-[#0b1624]/90 p-4">
+            <Card className="space-y-2 rounded-3xl bg-[var(--color-surface)] p-4 border border-[var(--color-border)]">
               <Skeleton className="h-48 w-full rounded-2xl" />
               <div className="flex justify-end">
                 <Skeleton className="h-9 w-32 rounded-full" />
               </div>
             </Card>
-            <Card className="space-y-4 rounded-3xl bg-[#0b1624]/90 p-4">
+            <Card className="space-y-4 rounded-3xl bg-[var(--color-surface)] p-4 border border-[var(--color-border)]">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-3/4" />

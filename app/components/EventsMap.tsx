@@ -135,18 +135,18 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[#c0d5ec]">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--color-text-secondary)]">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-3 w-3 rounded-full bg-[#00E5FF]" /> You
           <span className="inline-flex h-3 w-3 rounded-full bg-[#22FF88]" /> Events
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="radius" className="text-xs text-[#9fb6ce]">Radius (km)</label>
+          <label htmlFor="radius" className="text-xs text-[var(--color-text-muted)]">Radius (km)</label>
           <Select
             id="radius"
             value={radiusKm}
             onChange={(e) => onRadiusChange(Number(e.target.value))}
-            className="h-8 rounded-md border-[#1f3850] bg-[#0f1f2d] px-2 text-xs text-white"
+            className="h-8 rounded-md border-[var(--color-border)] bg-white px-2 text-xs text-[var(--color-text-primary)]"
           >
             {[10, 25, 50, 100].map((r) => (
               <option key={r} value={r}>{r} km</option>
@@ -157,7 +157,7 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
 
       <div
         ref={mapContainer}
-        className="h-80 w-full overflow-hidden rounded-xl border border-[#1f3850] bg-[#0b1624]"
+        className="h-80 w-full overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]"
       />
       <div className="flex justify-center">
         <Button
@@ -171,10 +171,10 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         </Button>
       </div>
       {geoDenied ? (
-        <p className="text-xs text-[#ffb4b4]">Location permission denied. Showing all events.</p>
+        <p className="text-xs text-red-600">Location permission denied. Showing all events.</p>
       ) : null}
       {!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ? (
-        <p className="text-xs text-[#ffb4b4]">Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable the map.</p>
+        <p className="text-xs text-red-600">Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable the map.</p>
       ) : null}
     </div>
   );

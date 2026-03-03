@@ -160,13 +160,13 @@ export default function EventsPage() {
   return (
     <PageShell>
       <div className="relative mx-auto flex max-w-6xl flex-col gap-8">
-        <Card className="flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 backdrop-blur-lg">
+        <Card className="flex flex-col gap-6 rounded-3xl bg-[var(--color-surface)] p-6 backdrop-blur-lg border border-[var(--color-border)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="heading-kicker">
                 Discover • Play • Connect
               </p>
-              <h1 className="text-4xl font-bold leading-tight text-white md:text-5xl">
+              <h1 className="text-4xl font-bold leading-tight text-[var(--color-text-primary)] md:text-5xl">
                 Find your next event
               </h1>
               <p className="muted-copy mt-2 text-sm">
@@ -178,13 +178,13 @@ export default function EventsPage() {
                 <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-brand)]">
                   Live events
                 </p>
-                <p className="text-2xl font-bold text-white">{total}</p>
+                <p className="text-2xl font-bold text-[var(--color-text-primary)]">{total}</p>
               </div>
               <div className="rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-left shadow-inner shadow-black/20">
                 <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-brand-alt)]">
                   Radius
                 </p>
-                <p className="text-2xl font-bold text-white">{radiusKm} km</p>
+                <p className="text-2xl font-bold text-[var(--color-text-primary)]">{radiusKm} km</p>
               </div>
             </div>
           </div>
@@ -196,14 +196,14 @@ export default function EventsPage() {
                 placeholder="Search events by name, vibe, or location..."
                 defaultValue={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="bg-[#0a1927]"
+                className="bg-white"
               />
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Select
                 defaultValue={`${sort}:${order}`}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="min-w-[180px] bg-[#0a1927]"
+                className="min-w-[180px] bg-white"
               >
                 <option value="date:asc">Soonest first</option>
                 <option value="date:desc">Latest first</option>
@@ -214,7 +214,7 @@ export default function EventsPage() {
           </div>
         </Card>
 
-        <Card className="rounded-3xl bg-[#0b1624]/90">
+        <Card className="rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)]">
           <EventsMap
             events={mapItems}
             radiusKm={radiusKm}

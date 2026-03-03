@@ -33,32 +33,32 @@ export default async function EventDetailPage({
     <PageShell>
       <div className="relative mx-auto flex max-w-6xl flex-col gap-8 border-none">
         <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <Card className="space-y-6 rounded-3xl bg-[#0d1a27]/80 p-6 backdrop-blur">
-            <div className="rounded-2xl bg-[#0f2235]/60 p-4">
+          <Card className="space-y-6 rounded-3xl bg-[var(--color-surface)] p-6 backdrop-blur border border-[var(--color-border)]">
+            <div className="rounded-2xl bg-[var(--color-surface-2)] p-4">
               <EventCard event={event} href="#" />
             </div>
             <article className="space-y-4 text-[var(--color-text-secondary)]">
-              <h2 className="text-xl font-semibold text-white">About</h2>
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">About</h2>
               <p className="leading-relaxed whitespace-pre-line">
                 {event.description ?? "No description yet."}
               </p>
               <div className="grid gap-3 text-sm text-[var(--color-text-muted)] sm:grid-cols-2">
-                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[var(--color-surface-2)] px-4 py-3">
                   Starts: {new Date(event.eventDatetime).toLocaleString()}
                 </div>
-                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[var(--color-surface-2)] px-4 py-3">
                   Ends: {new Date(event.eventEndtime).toLocaleString()}
                 </div>
-                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[var(--color-surface-2)] px-4 py-3">
                   Seats left:{" "}
                   {event.capacity != null ? event.capacity : "Unlimited"}
                 </div>
-                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3">
+                <div className="rounded-xl bg-[var(--color-surface-2)] px-4 py-3">
                   Booked: {event.attendeeCount ?? 0}
                 </div>
               </div>
               {event.occurrences && event.occurrences.length > 1 ? (
-                <div className="rounded-xl bg-[#0f1f2d] px-4 py-3 text-sm text-[var(--color-text-muted)]">
+                <div className="rounded-xl bg-[var(--color-surface-2)] px-4 py-3 text-sm text-[var(--color-text-muted)]">
                   Recurring series with {event.occurrences.length} upcoming
                   dates.
                 </div>
@@ -67,14 +67,14 @@ export default async function EventDetailPage({
           </Card>
 
           <div className="space-y-4">
-            <Card className="space-y-2 rounded-3xl bg-[#0b1624]/90 p-4">
+            <Card className="space-y-2 rounded-3xl bg-[var(--color-surface)] p-4 border border-[var(--color-border)]">
               {event.latitude != null && event.longitude != null ? (
                 <StaticEventMap
                   latitude={event.latitude}
                   longitude={event.longitude}
                 />
               ) : (
-                <div className="rounded-2xl bg-[#0f1f2d] p-4 text-sm text-[var(--color-text-secondary)]">
+                <div className="rounded-2xl bg-[var(--color-surface-2)] p-4 text-sm text-[var(--color-text-secondary)]">
                   Location not available.
                 </div>
               )}

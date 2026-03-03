@@ -374,13 +374,13 @@ export default function RegisterPanel({
   };
 
   return (
-    <Card className="space-y-4 rounded-3xl bg-[#0f2235] border-none p-6">
+    <Card className="space-y-4 rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] p-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="heading-kicker">Tickets</p>
-          <h3 className="text-lg font-semibold text-white">Register to play</h3>
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Register to play</h3>
         </div>
-        <Badge className="bg-white/10 text-xs text-[#b9cde4]">
+        <Badge className="bg-[var(--color-surface-2)] text-xs text-[var(--color-text-secondary)] border border-[var(--color-border)]">
           {event.priceField ? `ETB ${event.priceField}` : "Free"}
         </Badge>
       </div>
@@ -392,7 +392,7 @@ export default function RegisterPanel({
             <Select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="min-w-[220px] bg-[#0a1927] text-right"
+              className="min-w-[220px] bg-white text-right"
             >
               {occurrenceOptions.map((entry) => (
                 <option key={entry.eventId} value={entry.eventId}>
@@ -414,7 +414,7 @@ export default function RegisterPanel({
         </div>
         <div className="flex items-center justify-between">
           <span>Your tickets</span>
-          <span className="font-semibold text-white">{myTickets ?? 0}</span>
+          <span className="font-semibold text-[var(--color-text-primary)]">{myTickets ?? 0}</span>
         </div>
         <div className="flex items-center justify-between">
           <span>Quantity to add</span>
@@ -429,7 +429,7 @@ export default function RegisterPanel({
                 Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
               );
             }}
-            className="w-24 bg-[#0a1927] text-right border-none"
+            className="w-24 bg-white text-right border-none"
           />
         </div>
       </div>
@@ -455,9 +455,9 @@ export default function RegisterPanel({
       </div>
 
       {canShareTickets ? (
-        <Card className="space-y-3 rounded-2xl border border-(--color-border) bg-[#0a1927] p-4">
+        <Card className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
           <div>
-            <p className="text-sm font-semibold text-white">Share your extra tickets</p>
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">Share your extra tickets</p>
             <p className="text-xs text-(--color-text-secondary)">
               Friends can claim up to{" "}
               {shareUrl ? remainingClaims : myTickets - 1} ticket
@@ -474,7 +474,7 @@ export default function RegisterPanel({
               <Input
                 value={shareUrl}
                 readOnly
-                className="bg-[#06111c] text-xs text-(--color-text-primary)"
+                className="bg-[var(--color-surface)] text-xs text-[var(--color-text-primary)]"
               />
               <div className="flex gap-2">
                 <Button

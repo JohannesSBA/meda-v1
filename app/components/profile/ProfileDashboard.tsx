@@ -80,7 +80,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   const isAdmin = user.role === "admin";
   const avatarUrl =
     user.image ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || "User")}&background=0F2235&color=22FF88&size=160`;
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || "User")}&background=e8f7f0&color=0f172a&size=160`;
 
   const [userTab, setUserTab] = useState<UserTab>("registered");
   const [adminTab, setAdminTab] = useState<AdminTab>("events");
@@ -401,7 +401,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
 
   return (
     <section className="space-y-6">
-      <Card className="rounded-3xl bg-linear-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6">
+      <Card className="rounded-3xl bg-[var(--color-surface)] p-6 border border-[var(--color-border)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Image
@@ -412,17 +412,17 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               className="h-16 w-16 rounded-full    -white/15 object-cover"
             />
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-[#7ccfff]">
+              <p className="text-xs uppercase tracking-[0.25em] text-[var(--color-brand)]">
                 {isAdmin ? "Admin profile" : "My profile"}
               </p>
-              <h1 className="mt-2 text-3xl font-bold text-white">
+              <h1 className="mt-2 text-3xl font-bold text-[var(--color-text-primary)]">
                 {user.name}
               </h1>
-              <p className="mt-1 text-sm text-[#a7c5de]">{user.email}</p>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{user.email}</p>
             </div>
           </div>
           {isAdmin ? (
-            <Badge className="rounded-full    -white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[#b9cde4]">
+            <Badge className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)]">
               Role: admin
             </Badge>
           ) : (
@@ -430,7 +430,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               href="/events"
               className={cn(
                 buttonVariants("secondary", "sm"),
-                "rounded-full  -white/15 bg-white/5 text-[#22FF88] hover: -[#22FF88]",
+                "rounded-full border border-[var(--color-border)] bg-[var(--color-surface-2)] text-[#22FF88] hover:border-[#22FF88]",
               )}
             >
               Browse events
@@ -441,15 +441,15 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
 
       {!isAdmin ? (
         <>
-          <nav className="flex flex-wrap gap-2 rounded-2xl    -white/10 bg-[#0c1d2e]/75 p-2">
+          <nav className="flex flex-wrap gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2">
             <Button
               type="button"
               onClick={() => setUserTab("registered")}
               variant={userTab === "registered" ? "primary" : "ghost"}
               className={`rounded-xl px-4 py-2 text-sm font-medium ${
                 userTab === "registered"
-                  ? "text-[#001021]"
-                  : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+                  ? "text-[var(--color-brand-text)]"
+                  : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               Registered Events
@@ -460,8 +460,8 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               variant={userTab === "saved" ? "primary" : "ghost"}
               className={`rounded-xl px-4 py-2 text-sm font-medium ${
                 userTab === "saved"
-                  ? "text-[#001021]"
-                  : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+                  ? "text-[var(--color-brand-text)]"
+                  : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               Saved Events
@@ -469,15 +469,15 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </nav>
 
           {userTab === "registered" ? (
-            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                   Registered events
                 </h2>
                 <Select
                   value={registeredStatus}
                   onChange={(e) => setRegisteredStatus(e.target.value)}
-                  className="max-w-[140px] bg-[#0a1927]"
+                  className="max-w-[140px] bg-white"
                 >
                   <option value="upcoming">Upcoming</option>
                   <option value="past">Past</option>
@@ -501,18 +501,18 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   {registeredEvents.map((event) => (
                     <article
                       key={event.eventId}
-                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-semibold text-white">
+                          <h3 className="font-semibold text-[var(--color-text-primary)]">
                             {event.eventName}
                           </h3>
-                          <p className="text-xs text-[#9ec0df]">
+                          <p className="text-xs text-[var(--color-text-muted)]">
                             {new Date(event.eventDatetime).toLocaleString()} •{" "}
                             {event.addressLabel ?? "Location pending"}
                           </p>
-                          <p className="mt-1 text-xs text-[#9ec0df]">
+                          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                             Tickets: {event.ticketCount} • Price: ETB{" "}
                             {event.priceField ?? 0}
                           </p>
@@ -520,7 +520,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <div className="flex gap-2">
                           <Link
                             href={`/events/${event.eventId}`}
-                            className="rounded-lg    -white/15 px-3 py-1 text-sm hover: -[#22FF88]"
+                            className="rounded-lg border border-[var(--color-border)] px-3 py-1 text-sm hover:border-[#22FF88]"
                           >
                             View
                           </Link>
@@ -564,8 +564,8 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               )}
             </section>
           ) : (
-            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
-              <h2 className="text-xl font-semibold text-white">Saved events</h2>
+            <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">Saved events</h2>
               {savedLoading ? (
                 <div className="grid gap-3">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -583,14 +583,14 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   {savedEvents.map((event) => (
                     <article
                       key={event.eventId}
-                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <h3 className="font-semibold text-white">
+                          <h3 className="font-semibold text-[var(--color-text-primary)]">
                             {event.eventName}
                           </h3>
-                          <p className="text-xs text-[#9ec0df]">
+                          <p className="text-xs text-[var(--color-text-muted)]">
                             {new Date(event.eventDatetime).toLocaleString()} •{" "}
                             {event.addressLabel ?? "Location pending"}
                           </p>
@@ -598,7 +598,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <div className="flex gap-2">
                           <Link
                             href={`/events/${event.eventId}`}
-                            className="rounded-lg    -white/15 px-3 py-1 text-sm hover: -[#22FF88]"
+                            className="rounded-lg border border-[var(--color-border)] px-3 py-1 text-sm hover:border-[#22FF88]"
                           >
                             View
                           </Link>
@@ -624,7 +624,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
         </>
       ) : (
         <>
-          <nav className="flex flex-wrap gap-2 rounded-2xl    -white/10 bg-[#0c1d2e]/75 p-2">
+          <nav className="flex flex-wrap gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-2">
             {(["users", "events", "stats"] as const).map((tab) => (
               <Button
                 key={tab}
@@ -633,8 +633,8 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                 variant={adminTab === tab ? "primary" : "ghost"}
                 className={`rounded-xl px-4 py-2 text-sm font-medium ${
                   adminTab === tab
-                    ? "text-[#001021]"
-                    : "text-[#c4d8ef] hover:bg-white/10 hover:text-white"
+                    ? "text-[var(--color-brand-text)]"
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
                 {tab === "users"
@@ -647,9 +647,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </nav>
 
           {adminTab === "users" ? (
-            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                   User administration
                 </h2>
                 <div className="flex gap-2">
@@ -657,7 +657,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Search by email/name"
-                    className="h-10 min-w-[220px] bg-[#0a1927]"
+                    className="h-10 min-w-[220px] bg-white"
                   />
                   <Button
                     onClick={() => void loadAdminUsers()}
@@ -673,7 +673,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               ) : (
                 <div className="overflow-x-auto">
                   <Table className="table-shell">
-                    <thead className="text-[#7ccfff]">
+                    <thead className="text-[var(--color-brand)]">
                       <tr>
                         <th className="py-2 pr-4">User</th>
                         <th className="py-2 pr-4">Role</th>
@@ -681,7 +681,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <th className="py-2 pr-4">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="text-[#d5e7fb]">
+                    <tbody className="text-[var(--color-text-secondary)]">
                       {adminUsers.map((row) => (
                         <tr
                           key={row.id || row.email}
@@ -689,7 +689,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         >
                           <td className="py-3 pr-4">
                             <p>{row.name}</p>
-                            <p className="text-xs text-[#9ec0df]">
+                            <p className="text-xs text-[var(--color-text-muted)]">
                               {row.email}
                             </p>
                           </td>
@@ -707,7 +707,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                     row.role === "admin" ? "user" : "admin",
                                   )
                                 }
-                                className="rounded-lg px-3 py-1 hover: -[#22FF88]"
+                                className="rounded-lg px-3 py-1 hover:border-[#22FF88]"
                               >
                                 {row.role === "admin"
                                   ? "Remove admin"
@@ -734,9 +734,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "events" ? (
-            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
+            <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-white">
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                   Event moderation
                 </h2>
                 <div className="flex gap-2">
@@ -744,7 +744,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                     value={eventSearch}
                     onChange={(e) => setEventSearch(e.target.value)}
                     placeholder="Search events"
-                    className="h-10 min-w-[220px] bg-[#0a1927]"
+                    className="h-10 min-w-[220px] bg-white"
                   />
                   <Button
                     onClick={() => void loadAdminEvents()}
@@ -760,7 +760,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               ) : (
                 <div className="overflow-x-auto">
                   <Table className="table-shell">
-                    <thead className="text-[#7ccfff]">
+                    <thead className="text-[var(--color-brand)]">
                       <tr>
                         <th className="py-2 pr-4">Event</th>
                         <th className="py-2 pr-4">Date</th>
@@ -769,7 +769,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         <th className="py-2 pr-4">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="text-[#d5e7fb]">
+                    <tbody className="text-[var(--color-text-secondary)]">
                       {adminEvents.map((event) => (
                         <tr key={event.eventId} className=" -t  -white/10">
                           <td className="py-3 pr-4">{event.eventName}</td>
@@ -790,7 +790,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                                 onClick={() =>
                                   void startEditEvent(event.eventId)
                                 }
-                                className="rounded-lg  cursor-pointer    -white/15 px-3 py-1 hover: -[#22FF88]"
+                                className="rounded-lg cursor-pointer border border-[var(--color-border)] px-3 py-1 hover:border-[#22FF88]"
                               >
                                 Edit
                               </button>
@@ -815,9 +815,9 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               {editingEvent ? (
                 <div
                   id="admin-event-editor"
-                  className="space-y-3 rounded-xl    -white/10 bg-[#0a1927] p-4"
+                  className="space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4"
                 >
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
                     Edit event details
                   </h3>
                   <div className="grid gap-3 md:grid-cols-2">
@@ -828,7 +828,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, eventName: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                       placeholder="Event name"
                     />
                     <input
@@ -838,7 +838,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, pictureUrl: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                       placeholder="Picture URL"
                     />
                     <input
@@ -856,7 +856,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     />
                     <input
                       type="datetime-local"
@@ -873,7 +873,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     />
                     <input
                       type="number"
@@ -885,7 +885,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                       placeholder="Price ETB"
                     />
                     <input
@@ -898,7 +898,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                       placeholder="Capacity"
                     />
                     <select
@@ -908,7 +908,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                           prev ? { ...prev, categoryId: e.target.value } : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     >
                       {categories.map((category) => (
                         <option
@@ -928,7 +928,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                             : prev,
                         )
                       }
-                      className="rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                       placeholder="Event location"
                     />
                   </div>
@@ -940,11 +940,11 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         prev ? { ...prev, description: e.target.value } : prev,
                       )
                     }
-                    className="w-full rounded-lg    -white/15 bg-[#08111c] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
                     placeholder="Description"
                   />
                   {editingEvent.isRecurring && editingEvent.seriesId ? (
-                    <label className="flex items-center gap-2 text-sm text-[#c4d8ef]">
+                    <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                       <input
                         type="checkbox"
                         checked={applyToSeries}
@@ -956,7 +956,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   {editingEvent.isRecurring &&
                   editingEvent.seriesId &&
                   applyToSeries ? (
-                    <p className="rounded-lg    -[#22FF88]/40 bg-[#22FF88]/10 px-3 py-2 text-sm text-[#d9ffea]">
+                    <p className="rounded-lg border border-[#22FF88]/40 bg-[#22FF88]/10 px-3 py-2 text-sm text-[var(--color-text-primary)]">
                       This will update {seriesCount} occurrence
                       {seriesCount === 1 ? "" : "s"} in this series.
                     </p>
@@ -976,7 +976,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         setEditingEvent(null);
                         setApplyToSeries(false);
                       }}
-                      className="rounded-lg cursor-pointer    -white/15 px-4 py-2 text-sm text-white"
+                      className="rounded-lg cursor-pointer border border-[var(--color-border)] px-4 py-2 text-sm text-[var(--color-text-primary)]"
                     >
                       Cancel
                     </button>
@@ -987,8 +987,8 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "stats" ? (
-            <section className="space-y-4 rounded-2xl    -white/10 bg-[#0c1d2e]/80 p-5">
-              <h2 className="text-xl font-semibold text-white">
+            <section className="space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                 Platform statistics
               </h2>
               {statsLoading ? (
@@ -1000,19 +1000,19 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                   ).map(([label, value]) => (
                     <div
                       key={label}
-                      className="rounded-xl    -white/10 bg-[#0a1927] p-4"
+                      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4"
                     >
-                      <p className="text-xs uppercase tracking-[0.12em] text-[#7ccfff]">
+                      <p className="text-xs uppercase tracking-[0.12em] text-[var(--color-brand)]">
                         {label}
                       </p>
-                      <p className="mt-2 text-2xl font-bold text-white">
+                      <p className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">
                         {String(value)}
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#a7c5de]">
+                <p className="text-sm text-[var(--color-text-secondary)]">
                   No statistics available.
                 </p>
               )}

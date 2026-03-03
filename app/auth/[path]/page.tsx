@@ -12,7 +12,7 @@ export default async function AuthPage({
 
   return (
     <PageShell containerClassName="mx-auto flex min-h-[calc(100vh-8rem)] max-w-3xl items-center justify-center px-4 py-10">
-      <AuthView path={path} className="dark" />
+      <AuthView path={path} />
     </PageShell>
   );
 }

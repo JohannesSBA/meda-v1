@@ -7,7 +7,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-lg bg-[rgba(255,255,255,0.06)]",
+        "animate-pulse rounded-lg bg-[var(--color-border)]/40",
         className,
       )}
       {...props}
@@ -88,7 +88,7 @@ export function TableSkeleton({
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, rowIdx) => (
-            <tr key={rowIdx} className="border-t border-white/10">
+            <tr key={rowIdx} className="border-t border-[var(--color-border)]">
               {Array.from({ length: cols }).map((_, colIdx) => (
                 <td key={colIdx} className="py-3 pr-4">
                   <Skeleton
@@ -110,7 +110,7 @@ export function TableSkeleton({
 /** Event list item skeleton for registered/saved tabs */
 export function EventListItemSkeleton() {
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0a1927] p-4">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-2 flex-1">
           <Skeleton className="h-5 w-3/4" />
@@ -133,7 +133,7 @@ export function StatsCardsSkeleton({ count = 4 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-white/10 bg-[#0a1927] p-4"
+          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4"
         >
           <Skeleton className="h-3 w-24" />
           <Skeleton className="mt-2 h-8 w-16" />

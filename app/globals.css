@@ -1,25 +1,25 @@
 @import "tailwindcss";
 @import "@neondatabase/auth/ui/tailwind";
 
-/* Force dark mode via class so it applies regardless of system preference */
+/* Light theme - green and white */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #050d17;
-  --foreground: #e8f2ff;
-  --color-bg: #050d17;
-  --color-surface: rgba(14, 29, 45, 0.84);
-  --color-surface-2: rgba(13, 25, 39, 0.86);
-  --color-border: rgba(136, 196, 241, 0.16);
-  --color-border-strong: rgba(136, 196, 241, 0.28);
-  --color-text-primary: #f3f9ff;
-  --color-text-secondary: #c2d8f0;
-  --color-text-muted: #95b2cf;
+  --background: #ffffff;
+  --foreground: #0a1927;
+  --color-bg: #ffffff;
+  --color-surface: rgba(248, 250, 252, 0.95);
+  --color-surface-2: rgba(241, 245, 249, 0.95);
+  --color-border: rgba(15, 23, 42, 0.12);
+  --color-border-strong: rgba(15, 23, 42, 0.2);
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
   --color-brand: #00e5ff;
   --color-brand-alt: #22ff88;
   --color-brand-text: #03101c;
-  --color-ring: rgba(0, 229, 255, 0.62);
-  --shadow-elevated: 0 18px 50px rgba(0, 0, 0, 0.34);
+  --color-ring: rgba(34, 255, 136, 0.5);
+  --shadow-elevated: 0 18px 50px rgba(0, 0, 0, 0.08);
 }
 
 @theme inline {
@@ -30,7 +30,7 @@
 }
 
 html {
-  color-scheme: dark only;
+  color-scheme: light;
 }
 
 body {
@@ -48,19 +48,19 @@ textarea {
 }
 
 .app-shell {
-  background: linear-gradient(160deg, #071221 0%, #0a1a2d 45%, #071320 100%);
+  background: linear-gradient(160deg, #f8fafc 0%, #ffffff 45%, #f1f5f9 100%);
 }
 
 .app-glow-bg {
   background:
     radial-gradient(
       circle at 14% 16%,
-      rgba(0, 229, 255, 0.12),
+      rgba(0, 229, 255, 0.08),
       transparent 34%
     ),
     radial-gradient(
       circle at 82% 0%,
-      rgba(34, 255, 136, 0.1),
+      rgba(34, 255, 136, 0.06),
       transparent 33%
     );
 }

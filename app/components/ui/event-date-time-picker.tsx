@@ -54,21 +54,21 @@ const getDayButtonClasses = (day: DPDay) =>
   cn(
     "flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition",
     day.selected
-      ? "bg-gradient-to-r from-[#7ccfff] to-[#8be8ff] text-[#062037] shadow"
+      ? "bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-alt)] text-[var(--color-brand-text)] shadow"
       : day.inCurrentMonth
-        ? "text-[#d7e9ff]"
-        : "text-[#6f8aa6]",
+        ? "text-[var(--color-text-primary)]"
+        : "text-[var(--color-text-muted)]",
     day.disabled
       ? "cursor-not-allowed opacity-30"
-      : "hover:bg-[#18324b] hover:text-[#dff4ff]",
+      : "hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]",
   );
 
 const getTimeButtonClasses = (selected: boolean, disabled: boolean) =>
   cn(
     "w-full rounded-2xl border px-3 py-2 text-sm font-medium transition",
     selected
-      ? "border-[#7ccfff]/60 bg-[#7ccfff]/18 text-[#e9f7ff] shadow-inner"
-      : "border-transparent bg-[#0f1f2d]/80 text-[#c1d9ef] hover:border-[#7ccfff]/35 hover:bg-[#14304b]",
+      ? "border-[var(--color-brand)]/60 bg-[var(--color-brand)]/15 text-[var(--color-text-primary)] shadow-inner"
+      : "border-transparent bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:border-[var(--color-brand)]/35 hover:bg-[var(--color-surface)]",
     disabled && "cursor-not-allowed opacity-30",
   );
 
@@ -189,7 +189,7 @@ export function EventDateTimePicker({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="block text-xs uppercase tracking-[0.2em] text-[#7ccfff]">
+      <label htmlFor={id} className="block text-xs uppercase tracking-[0.2em] text-[var(--color-brand)]">
         {label}
       </label>
       <div className="relative">
@@ -199,7 +199,7 @@ export function EventDateTimePicker({
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           className={cn(
-            "flex w-full items-center justify-between gap-3 rounded-2xl border border-white/12 bg-[#0d1b2a] px-4 py-3 text-left text-sm text-[#d8ebff] shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ccfff]/35",
+            "flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-3 text-left text-sm text-[var(--color-text-primary)] shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]",
             triggerClassName,
           )}
           aria-haspopup="dialog"
@@ -211,16 +211,16 @@ export function EventDateTimePicker({
               <>
                 <span>{displayDate}</span>
                 {displayTime ? (
-                  <span className="ml-1 text-[#9fc4e4]">· {displayTime}</span>
+                  <span className="ml-1 text-[var(--color-text-muted)]">· {displayTime}</span>
                 ) : null}
               </>
             ) : (
-              <span className="text-[#7aa8c6]">{placeholder}</span>
+              <span className="text-[var(--color-text-muted)]">{placeholder}</span>
             )}
           </span>
           <svg
             className={cn(
-              "h-4 w-4 text-[#7aa8c6] transition-transform",
+              "h-4 w-4 text-[var(--color-text-muted)] transition-transform",
               isOpen && "rotate-180",
             )}
             viewBox="0 0 20 20"
@@ -244,25 +244,25 @@ export function EventDateTimePicker({
             id={`${id}-panel`}
             role="dialog"
             aria-label={`${label} picker`}
-            className="absolute left-0 right-0 z-30 mt-2 w-full rounded-3xl border border-white/10 bg-[#0f2235]/95 p-4 shadow-2xl shadow-black/35 backdrop-blur sm:right-auto sm:w-[42rem] sm:p-6"
+            className="absolute left-0 right-0 z-30 mt-2 w-full rounded-3xl border border-[var(--color-border)] bg-white p-4 shadow-2xl shadow-black/15 backdrop-blur sm:right-auto sm:w-[42rem] sm:p-6"
           >
             <div className="flex flex-col gap-6 lg:flex-row">
-              <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
+              <div className="min-w-0 flex-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 sm:p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <button
                     type="button"
-                    className="rounded-full p-2 text-[#9fc4e4] transition hover:bg-white/8"
+                    className="rounded-full p-2 text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)]"
                     {...subtractOffset({ months: 1 })}
                   >
                     <span className="sr-only">Previous month</span>
                     <FaArrowLeft className="h-3.5 w-3.5" />
                   </button>
-                  <div className="text-sm font-semibold text-[#e6f5ff]">
+                  <div className="text-sm font-semibold text-[var(--color-text-primary)]">
                     {calendar ? `${calendar.month} ${calendar.year}` : ""}
                   </div>
                   <button
                     type="button"
-                    className="rounded-full p-2 text-[#9fc4e4] transition hover:bg-white/8"
+                    className="rounded-full p-2 text-[var(--color-text-muted)] transition hover:bg-[var(--color-surface)]"
                     {...addOffset({ months: 1 })}
                   >
                     <span className="sr-only">Next month</span>
@@ -270,7 +270,7 @@ export function EventDateTimePicker({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7aa8c6]">
+                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                   {weekDays.map((day) => (
                     <span key={day}>{day}</span>
                   ))}
@@ -292,11 +292,11 @@ export function EventDateTimePicker({
                   })}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between text-[11px] text-[#7aa8c6]">
+                <div className="mt-4 flex items-center justify-between text-[11px] text-[var(--color-text-muted)]">
                   <span>Week starts on Sunday</span>
                   <button
                     type="button"
-                    className="font-semibold text-[#7ccfff] transition hover:text-[#9fe9ff]"
+                    className="font-semibold text-[var(--color-brand)] transition hover:text-[var(--color-brand-alt)]"
                     {...setOffset(new Date())}
                   >
                     Today
@@ -304,8 +304,8 @@ export function EventDateTimePicker({
                 </div>
               </div>
 
-              <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7aa8c6]">
+              <div className="min-w-0 flex-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3 sm:p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
                   Time
                 </p>
                 <div className="mt-2 max-h-60 overflow-y-auto pr-1">
@@ -335,7 +335,7 @@ export function EventDateTimePicker({
             <div className="mt-6 flex justify-end">
               <button
                 type="button"
-                className="rounded-full px-4 py-2 text-sm font-semibold text-[#9fc4e4] transition hover:text-[#e6f5ff]"
+                className="rounded-full px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
                 onClick={() => setIsOpen(false)}
               >
                 Close
