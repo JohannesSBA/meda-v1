@@ -65,8 +65,8 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
             href="/"
             className="flex items-center gap-3 font-semibold text-[var(--color-text-primary)]"
           >
-            <Image src="/logo.png" alt="Meda" width={50} height={50} />
-            <span className="hidden text-sm tracking-wide sm:inline">MEDA</span>
+            <Image src="/logo-white.svg" alt="Meda" width={50} height={50} />
+            {/* <span className="hidden text-sm tracking-wide sm:inline">MEDA</span> */}
           </Link>
 
           <div className="flex items-center gap-3">
@@ -99,7 +99,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
               </button>
             )}
 
-            <UserButton size="icon" />
+            <UserButton size="icon" className="text-white" />
           </div>
         </div>
 

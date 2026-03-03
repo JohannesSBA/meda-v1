@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia’s night football and weekend runs.",
   icons: {
     icon: "/logo.png",
+    shortcut: "/logo.png",
   },
   openGraph: {
     title: "Meda - Event Management System",

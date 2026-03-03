@@ -23,13 +23,14 @@ export default function AuthProviders({
     <NeonAuthUIProvider
       authClient={authClient as unknown as NeonUIAuthClient}
       redirectTo="/events"
+      className="bg-black"
       social={{
         providers: ["google"],
       }}
     >
       <HeaderNav initialSession={initialSession as SessionPayload | null} />
       {children}
-      <Toaster position="top-center" theme="dark" />
+      {/* <Toaster position="top-center" theme="dark" /> */}
     </NeonAuthUIProvider>
   );
 }
