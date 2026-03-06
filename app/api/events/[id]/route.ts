@@ -126,7 +126,10 @@ export async function POST(
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before registering again." },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
     );
   }
 
@@ -211,11 +214,14 @@ export async function POST(
       await tx.eventAttendee.createMany({ data: rows });
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to register";
+    const message =
+      error instanceof Error ? error.message : "Failed to register";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const updatedCount = await prisma.eventAttendee.count({ where: { eventId: id } });
+  const updatedCount = await prisma.eventAttendee.count({
+    where: { eventId: id },
+  });
 
   revalidatePath(`/events/${id}`);
   revalidatePath("/events");

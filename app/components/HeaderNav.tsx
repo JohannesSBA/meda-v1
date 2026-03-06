@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, SignedIn, SignedOut } from "@neondatabase/auth/react";
@@ -15,11 +15,27 @@ type HeaderNavProps = {
   initialSession?: SessionPayload | null;
 };
 
-const navItems = [
+const desktopNavItems = [
   { href: "/events", label: "Events", requiresAdmin: false, public: true },
   { href: "/my-events", label: "My Events", requiresAdmin: false, public: false },
   { href: "/create-events", label: "Create Event", requiresAdmin: true, public: false },
   { href: "/profile", label: "Profile", requiresAdmin: false, public: false },
+];
+
+type BottomTab = {
+  href: string;
+  label: string;
+  icon: (props: { className?: string }) => React.JSX.Element;
+  requiresAuth?: boolean;
+  requiresAdmin?: boolean;
+};
+
+const bottomTabs: BottomTab[] = [
+  { href: "/", label: "Home", icon: HomeIcon },
+  { href: "/events", label: "Events", icon: SearchIcon },
+  { href: "/create-events", label: "Create", icon: PlusIcon, requiresAdmin: true },
+  { href: "/my-events", label: "My Events", icon: TicketIcon, requiresAuth: true },
+  { href: "/profile", label: "Profile", icon: UserIcon, requiresAuth: true },
 ];
 
 export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
@@ -30,11 +46,10 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
   const isAdmin = session?.user?.role === "admin";
 
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
 
-  const linksToShow = useMemo(
+  const desktopLinks = useMemo(
     () =>
-      navItems.filter((item) => {
+      desktopNavItems.filter((item) => {
         if (item.public) return true;
         if (!isLoggedIn) return false;
         if (item.requiresAdmin && !isAdmin) return false;
@@ -43,13 +58,28 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
     [isAdmin, isLoggedIn],
   );
 
-  const linkClasses = (href: string) => {
+  const mobileTabs = useMemo(
+    () =>
+      bottomTabs.filter((tab) => {
+        if (tab.requiresAdmin && !isAdmin) return false;
+        if (tab.requiresAuth && !isLoggedIn) return false;
+        return true;
+      }),
+    [isLoggedIn, isAdmin],
+  );
+
+  const desktopLinkClasses = (href: string) => {
     const isActive = pathname === href;
     return `rounded-lg px-3 py-2 text-sm font-medium transition ${
       isActive
         ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
         : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]"
     }`;
+  };
+
+  const isTabActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
   };
 
   return (
@@ -60,6 +90,8 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
       >
         Skip to main content
       </a>
+
+      {/* Top header bar */}
       <header className="fixed left-0 right-0 top-0 z-50 bg-[rgba(5,13,23,0.82)] pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-14 min-h-[3.5rem] max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-6">
           <Link
@@ -67,38 +99,21 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
             className="flex items-center gap-3 font-semibold text-[var(--color-text-primary)]"
           >
             <Image src="/logo-White.svg" alt="Meda" width={50} height={50} />
-            {/* <span className="hidden text-sm tracking-wide sm:inline">MEDA</span> */}
           </Link>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {linksToShow.length > 0 && (
+            {desktopLinks.length > 0 && (
               <nav className="hidden items-center gap-4 md:flex">
-                {linksToShow.map((link) => (
+                {desktopLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={linkClasses(link.href)}
+                    className={desktopLinkClasses(link.href)}
                   >
                     {link.label}
                   </Link>
                 ))}
               </nav>
-            )}
-
-            {linksToShow.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setIsOpen((prev) => !prev)}
-                className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--color-border-strong)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] transition-all active:scale-95 md:hidden",
-                  "hover:border-[var(--color-brand)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-brand)]",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)]",
-                )}
-                aria-expanded={isOpen}
-                aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
-              >
-                {isOpen ? <CloseIcon /> : <MenuIcon />}
-              </button>
             )}
 
             <SignedIn>
@@ -117,68 +132,99 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
             </SignedOut>
           </div>
         </div>
-
-        {linksToShow.length > 0 && (
-          <div
-            className={cn(
-              "md:hidden overflow-hidden transition-all duration-300 ease-out",
-              isOpen
-                ? "max-h-64 border-t border-[var(--color-border-strong)] bg-[rgba(7,20,33,0.98)] shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
-                : "max-h-0 border-t border-transparent bg-transparent",
-            )}
-          >
-            <nav className="flex flex-col gap-1 px-4 py-4">
-              {linksToShow.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    linkClasses(link.href),
-                    "rounded-xl px-4 py-3.5 text-base font-medium -tracking-tight active:scale-[0.98]",
-                  )}
-                  onClick={() => setIsOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
       </header>
+
+      {/* Mobile bottom tab bar */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--color-border)] bg-[rgba(5,13,23,0.95)] backdrop-blur-lg md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <div className="flex h-14 items-stretch">
+          {mobileTabs.map((tab) => {
+            const active = isTabActive(tab.href);
+            const Icon = tab.icon;
+            const isCreate = tab.href === "/create-events";
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  "relative flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors",
+                  isCreate
+                    ? "text-[var(--color-brand-alt)]"
+                    : active
+                      ? "text-[var(--color-brand)]"
+                      : "text-[var(--color-text-muted)] active:text-[var(--color-text-secondary)]",
+                )}
+              >
+                {active && !isCreate && (
+                  <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[var(--color-brand)]" />
+                )}
+                {isCreate ? (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-brand-alt)]/20">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                ) : (
+                  <Icon className="h-6 w-6" />
+                )}
+                <span
+                  className={cn(
+                    "text-[0.625rem] leading-tight",
+                    active || isCreate ? "font-bold" : "font-medium",
+                  )}
+                >
+                  {tab.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </>
   );
 }
 
-function MenuIcon() {
+function HomeIcon({ className }: { className?: string }) {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 6h16M4 12h16M4 18h16" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
     </svg>
   );
 }
 
-function CloseIcon() {
+function SearchIcon({ className }: { className?: string }) {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className="h-6 w-6"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 6l12 12M18 6l-12 12" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function TicketIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 9a3 3 0 013-3h14a3 3 0 013 3v0a3 3 0 01-3 3v0a3 3 0 01-3 3H5a3 3 0 01-3-3v0z" />
+      <path d="M13 6v12" />
+    </svg>
+  );
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }

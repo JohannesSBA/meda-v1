@@ -16,7 +16,8 @@ export function PageShell({
     <main
       className={cn(
         "app-shell relative min-h-screen overflow-hidden",
-        "mt-[calc(4rem+env(safe-area-inset-top,0px))]",
+        "mt-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:mt-[calc(4rem+env(safe-area-inset-top,0px))]",
+        "has-bottom-nav",
         className,
       )}
     >

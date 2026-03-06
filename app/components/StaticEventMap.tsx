@@ -48,7 +48,7 @@ export default function StaticEventMap({ latitude, longitude }: Props) {
 
   if (!process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-[#0b1624] p-4 text-sm text-[#b9cde4]">
+      <div className="rounded-2xl border border-white/10 bg-[#0b1624] p-4 text-sm text-[var(--color-text-secondary)]">
         Set <code className="text-[#7ccfff]">NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN</code> to display the map.
       </div>
     );

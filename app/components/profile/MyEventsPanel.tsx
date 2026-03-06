@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
-import { Select } from "@/app/components/ui/select";
+import { Button } from "@/app/components/ui/button";
 import { EmptyState } from "@/app/components/ui/empty-state";
 import { EventListItemSkeleton } from "@/app/components/ui/skeleton";
+import { cn } from "@/app/components/ui/cn";
 
 type RegisteredEventItem = {
   eventId: string;
@@ -17,8 +18,14 @@ type RegisteredEventItem = {
   addressLabel?: string | null;
 };
 
+const tabs = [
+  { key: "upcoming", label: "Upcoming" },
+  { key: "past", label: "Past" },
+  { key: "all", label: "All" },
+] as const;
+
 export default function MyEventsPanel() {
-  const [status, setStatus] = useState("upcoming");
+  const [status, setStatus] = useState<string>("upcoming");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RegisteredEventItem[]>([]);
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
@@ -67,22 +74,31 @@ export default function MyEventsPanel() {
   }, [status]);
 
   return (
-    <section className="space-y-4 rounded-2xl bg-[#0c1d2e]/80 p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="heading-kicker">Tickets</p>
-          <h1 className="text-2xl font-semibold text-white">My events</h1>
-        </div>
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="max-w-[140px] bg-[#0a1927]"
-        >
-          <option value="upcoming">Upcoming</option>
-          <option value="past">Past</option>
-          <option value="all">All</option>
-        </Select>
+    <section className="space-y-4">
+      <div>
+        <p className="heading-kicker">Tickets</p>
+        <h1 className="text-2xl font-bold text-white">My events</h1>
       </div>
+
+      {/* Tab bar */}
+      <div className="flex rounded-xl border border-[var(--color-border)] bg-[#0c1d2e]/75 p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setStatus(tab.key)}
+            className={cn(
+              "flex-1 rounded-lg py-3 text-sm font-semibold transition",
+              status === tab.key
+                ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
+                : "text-[var(--color-text-secondary)] active:bg-white/5",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="grid gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -98,42 +114,52 @@ export default function MyEventsPanel() {
       ) : (
         <div className="grid gap-3">
           {items.map((event) => (
-            <Card key={event.eventId} className="rounded-xl bg-[#0a1927] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-semibold text-white">{event.eventName}</h2>
-                  <p className="text-xs text-[#9ec0df]">
-                    {new Date(event.eventDatetime).toLocaleString()} •{" "}
+            <Card key={event.eventId} className="rounded-xl border border-[var(--color-border)] bg-[#0a1927] p-4">
+              <div className="flex gap-3">
+                {/* Thumbnail placeholder */}
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[radial-gradient(circle_at_30%_30%,rgba(0,229,255,0.2),transparent_50%),linear-gradient(135deg,#0f2b3f,#0b1d2d)]">
+                  <span className="text-2xl font-bold text-white/30">
+                    {event.eventName.charAt(0)}
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="flex flex-1 flex-col justify-center gap-0.5">
+                  <h2 className="line-clamp-1 text-base font-semibold text-white">{event.eventName}</h2>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {new Date(event.eventDatetime).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-[var(--color-text-muted)]">
                     {event.addressLabel ?? "Location pending"}
                   </p>
-                  <p className="mt-1 text-xs text-[#9ec0df]">
-                    Tickets: {event.ticketCount} • Price: ETB {event.priceField ?? 0}
-                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="rounded-full bg-[var(--color-brand)]/15 px-2.5 py-0.5 text-xs font-semibold text-[var(--color-brand)]">
+                      {event.ticketCount} ticket{event.ticketCount === 1 ? "" : "s"}
+                    </span>
+                    <span className="text-sm font-medium text-white">
+                      ETB {event.priceField ?? 0}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Link
-                    href={`/events/${event.eventId}`}
-                    className="rounded-lg border border-white/15 px-3 py-1 text-sm text-[#d5e7fb] hover:border-[#22FF88]"
+              </div>
+
+              {/* Action buttons - full width on mobile */}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Link
+                  href={`/events/${event.eventId}`}
+                  className="flex h-11 flex-1 items-center justify-center rounded-lg border border-[var(--color-border-strong)] text-sm font-medium text-white transition active:scale-[0.98]"
+                >
+                  View event
+                </Link>
+                {event.ticketCount > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleShareLink(event.eventId)}
+                    className="flex h-11 flex-1 items-center justify-center rounded-lg border border-[var(--color-border-strong)] text-sm font-medium text-white transition active:scale-[0.98]"
                   >
-                    View
-                  </Link>
-                  {event.ticketCount > 1 ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void handleShareLink(event.eventId)}
-                        className="rounded-lg border border-white/15 px-3 py-1 text-sm text-[#d5e7fb] hover:border-[#22FF88]"
-                      >
-                        Share link
-                      </button>
-                      {copiedEventId === event.eventId ? (
-                        <span className="self-center text-xs text-[#22FF88]">
-                          Copied
-                        </span>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
+                    {copiedEventId === event.eventId ? "Copied!" : "Share ticket"}
+                  </button>
+                ) : null}
               </div>
             </Card>
           ))}

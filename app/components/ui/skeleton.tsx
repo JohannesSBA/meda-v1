@@ -111,15 +111,12 @@ export function TableSkeleton({
 export function EventListItemSkeleton() {
   return (
     <div className="rounded-xl border border-white/10 bg-[#0a1927] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="space-y-2 flex-1">
+      <div className="flex gap-3">
+        <Skeleton className="h-20 w-20 shrink-0 rounded-lg" />
+        <div className="flex flex-1 flex-col justify-center gap-2">
           <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-3 w-48" />
-          <Skeleton className="h-3 w-32" />
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-8 w-14 rounded-lg" />
-          <Skeleton className="h-8 w-16 rounded-lg" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-4 w-32" />
         </div>
       </div>
     </div>
@@ -146,23 +143,15 @@ export function StatsCardsSkeleton({ count = 4 }: { count?: number }) {
 /** Skeleton that mirrors EventCard layout for events list loading state */
 export function EventCardSkeleton() {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-      <Skeleton className="h-36 w-full rounded-none" />
-      <div className="flex flex-1 flex-col gap-4 p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-          <Skeleton className="h-6 w-16 rounded-xl" />
-        </div>
-        <SkeletonText lines={3} />
-        <div className="mt-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-4 w-32" />
-          </div>
-          <Skeleton className="h-9 w-28 rounded-full" />
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <Skeleton className="h-5 w-4/5" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-4 w-40" />
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-6 w-16 rounded-full" />
         </div>
       </div>
     </div>

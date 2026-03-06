@@ -30,24 +30,26 @@ export function EmptyState({
   return (
     <Card
       className={cn(
-        "flex flex-col items-center justify-center gap-4 px-6 py-10 text-center",
+        "flex flex-col items-center justify-center gap-4 px-6 py-12 text-center sm:py-10",
         className,
       )}
     >
       {icon ? (
         <div className="text-[var(--color-text-muted)]">{icon}</div>
       ) : (
-        <div
-          className="h-12 w-12 rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface-2)]"
-          aria-hidden
-        />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-surface-2)]" aria-hidden>
+          <svg className="h-7 w-7 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M8 15h8M9 9h.01M15 9h.01" />
+          </svg>
+        </div>
       )}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
           {title}
         </h3>
         {description ? (
-          <p className="text-sm text-[var(--color-text-secondary)]">
+          <p className="mx-auto max-w-xs text-sm text-[var(--color-text-secondary)]">
             {description}
           </p>
         ) : null}

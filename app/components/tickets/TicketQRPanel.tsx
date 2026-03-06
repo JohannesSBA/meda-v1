@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card } from "../ui/card";
 import { cn } from "../ui/cn";
 
@@ -46,59 +47,67 @@ export default function TicketQRPanel({
   const hasMultiple = attendeeIds.length > 1;
 
   return (
-    <Card className="overflow-hidden rounded-2xl border border-(--color-border) bg-[#0a1927]">
-      <div className="border-b border-(--color-border) bg-[#06111c]/80 px-4 py-3">
-        <p className="text-sm font-semibold text-white">
+    <Card className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[#0a1927]">
+      <div className="border-b border-[var(--color-border)] bg-[#06111c]/80 px-4 py-3">
+        <p className="text-base font-semibold text-white">
           Your ticket{attendeeIds.length > 1 ? "s" : ""}
         </p>
-        <p className="mt-0.5 text-xs text-(--color-text-secondary)">
+        <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
           Show this QR code at the event for check-in.
         </p>
       </div>
 
       {hasMultiple ? (
         <div className="p-4">
-          <div className="mb-3 flex gap-2">
+          <div className="mb-3 flex gap-2 overflow-x-auto">
             {attendeeIds.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setActiveIndex(i)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-medium transition",
+                  "h-11 shrink-0 rounded-lg px-4 text-sm font-medium transition",
                   activeIndex === i
                     ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
-                    : "bg-[#0f1f2d] text-(--color-text-muted) hover:bg-[#15293d] hover:text-(--color-text-secondary)",
+                    : "bg-[#0f1f2d] text-[var(--color-text-muted)] hover:bg-[#15293d]",
                 )}
               >
                 Ticket {i + 1}
               </button>
             ))}
           </div>
-          <div className="flex justify-center rounded-2xl border border-(--color-border) bg-white p-6">
-            <img
+          <div className="flex justify-center rounded-2xl border border-[var(--color-border)] bg-white p-6">
+            <Image
               src={`/api/tickets/${attendeeIds[activeIndex]}/qr`}
               alt={`Ticket ${activeIndex + 1} for ${eventName}`}
-              width={200}
-              height={200}
-              className="h-48 w-48 object-contain sm:h-56 sm:w-56"
+              width={240}
+              height={240}
+              unoptimized
+              className="h-60 w-60 object-contain"
             />
           </div>
-          <p className="mt-2 text-center text-xs text-(--color-text-muted)">
+          <p className="mt-2 text-center text-sm text-[var(--color-text-muted)]">
             Ticket {activeIndex + 1} of {attendeeIds.length}
+          </p>
+          <p className="mt-1 text-center text-sm text-[var(--color-text-muted)]">
+            Keep your screen on for check-in
           </p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 p-6">
-          <div className="rounded-2xl border border-(--color-border) bg-white p-5">
-            <img
+          <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
+            <Image
               src={`/api/tickets/${attendeeIds[0]}/qr`}
               alt={`Ticket QR for ${eventName}`}
-              width={200}
-              height={200}
-              className="h-48 w-48 object-contain sm:h-56 sm:w-56"
+              width={240}
+              height={240}
+              unoptimized
+              className="h-60 w-60 object-contain"
             />
           </div>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Keep your screen on for check-in
+          </p>
         </div>
       )}
     </Card>

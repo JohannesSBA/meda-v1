@@ -93,7 +93,7 @@ export default async function HostProfilePage({
         <Card className="rounded-3xl bg-[#0d1a27]/80 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-brand)]">
+              <p className="text-sm uppercase tracking-[0.18em] text-[var(--color-brand)]">
                 Event host
               </p>
               <h1 className="mt-2 text-3xl font-bold text-white">

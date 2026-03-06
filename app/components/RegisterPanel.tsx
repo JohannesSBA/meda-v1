@@ -398,203 +398,207 @@ export default function RegisterPanel({
   };
 
   return (
-    <Card className="space-y-4 rounded-3xl bg-[#0f2235] border-none p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="heading-kicker">Tickets</p>
-          <h3 className="text-lg font-semibold text-white">Register to play</h3>
+    <Card id="register-panel" className="space-y-4 rounded-2xl border-none bg-[#0f2235] p-5 sm:rounded-3xl sm:p-6">
+      {/* Payment confirming overlay */}
+      {confirmingPayment ? (
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--color-brand)] border-t-transparent" />
+          <p className="text-base font-semibold text-white">Confirming your payment...</p>
+          <p className="text-sm text-[var(--color-text-muted)]">Please wait while we verify with Chapa.</p>
         </div>
-        <Badge className="bg-white/10 text-xs text-[#b9cde4]">
-          {event.priceField ? `ETB ${event.priceField}` : "Free"}
-        </Badge>
-      </div>
-
-      <div className="space-y-2 text-sm text-(--color-text-secondary)">
-        {occurrenceOptions.length > 1 ? (
-          <div className="flex items-center justify-between gap-4">
-            <span>Date</span>
-            <Select
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              className="min-w-[220px] bg-[#0a1927] text-right"
-            >
-              {occurrenceOptions.map((entry) => (
-                <option key={entry.eventId} value={entry.eventId}>
-                  {new Date(entry.eventDatetime).toLocaleString()}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : null}
-        <div className="flex items-center justify-between">
-          <span>Available</span>
-          <span>
-            {soldOutForSelection
-              ? "Sold out"
-              : remaining === Infinity
-                ? "No limit"
-                : `${remaining} seats`}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Your tickets</span>
-          <span className="font-semibold text-white">{myTickets ?? 0}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span>Quantity to add</span>
-          <Input
-            type="number"
-            min={1}
-            max={maxQty}
-            value={qty}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              setQty(
-                Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
-              );
-            }}
-            className="w-24 bg-[#0a1927] text-right border-none"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <Button
-          type="button"
-          disabled={loading || confirmingPayment || soldOutForSelection}
-          onClick={handleRegister}
-          variant="primary"
-          className="h-11 w-full rounded-full px-5"
-        >
-          {soldOutForSelection
-            ? "Sold out"
-            : confirmingPayment
-              ? "Confirming payment…"
-              : loading
-                ? "Processing…"
-                : (event.priceField ?? 0) > 0
-                  ? "Pay with Chapa"
-                  : "Get tickets"}
-        </Button>
-        {soldOutForSelection && myTickets === 0 && userId ? (
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-11 w-full rounded-full px-5"
-            disabled={waitlistLoading}
-            onClick={async () => {
-              setWaitlistLoading(true);
-              try {
-                const method = onWaitlist ? "DELETE" : "POST";
-                const res = await fetch(
-                  `/api/events/${selectedEventId}/waitlist`,
-                  { method },
-                );
-                const data = await res.json();
-                if (!res.ok) throw new Error(data?.error || "Failed");
-                setOnWaitlist(!onWaitlist);
-                toast.success(
-                  onWaitlist ? "Left waitlist" : "You're on the waitlist!",
-                );
-              } catch (err) {
-                toast.error(getErrorMessage(err));
-              } finally {
-                setWaitlistLoading(false);
-              }
-            }}
-          >
-            {waitlistLoading
-              ? "…"
-              : onWaitlist
-                ? "Leave waitlist"
-                : "Join waitlist"}
-          </Button>
-        ) : null}
-      </div>
-
-      {myTickets > 0 ? (
-        <TicketQRPanel
-          eventId={event.eventId}
-          eventName={event.eventName}
-          ticketCount={myTickets}
-        />
-      ) : null}
-
-      {canShareTickets ? (
-        <Card className="space-y-3 rounded-2xl border border-(--color-border) bg-[#0a1927] p-4">
-          <div>
-            <p className="text-sm font-semibold text-white">
-              Share your extra tickets
-            </p>
-            <p className="text-xs text-(--color-text-secondary)">
-              Friends can claim up to{" "}
-              {shareUrl ? remainingClaims : myTickets - 1} ticket
-              {(shareUrl ? remainingClaims : myTickets - 1) === 1
-                ? ""
-                : "s"}{" "}
-              from this link.
-            </p>
-          </div>
-          {shareLoading ? (
-            <p className="text-xs text-(--color-text-secondary)">
-              Generating link...
-            </p>
-          ) : shareUrl ? (
-            <div className="space-y-2">
-              <Input
-                value={shareUrl}
-                readOnly
-                className="bg-[#06111c] text-xs text-(--color-text-primary)"
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-9 rounded-full px-4"
-                  onClick={handleCopyShareLink}
-                >
-                  Copy link
-                </Button>
-                {shareCopied ? (
-                  <span className="self-center text-xs text-[#22FF88]">
-                    Copied
-                  </span>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="h-9 rounded-full px-4"
-                  onClick={() => void generateShareLink(selectedEventId)}
-                >
-                  Regenerate
-                </Button>
-              </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="heading-kicker">Tickets</p>
+              <h3 className="text-lg font-semibold text-white">Register to play</h3>
             </div>
-          ) : (
+            <Badge className="bg-white/10 text-sm text-[var(--color-text-secondary)]">
+              {event.priceField ? `ETB ${event.priceField}` : "Free"}
+            </Badge>
+          </div>
+
+          <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+            {occurrenceOptions.length > 1 ? (
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <span className="font-medium">Date</span>
+                <Select
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  className="bg-[#0a1927] sm:min-w-[220px] sm:text-right"
+                >
+                  {occurrenceOptions.map((entry) => (
+                    <option key={entry.eventId} value={entry.eventId}>
+                      {new Date(entry.eventDatetime).toLocaleString()}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between py-1">
+              <span>Available</span>
+              <span className="font-medium text-white">
+                {soldOutForSelection
+                  ? "Sold out"
+                  : remaining === Infinity
+                    ? "No limit"
+                    : `${remaining} seats`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span>Your tickets</span>
+              <span className="font-semibold text-white">{myTickets ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span>Quantity to add</span>
+              <Input
+                type="number"
+                min={1}
+                max={maxQty}
+                value={qty}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setQty(
+                    Number.isFinite(val) ? Math.max(1, Math.min(maxQty, val)) : 1,
+                  );
+                }}
+                className="w-24 border-none bg-[#0a1927] text-right"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 rounded-full px-4"
-              onClick={() => void generateShareLink(selectedEventId)}
+              disabled={loading || confirmingPayment || soldOutForSelection}
+              onClick={handleRegister}
+              variant="primary"
+              className="h-[52px] w-full rounded-2xl text-base font-bold"
             >
-              Generate share link
+              {soldOutForSelection
+                ? "Sold out"
+                : loading
+                  ? "Processing…"
+                  : (event.priceField ?? 0) > 0
+                    ? "Pay with Chapa"
+                    : "Get tickets"}
             </Button>
-          )}
-        </Card>
-      ) : null}
+            {soldOutForSelection && myTickets === 0 && userId ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 w-full rounded-2xl"
+                disabled={waitlistLoading}
+                onClick={async () => {
+                  setWaitlistLoading(true);
+                  try {
+                    const method = onWaitlist ? "DELETE" : "POST";
+                    const res = await fetch(
+                      `/api/events/${selectedEventId}/waitlist`,
+                      { method },
+                    );
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.error || "Failed");
+                    setOnWaitlist(!onWaitlist);
+                    toast.success(
+                      onWaitlist ? "Left waitlist" : "You're on the waitlist!",
+                    );
+                  } catch (err) {
+                    toast.error(getErrorMessage(err));
+                  } finally {
+                    setWaitlistLoading(false);
+                  }
+                }}
+              >
+                {waitlistLoading
+                  ? "…"
+                  : onWaitlist
+                    ? "Leave waitlist"
+                    : "Join waitlist"}
+              </Button>
+            ) : null}
+          </div>
 
-      <Button
-        type="button"
-        onClick={handleToggleSave}
-        variant="secondary"
-        className="h-11 w-full rounded-full px-5 border-none"
-      >
-        {isSaved ? "Remove from saved" : "Save event"}
-      </Button>
+          {myTickets > 0 ? (
+            <TicketQRPanel
+              eventId={event.eventId}
+              eventName={event.eventName}
+              ticketCount={myTickets}
+            />
+          ) : null}
 
-      <p className="text-xs text-(--color-text-muted)">
-        All reservations are final.
-      </p>
+          {canShareTickets ? (
+            <Card className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[#0a1927] p-4">
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Share your extra tickets
+                </p>
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  Friends can claim up to{" "}
+                  {shareUrl ? remainingClaims : myTickets - 1} ticket
+                  {(shareUrl ? remainingClaims : myTickets - 1) === 1
+                    ? ""
+                    : "s"}{" "}
+                  from this link.
+                </p>
+              </div>
+              {shareLoading ? (
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Generating link...
+                </p>
+              ) : shareUrl ? (
+                <div className="space-y-2">
+                  <Input
+                    value={shareUrl}
+                    readOnly
+                    className="bg-[#06111c] text-sm text-[var(--color-text-primary)]"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-11 rounded-full px-4"
+                      onClick={handleCopyShareLink}
+                    >
+                      {shareCopied ? "Copied!" : "Copy link"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-11 rounded-full px-4"
+                      onClick={() => void generateShareLink(selectedEventId)}
+                    >
+                      Regenerate
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 w-full rounded-full"
+                  onClick={() => void generateShareLink(selectedEventId)}
+                >
+                  Generate share link
+                </Button>
+              )}
+            </Card>
+          ) : null}
+
+          <Button
+            type="button"
+            onClick={handleToggleSave}
+            variant="secondary"
+            className="h-11 w-full rounded-2xl border-none"
+          >
+            {isSaved ? "Remove from saved" : "Save event"}
+          </Button>
+
+          <p className="text-sm text-[var(--color-text-muted)]">
+            All reservations are final.
+          </p>
+        </>
+      )}
     </Card>
   );
 }

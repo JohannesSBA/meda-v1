@@ -128,34 +128,36 @@ export default function QRScanner({ eventId, eventName }: Props) {
 
   return (
     <PageShell>
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 py-8">
-        <div className="flex items-center justify-between gap-4">
+      <div className="mx-auto flex max-w-2xl flex-col gap-4 py-4 sm:gap-6 sm:py-8">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">Scan tickets</h1>
-            <p className="mt-1 text-sm text-(--color-text-secondary)">
+            <h1 className="text-xl font-bold text-white sm:text-2xl">Scan tickets</h1>
+            <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
               {eventName}
             </p>
           </div>
           <Link href={`/events/${eventId}`}>
             <Button variant="secondary" size="sm" className="rounded-full">
-              Back to event
+              Back
             </Button>
           </Link>
         </div>
 
-        <Card className="overflow-hidden rounded-3xl bg-[#0d1a27]/90 p-4">
+        {/* Camera view */}
+        <Card className="overflow-hidden rounded-2xl bg-[#0d1a27]/90 p-3 sm:p-4">
           <div
             id="qr-reader"
-            className="overflow-hidden rounded-2xl border border-(--color-border) bg-black [&_.qr-shaded-region]:border-4 [&_.qr-shaded-region]:border-[var(--color-brand)]"
+            className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-black [&_.qr-shaded-region]:border-4 [&_.qr-shaded-region]:border-[var(--color-brand)]"
           />
           {error ? (
             <p className="mt-4 text-center text-sm text-red-400">{error}</p>
           ) : null}
         </Card>
 
+        {/* Scan result - shown as prominent card */}
         {lastResult ? (
           <Card
-            className={`rounded-2xl p-4 ${
+            className={`rounded-2xl p-5 ${
               lastResult.valid
                 ? lastResult.alreadyScanned
                   ? "border-amber-500/50 bg-amber-500/10"
@@ -163,9 +165,9 @@ export default function QRScanner({ eventId, eventName }: Props) {
                 : "border-red-500/50 bg-red-500/10"
             }`}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-4">
               <div
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${
                   lastResult.valid
                     ? lastResult.alreadyScanned
                       ? "bg-amber-500/30"
@@ -175,53 +177,23 @@ export default function QRScanner({ eventId, eventName }: Props) {
               >
                 {lastResult.valid ? (
                   lastResult.alreadyScanned ? (
-                    <svg
-                      className="h-6 w-6 text-amber-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
+                    <svg className="h-7 w-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                   ) : (
-                    <svg
-                      className="h-6 w-6 text-[#22FF88]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
+                    <svg className="h-7 w-7 text-[#22FF88]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   )
                 ) : (
-                  <svg
-                    className="h-6 w-6 text-red-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                  <svg className="h-7 w-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 )}
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <p
-                  className={`font-semibold ${
+                  className={`text-lg font-bold ${
                     lastResult.valid
                       ? lastResult.alreadyScanned
                         ? "text-amber-400"
@@ -236,21 +208,19 @@ export default function QRScanner({ eventId, eventName }: Props) {
                     : "Invalid ticket"}
                 </p>
                 {lastResult.valid && lastResult.attendeeName ? (
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-xl font-bold text-white">
                     {lastResult.attendeeName}
                   </p>
                 ) : null}
                 {lastResult.valid && lastResult.eventName ? (
-                  <p className="text-sm text-(--color-text-secondary)">
+                  <p className="text-sm text-[var(--color-text-secondary)]">
                     {lastResult.eventName}
                   </p>
                 ) : null}
                 {lastResult.valid && lastResult.alreadyScanned && lastResult.previousScan ? (
-                  <div className="mt-2 rounded-lg bg-black/20 px-3 py-2 text-xs">
-                    <p className="font-medium text-amber-200">
-                      Previously scanned
-                    </p>
-                    <p className="mt-0.5 text-(--color-text-muted)">
+                  <div className="mt-3 rounded-lg bg-black/20 px-4 py-3 text-sm">
+                    <p className="font-medium text-amber-200">Previously scanned</p>
+                    <p className="mt-0.5 text-[var(--color-text-muted)]">
                       {new Date(lastResult.previousScan.scannedAt).toLocaleString()} by{" "}
                       {lastResult.previousScan.scannedByName}
                     </p>
@@ -264,19 +234,20 @@ export default function QRScanner({ eventId, eventName }: Props) {
           </Card>
         ) : null}
 
+        {/* Recent scans */}
         {recentScans.length > 0 ? (
-          <Card className="rounded-2xl border border-(--color-border) bg-[#0a1927] p-4">
-            <h2 className="mb-3 text-sm font-semibold text-white">
+          <Card className="rounded-2xl border border-[var(--color-border)] bg-[#0a1927] p-4">
+            <h2 className="mb-3 text-base font-semibold text-white">
               Recent verifications
             </h2>
             <ul className="space-y-2">
               {recentScans.map((r) => (
                 <li
                   key={r.id}
-                  className="flex items-center gap-2 rounded-lg bg-[#06111c] px-3 py-2"
+                  className="flex items-center gap-3 rounded-xl bg-[#06111c] px-4 py-3"
                 >
                   <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
+                    className={`h-3 w-3 shrink-0 rounded-full ${
                       r.valid
                         ? r.alreadyScanned
                           ? "bg-amber-500"
@@ -285,18 +256,14 @@ export default function QRScanner({ eventId, eventName }: Props) {
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-base font-medium text-white">
                       {r.attendeeName ?? "Unknown attendee"}
                     </span>
                     {r.alreadyScanned ? (
-                      <span className="ml-2 text-xs text-amber-400">
-                        (re-scan)
-                      </span>
+                      <span className="ml-2 text-sm text-amber-400">(re-scan)</span>
                     ) : null}
                     {r.eventName ? (
-                      <p className="text-xs text-(--color-text-muted)">
-                        {r.eventName}
-                      </p>
+                      <p className="text-sm text-[var(--color-text-muted)]">{r.eventName}</p>
                     ) : null}
                   </div>
                 </li>

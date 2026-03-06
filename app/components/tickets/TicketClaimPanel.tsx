@@ -90,7 +90,7 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
 
   if (loading) {
     return (
-      <Card className="rounded-3xl bg-[#0f2235] p-6 text-sm text-(--color-text-secondary)">
+      <Card className="rounded-3xl bg-[#0f2235] p-6 text-sm text-[var(--color-text-secondary)]">
         Loading share link...
       </Card>
     );
@@ -100,7 +100,7 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
     return (
       <Card className="space-y-2 rounded-3xl bg-[#0f2235] p-6">
         <h1 className="text-xl font-semibold text-white">Invalid share link</h1>
-        <p className="text-sm text-(--color-text-secondary)">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           {error ?? "This ticket sharing link is not available."}
         </p>
       </Card>
@@ -112,12 +112,12 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
       <div>
         <p className="heading-kicker">Ticket share</p>
         <h1 className="text-2xl font-semibold text-white">{details.event.eventName}</h1>
-        <p className="text-sm text-(--color-text-secondary)">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           {new Date(details.event.eventDatetime).toLocaleString()} •{" "}
           {details.event.addressLabel ?? "Location pending"}
         </p>
       </div>
-      <div className="space-y-1 text-sm text-(--color-text-secondary)">
+      <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
         <p>Status: {details.status}</p>
         <p>Tickets remaining on this link: {details.remainingClaims}</p>
       </div>

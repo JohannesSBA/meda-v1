@@ -52,7 +52,7 @@ const formatTimeForInput = (date: Date) =>
 
 const getDayButtonClasses = (day: DPDay) =>
   cn(
-    "flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition",
+    "flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition",
     day.selected
       ? "bg-gradient-to-r from-[#7ccfff] to-[#8be8ff] text-[#062037] shadow"
       : day.inCurrentMonth
@@ -211,16 +211,16 @@ export function EventDateTimePicker({
               <>
                 <span>{displayDate}</span>
                 {displayTime ? (
-                  <span className="ml-1 text-[#9fc4e4]">· {displayTime}</span>
+                  <span className="ml-1 text-[var(--color-text-secondary)]">· {displayTime}</span>
                 ) : null}
               </>
             ) : (
-              <span className="text-[#7aa8c6]">{placeholder}</span>
+              <span className="text-[var(--color-text-muted)]">{placeholder}</span>
             )}
           </span>
           <svg
             className={cn(
-              "h-4 w-4 text-[#7aa8c6] transition-transform",
+              "h-4 w-4 text-[var(--color-text-muted)] transition-transform",
               isOpen && "rotate-180",
             )}
             viewBox="0 0 20 20"
@@ -239,38 +239,44 @@ export function EventDateTimePicker({
         </button>
 
         {isOpen ? (
+          <>
+          <div
+            className="fixed inset-0 z-20 bg-black/40"
+            onClick={() => setIsOpen(false)}
+            aria-hidden
+          />
           <div
             ref={popoverRef}
             id={`${id}-panel`}
             role="dialog"
             aria-label={`${label} picker`}
-            className="absolute left-0 right-0 z-30 mt-2 w-full rounded-3xl border border-white/10 bg-[#0f2235]/95 p-4 shadow-2xl shadow-black/35 backdrop-blur sm:right-auto sm:w-[42rem] sm:p-6"
+            className="absolute left-0 right-0 z-30 mt-2 max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0f2235]/98 p-4 shadow-2xl shadow-black/35 backdrop-blur sm:right-auto sm:w-[42rem] sm:rounded-3xl sm:p-6"
           >
             <div className="flex flex-col gap-6 lg:flex-row">
               <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
                 <div className="mb-4 flex items-center justify-between">
                   <button
                     type="button"
-                    className="rounded-full p-2 text-[#9fc4e4] transition hover:bg-white/8"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
                     {...subtractOffset({ months: 1 })}
                   >
                     <span className="sr-only">Previous month</span>
-                    <FaArrowLeft className="h-3.5 w-3.5" />
+                    <FaArrowLeft className="h-4 w-4" />
                   </button>
                   <div className="text-sm font-semibold text-[#e6f5ff]">
                     {calendar ? `${calendar.month} ${calendar.year}` : ""}
                   </div>
                   <button
                     type="button"
-                    className="rounded-full p-2 text-[#9fc4e4] transition hover:bg-white/8"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
                     {...addOffset({ months: 1 })}
                   >
                     <span className="sr-only">Next month</span>
-                    <FaArrowRight className="h-3.5 w-3.5" />
+                    <FaArrowRight className="h-4 w-4" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7aa8c6]">
+                <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
                   {weekDays.map((day) => (
                     <span key={day}>{day}</span>
                   ))}
@@ -292,7 +298,7 @@ export function EventDateTimePicker({
                   })}
                 </div>
 
-                <div className="mt-4 flex items-center justify-between text-[11px] text-[#7aa8c6]">
+                <div className="mt-4 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
                   <span>Week starts on Sunday</span>
                   <button
                     type="button"
@@ -305,7 +311,7 @@ export function EventDateTimePicker({
               </div>
 
               <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7aa8c6]">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
                   Time
                 </p>
                 <div className="mt-2 max-h-60 overflow-y-auto pr-1">
@@ -335,13 +341,14 @@ export function EventDateTimePicker({
             <div className="mt-6 flex justify-end">
               <button
                 type="button"
-                className="rounded-full px-4 py-2 text-sm font-semibold text-[#9fc4e4] transition hover:text-[#e6f5ff]"
+                className="h-11 rounded-full px-6 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[#e6f5ff]"
                 onClick={() => setIsOpen(false)}
               >
-                Close
+                Done
               </button>
             </div>
           </div>
+          </>
         ) : null}
       </div>
     </div>
