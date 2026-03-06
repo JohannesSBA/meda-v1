@@ -30,7 +30,7 @@ export default function AuthProviders({
     >
       <HeaderNav initialSession={initialSession as SessionPayload | null} />
       {children}
-      {/* <Toaster position="top-center" theme="dark" /> */}
+      <Toaster position="top-center" theme="dark" />
     </NeonAuthUIProvider>
   );
 }

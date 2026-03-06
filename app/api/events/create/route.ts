@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { uploadEventImageUnified } from "@/lib/uploadEventImage";
+import { requireSessionUser } from "@/lib/auth/guards";
+import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB per supabase guidance
 const MAX_RECURRING_OCCURRENCES = 180;
@@ -84,6 +86,18 @@ function buildRecurringWindows(params: {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before creating another event." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+
+  const session = await requireSessionUser();
+  if (!session.user || session.response) return session.response!;
+  const userId = session.user.id;
+
   const form = await request.formData();
 
   const eventId = randomUUID();
@@ -97,7 +111,6 @@ export async function POST(request: Request) {
   const longitude = form.get("longitude")?.toString() ?? "";
   const capacity = form.get("capacity")?.toString();
   const price = form.get("price")?.toString();
-  const userId = form.get("userId")?.toString() ?? "";
   const image = form.get("image") as File | null;
   const recurrenceEnabled = form.get("recurrenceEnabled")?.toString() === "true";
   const recurrenceFrequency = (form.get("recurrenceFrequency")?.toString() ?? "weekly") as RecurrenceFrequency;
@@ -105,7 +118,7 @@ export async function POST(request: Request) {
   const recurrenceUntilRaw = form.get("recurrenceUntil")?.toString() ?? "";
   const recurrenceWeekdaysRaw = form.get("recurrenceWeekdays")?.toString() ?? "";
 
-  if (!eventName || !categoryId || !startDate || !endDate || !location || !latitude || !longitude || !userId) {
+  if (!eventName || !categoryId || !startDate || !endDate || !location || !latitude || !longitude) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -128,12 +141,22 @@ export async function POST(request: Request) {
       if (buffer.byteLength > MAX_IMAGE_BYTES) {
         return NextResponse.json({ error: "Image too large (max 6MB)" }, { status: 400 });
       }
-      if (!image.type.startsWith("image/")) {
-        return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
+      const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      if (!ALLOWED_MIME_TYPES.includes(image.type)) {
+        return NextResponse.json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WEBP" }, { status: 400 });
       }
 
       const ext = image.type.split("/")[1] || "jpg";
       pictureUrl = await uploadEventImageUnified(eventId, { buffer, mimeType: image.type, ext });
+    }
+
+    const capacityNum = capacity ? parseInt(capacity, 10) : null;
+    if (capacityNum !== null && (Number.isNaN(capacityNum) || capacityNum < 1)) {
+      return NextResponse.json({ error: "Capacity must be a positive integer" }, { status: 400 });
+    }
+    const priceNum = price ? parseInt(price, 10) : null;
+    if (priceNum !== null && (Number.isNaN(priceNum) || priceNum < 0)) {
+      return NextResponse.json({ error: "Price must be a non-negative integer" }, { status: 400 });
     }
 
     if (!recurrenceEnabled) {
@@ -147,8 +170,8 @@ export async function POST(request: Request) {
           eventEndtime: endAt,
           eventLocation: `${location}!longitude=${longitude}&latitude=${latitude}`,
           pictureUrl,
-          capacity: capacity ? parseInt(capacity, 10) : null,
-          priceField: price ? parseInt(price, 10) : null,
+          capacity: capacityNum,
+          priceField: priceNum,
           userId,
         },
       });
@@ -200,8 +223,8 @@ export async function POST(request: Request) {
       eventEndtime: window.end,
       eventLocation: `${location}!longitude=${longitude}&latitude=${latitude}`,
       pictureUrl,
-      capacity: capacity ? parseInt(capacity, 10) : null,
-      priceField: price ? parseInt(price, 10) : null,
+      capacity: capacityNum,
+      priceField: priceNum,
       userId,
       seriesId,
       isRecurring: true,

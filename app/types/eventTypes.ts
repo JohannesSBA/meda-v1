@@ -12,6 +12,7 @@ export const EventSchema = z.object({
   priceField: z.number().nullable().optional(),
   userId: z.string(),
   categoryId: z.string(),
+  categoryName: z.string().nullable().optional(),
   seriesId: z.string().nullable().optional(),
   isRecurring: z.boolean().optional(),
   recurrenceKind: z.string().nullable().optional(),

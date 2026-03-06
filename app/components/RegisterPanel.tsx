@@ -8,6 +8,7 @@ import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
 import { authClient } from "@/lib/auth/client";
 import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
+import TicketQRPanel from "@/app/components/tickets/TicketQRPanel";
 import { Select } from "@/app/components/ui/select";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
@@ -78,6 +79,8 @@ export default function RegisterPanel({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [remainingClaims, setRemainingClaims] = useState<number>(0);
   const [shareCopied, setShareCopied] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [myTickets, setMyTickets] = useState<number>(
     occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
   );
@@ -153,7 +156,8 @@ export default function RegisterPanel({
           body: JSON.stringify({ eventId: targetEventId }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Unable to create share link");
+        if (!res.ok)
+          throw new Error(data?.error || "Unable to create share link");
         setShareUrl(data.shareUrl ?? null);
         setRemainingClaims(Number(data.remainingClaims) || 0);
       } catch (err) {
@@ -164,6 +168,26 @@ export default function RegisterPanel({
     },
     [userId],
   );
+
+  useEffect(() => {
+    if (!userId || !soldOutForSelection || myTickets > 0) {
+      setOnWaitlist(false);
+      return;
+    }
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/events/${selectedEventId}/waitlist`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setOnWaitlist(data.onWaitlist ?? false);
+      } catch {
+        setOnWaitlist(false);
+      }
+    };
+    void load();
+  }, [selectedEventId, userId, soldOutForSelection, myTickets]);
 
   useEffect(() => {
     if (!userId) {
@@ -452,17 +476,63 @@ export default function RegisterPanel({
                   ? "Pay with Chapa"
                   : "Get tickets"}
         </Button>
+        {soldOutForSelection && myTickets === 0 && userId ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-11 w-full rounded-full px-5"
+            disabled={waitlistLoading}
+            onClick={async () => {
+              setWaitlistLoading(true);
+              try {
+                const method = onWaitlist ? "DELETE" : "POST";
+                const res = await fetch(
+                  `/api/events/${selectedEventId}/waitlist`,
+                  { method },
+                );
+                const data = await res.json();
+                if (!res.ok) throw new Error(data?.error || "Failed");
+                setOnWaitlist(!onWaitlist);
+                toast.success(
+                  onWaitlist ? "Left waitlist" : "You're on the waitlist!",
+                );
+              } catch (err) {
+                toast.error(getErrorMessage(err));
+              } finally {
+                setWaitlistLoading(false);
+              }
+            }}
+          >
+            {waitlistLoading
+              ? "…"
+              : onWaitlist
+                ? "Leave waitlist"
+                : "Join waitlist"}
+          </Button>
+        ) : null}
       </div>
+
+      {myTickets > 0 ? (
+        <TicketQRPanel
+          eventId={event.eventId}
+          eventName={event.eventName}
+          ticketCount={myTickets}
+        />
+      ) : null}
 
       {canShareTickets ? (
         <Card className="space-y-3 rounded-2xl border border-(--color-border) bg-[#0a1927] p-4">
           <div>
-            <p className="text-sm font-semibold text-white">Share your extra tickets</p>
+            <p className="text-sm font-semibold text-white">
+              Share your extra tickets
+            </p>
             <p className="text-xs text-(--color-text-secondary)">
               Friends can claim up to{" "}
               {shareUrl ? remainingClaims : myTickets - 1} ticket
-              {(shareUrl ? remainingClaims : myTickets - 1) === 1 ? "" : "s"} from
-              this link.
+              {(shareUrl ? remainingClaims : myTickets - 1) === 1
+                ? ""
+                : "s"}{" "}
+              from this link.
             </p>
           </div>
           {shareLoading ? (
@@ -486,7 +556,9 @@ export default function RegisterPanel({
                   Copy link
                 </Button>
                 {shareCopied ? (
-                  <span className="self-center text-xs text-[#22FF88]">Copied</span>
+                  <span className="self-center text-xs text-[#22FF88]">
+                    Copied
+                  </span>
                 ) : null}
                 <Button
                   type="button"

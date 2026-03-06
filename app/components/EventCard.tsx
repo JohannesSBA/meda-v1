@@ -1,13 +1,14 @@
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
-import { FaArrowRight, FaLocationDot } from "react-icons/fa6";
+import { FaArrowRight, FaBookmark, FaLocationDot, FaRegBookmark } from "react-icons/fa6";
 import { Badge } from "./ui/badge";
 
 type EventCardProps = {
   event: EventResponse;
   href: string;
   isSaved?: boolean;
+  onSaveToggle?: (eventId: string, isSaved: boolean) => void | Promise<void>;
 } & ComponentPropsWithoutRef<"a">;
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -45,6 +46,7 @@ export function EventCard({
   event,
   href,
   isSaved = false,
+  onSaveToggle,
   className = "",
   ...rest
 }: EventCardProps) {
@@ -92,14 +94,34 @@ export function EventCard({
                 </Badge>
               ) : null}
             </div>
-            {slotsLeft != null ? (
-              <Badge
-                variant="success"
-                className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]"
-              >
-                {slotsLeft} seats left
-              </Badge>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {onSaveToggle ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void onSaveToggle(event.eventId, isSaved);
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white shadow-lg shadow-black/20 backdrop-blur-sm transition hover:bg-white/20 hover:text-[#22FF88] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand)] focus:ring-offset-2 focus:ring-offset-[#0d1a27]"
+                  aria-label={isSaved ? "Remove from saved" : "Save event"}
+                >
+                  {isSaved ? (
+                    <FaBookmark className="size-4 fill-current" />
+                  ) : (
+                    <FaRegBookmark className="size-4" />
+                  )}
+                </button>
+              ) : null}
+                {slotsLeft != null ? (
+                <Badge
+                  variant="success"
+                  className="px-3 py-1 text-[11px] font-bold text-[#001021] shadow-lg shadow-[#22ff881f]"
+                >
+                  {slotsLeft} seats left
+                </Badge>
+              ) : null}
+            </div>
           </div>
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0d1a27] via-[#0d1a27]/60 to-transparent" />
         </div>
@@ -111,7 +133,8 @@ export function EventCard({
                 {event.eventName}
               </h3>
               <p className="text-[11px] uppercase tracking-[0.12em] text-[#7cd8ff]">
-                {event.categoryId ? "Featured event" : "Community pick"}
+                {event.categoryName ??
+                  (event.categoryId ? "Featured event" : "Community pick")}
               </p>
             </div>
             <span className="rounded-xl bg-[#10283a] px-3 py-1 text-xs font-semibold text-[#00E5FF] shadow-inner shadow-[#00e5ff1f]">

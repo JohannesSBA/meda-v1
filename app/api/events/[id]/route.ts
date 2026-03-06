@@ -1,10 +1,13 @@
-"use server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { sendTicketConfirmationEmail } from "@/services/email";
+import { auth } from "@/lib/auth/server";
+import { checkRateLimit, getClientId } from "@/lib/ratelimit";
+
+const MAX_TICKETS_PER_USER_PER_EVENT = 20;
 
 export async function GET(
   request: Request,
@@ -27,11 +30,20 @@ export async function GET(
 
   const decoded = decodeEventLocation(event.eventLocation);
 
+  // Only reveal ticket count for the currently authenticated user
   let myTickets: number | null = null;
   if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) {
-    myTickets = await prisma.eventAttendee.count({
-      where: { eventId: id, userId },
-    });
+    try {
+      const { data: sessionData } = await auth.getSession();
+      const sessionUserId = (sessionData?.user as { id?: string } | null)?.id;
+      if (sessionUserId && sessionUserId === userId) {
+        myTickets = await prisma.eventAttendee.count({
+          where: { eventId: id, userId },
+        });
+      }
+    } catch {
+      // No session — myTickets stays null
+    }
   }
 
   let occurrences:
@@ -59,7 +71,9 @@ export async function GET(
     });
 
     const myTicketCounts = new Map<string, number>();
+    // myTickets in occurrences is only populated when userId matches the session user
     if (
+      myTickets !== null &&
       userId &&
       /^[0-9a-fA-F-]{36}$/.test(userId) &&
       seriesEvents.length > 0
@@ -108,6 +122,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const rl = checkRateLimit(`register:${getClientId(request)}`, 10, 60_000);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before registering again." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+
   const session = await requireSessionUser();
   if (!session.user || session.response) return session.response!;
 
@@ -149,6 +171,18 @@ export async function POST(
   if (event.capacity != null && qty > event.capacity) {
     return NextResponse.json(
       { error: "Not enough seats available" },
+      { status: 400 },
+    );
+  }
+
+  const existingTickets = await prisma.eventAttendee.count({
+    where: { eventId: id, userId },
+  });
+  if (existingTickets + qty > MAX_TICKETS_PER_USER_PER_EVENT) {
+    return NextResponse.json(
+      {
+        error: `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
+      },
       { status: 400 },
     );
   }
@@ -197,6 +231,7 @@ export async function POST(
         eventEndTime: event.eventEndtime,
         locationLabel: decodedLocation.addressLabel,
         quantity: qty,
+        eventId: id,
       });
     } catch (error) {
       console.error("Failed to send ticket confirmation email:", error);

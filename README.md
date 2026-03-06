@@ -2,7 +2,83 @@
 
 Meda is a Next.js event platform where users can browse events, register/purchase tickets, save events, and manage their own event activity.
 
+## Feature List
+
+### TODO
+
+- **Refund policy** - Gives back credits within the systems if a user Drops out
+
+### Core Features
+
+- **Browse events** – Search, filter by category, date range, and location; sort by date or price
+- **Register / purchase tickets** – Free and paid (Chapa) registration
+- **Save events** – Bookmark events from the list or event detail page
+- **My Events** – Dedicated page for events where the user has tickets
+- **Ticket sharing** – Share extra tickets via claim links
+- **QR codes for tickets** – Per-ticket QR codes for check-in at events
+
+### Admin Features
+
+- **QR code scanning** – Admin link on event page (`/events/[id]/scan`) to scan attendee QR codes
+- **Scan tracking** – When a ticket was scanned before, admins see attendee name and previous scan details (time, scanner)
+- **Event scoping** – Admins scanning on event A’s page get an error if the ticket is for event B
+
+### Discovery and Filtering
+
+- **Category filter** – Filter events by category
+- **Date range filter** – Presets: this week, this weekend, this month (with correct Sunday handling)
+- **Geolocation** – “Use my location” to center map and find nearby events
+- **Host/organizer profile** – Public host page at `/hosts/[id]` with their events
+
+### Engagement
+
+- **Event reminder emails** – 24h and 1h before event start (cron)
+- **Add to calendar** – ICS export and “Add to calendar” in confirmation emails
+- **Waitlist** – Join waitlist for sold-out events; automatic promotion when capacity increases
+
+### Technical
+
+- **Per-event SEO** – Unique metadata and Open Graph per event
+- **Saved events in Prisma** – `SavedEvent` model with proper ordering
+- **Token security** – `TICKET_VERIFICATION_SECRET` required in production
+
+---
+
+## Changes from Previous Version
+
+### New Features
+
+| Feature            | Description                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| Admin QR scanner   | Link for admins on event page to scan tickets at `/events/[id]/scan`               |
+| Scan tracking      | `ticket_scan` table records scans; admins see “Already scanned” with attendee info |
+| Event scoping      | Verify API rejects tickets for a different event when admin scans                  |
+| Waitlist promotion | When admin increases capacity, waitlisted users are promoted and emailed           |
+| Category labels    | EventCard shows real `categoryName` from API                                       |
+| Weekend filter fix | Sunday shows “this weekend” (yesterday–today) instead of next weekend              |
+| Saved events order | API preserves `createdAt` order of saved events                                    |
+
+### Improvements
+
+| Area            | Change                                                            |
+| --------------- | ----------------------------------------------------------------- |
+| Layout metadata | Open Graph description aligned with main metadata                 |
+| Token secret    | Throws in production if `TICKET_VERIFICATION_SECRET` is missing   |
+| Reminder cron   | Whitelisted schema/table; parameterized `userIds` query           |
+| TicketQRPanel   | Uses `attendeeIds.length` as source of truth; handles empty state |
+| QRScanner       | Passes `eventId` to verify API; stable keys for recent scans list |
+
+### New Files
+
+- `services/waitlistPromotion.ts` – Promotes waitlisted users when capacity increases
+- `prisma/migrations/20260304000000_reminder_log/migration.sql` – Reminder deduplication
+- `prisma/migrations/20260304000100_event_waitlist/migration.sql` – Waitlist model
+- `prisma/migrations/20260305000000_ticket_scan/migration.sql` – Scan history
+
+---
+
 This document provides:
+
 - local setup and migration workflow
 - detailed ticket sharing architecture and behavior
 - `My Events` feature overview
@@ -37,6 +113,7 @@ This document provides:
 ## Migration Notes (Neon Branches and Data Safety)
 
 If your database has schema drift and `prisma migrate dev` suggests reset:
+
 - Do not run reset on data you want to keep.
 - Prefer Neon branch-based workflow:
   - create a branch in Neon
@@ -66,6 +143,7 @@ Ticket owners can share extra tickets from the same event using a claim link.
 ### My Events
 
 A dedicated page for events where the user has at least one ticket:
+
 - route: `/my-events`
 - included in header nav
 - supports `upcoming`, `past`, and `all` filters
@@ -91,14 +169,22 @@ Defined in `prisma/schema.prisma`:
 - `InvitationClaim`
   - records who claimed from a link
   - unique `(invitationId, claimedByUserId)` prevents duplicate claim per invitation
+- `SavedEvent` – user bookmarks; unique `(eventId, userId)`
+- `EventWaitlist` – sold-out waitlist; unique `(eventId, userId)`
+- `ticket_scan` (raw table) – scan history: `attendee_id`, `event_id`, `scanned_by_user_id`, `scanned_at`
 
 Migration files:
+
 - `prisma/migrations/20260226000000_saved_events_baseline/migration.sql`
 - `prisma/migrations/20260226000100_ticket_sharing_claims/migration.sql`
+- `prisma/migrations/20260304000000_reminder_log/migration.sql` – reminder deduplication
+- `prisma/migrations/20260304000100_event_waitlist/migration.sql` – waitlist
+- `prisma/migrations/20260305000000_ticket_scan/migration.sql` – scan history
 
 ### Token Security
 
 Implemented in `lib/tickets/shareTokens.ts`:
+
 - generate cryptographically random token
 - store only SHA-256 hash in DB
 - raw token appears only in share URL returned to owner
@@ -154,6 +240,7 @@ Implemented under `app/api/tickets/share/...`:
 Component: `app/components/RegisterPanel.tsx`
 
 Capabilities:
+
 - displays current user ticket count for selected event
 - if `myTickets > 1`, shows share panel
 - allows:
@@ -163,15 +250,18 @@ Capabilities:
   - inline `Copied` indicator + toast feedback
 
 Additional behavior:
+
 - after successful free registration or paid confirmation, if user crosses above 1 ticket, share panel can be used immediately.
 
 ### 2) My Events (`/my-events`)
 
 Files:
+
 - `app/my-events/page.tsx`
 - `app/components/profile/MyEventsPanel.tsx`
 
 Capabilities:
+
 - list ticketed events for logged-in user
 - filter by status (upcoming/past/all)
 - per event:
@@ -184,6 +274,7 @@ Capabilities:
 Component: `app/components/profile/ProfileDashboard.tsx`
 
 Capabilities:
+
 - in Registered Events tab, each event row shows:
   - `View`
   - `Save/Unsave`
@@ -193,10 +284,12 @@ Capabilities:
 ### 4) Claim Page (`/tickets/claim/[token]`)
 
 Files:
+
 - `app/tickets/claim/[token]/page.tsx`
 - `app/components/tickets/TicketClaimPanel.tsx`
 
 Capabilities:
+
 - requires authentication (redirects to sign-in with callback)
 - loads invitation + event details
 - displays link status and remaining claims
@@ -235,6 +328,39 @@ Capabilities:
 3. Previous raw link is no longer valid.
 4. Claim history stays attached to invitation record.
 
+## Implementation Details
+
+### QR Codes and Verification
+
+- **Token format** – HMAC-signed `attendeeId` in `lib/tickets/verificationToken.ts`
+- **QR generation** – `GET /api/tickets/[attendeeId]/qr` returns PNG; user must own the ticket
+- **Verification** – `GET /api/tickets/verify/[token]` validates token, returns event/attendee info
+- **Admin scan** – When session has `role === "admin"`, API records scan in `ticket_scan` and returns `alreadyScanned` + `previousScan` if previously scanned
+- **Event scoping** – Optional `?eventId=` query param; if ticket is for a different event, returns 400
+
+### Waitlist
+
+- **Model** – `EventWaitlist` with `(eventId, userId)` unique
+- **Join** – `POST /api/events/[id]/waitlist` when event is sold out
+- **Leave** – `DELETE /api/events/[id]/waitlist`
+- **Promotion** – Triggered in admin PATCH when `capacity` is updated and `> 0`; `promoteWaitlistForEvent()` creates attendees, decrements capacity, sends confirmation emails
+
+### Reminder Emails
+
+- **Cron** – `GET /api/cron/send-reminders` (Vercel Cron, hourly); requires `Authorization: Bearer ${CRON_SECRET}`
+- **Windows** – 24h and 1h before event start
+- **Deduplication** – `reminder_log` table with `(event_id, user_id, reminder_type)` unique
+
+### Environment Variables
+
+| Variable                          | Purpose                                                |
+| --------------------------------- | ------------------------------------------------------ |
+| `CRON_SECRET`                     | Auth for reminder cron                                 |
+| `TICKET_VERIFICATION_SECRET`      | HMAC secret for ticket tokens (required in production) |
+| `AUTH_SCHEMA` / `AUTH_USER_TABLE` | Override auth table for reminders/waitlist emails      |
+
+---
+
 ## Key File Map
 
 - Header/Nav
@@ -259,6 +385,18 @@ Capabilities:
 - Ticket ownership/event APIs
   - `app/api/events/[id]/route.ts`
   - `app/api/profile/registered-events/route.ts`
+- QR codes and scanning
+  - `app/api/tickets/[attendeeId]/qr/route.ts`
+  - `app/api/tickets/verify/[token]/route.ts`
+  - `app/components/tickets/TicketQRPanel.tsx`
+  - `app/components/tickets/QRScanner.tsx`
+  - `app/events/[id]/scan/page.tsx`
+  - `lib/tickets/verificationToken.ts`
+- Waitlist
+  - `app/api/events/[id]/waitlist/route.ts`
+  - `services/waitlistPromotion.ts`
+- Reminders
+  - `app/api/cron/send-reminders/route.ts`
 
 ## QA Checklist
 

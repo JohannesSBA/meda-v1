@@ -84,6 +84,8 @@ model Event {
   attendees     EventAttendee[]
   invitations   Invitation[]
   payments      Payment[]
+  savedEvents   SavedEvent[]
+  waitlist      EventWaitlist[]
 
   @@map("events")
 }
@@ -150,4 +152,31 @@ model Payment {
   event               Event         @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
   @@map("payments")
+}
+
+model SavedEvent {
+  savedEventId String   @id @default(uuid()) @db.Uuid @map("saved_event_id")
+  eventId      String   @map("event_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  event        Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("saved_events")
+}
+
+model EventWaitlist {
+  waitlistId String   @id @default(uuid()) @db.Uuid @map("waitlist_id")
+  eventId    String   @map("event_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  event      Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_waitlist")
 }

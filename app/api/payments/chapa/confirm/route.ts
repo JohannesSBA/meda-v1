@@ -6,6 +6,7 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { confirmPaymentSchema } from "@/lib/validations/payments";
 import { confirmChapaPayment } from "@/services/payments";
 import { sendTicketConfirmationEmail } from "@/services/email";
+import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 
 function formatUnknownError(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -18,6 +19,14 @@ function formatUnknownError(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(`confirm:${getClientId(request)}`, 10, 60_000);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before confirming payment again." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+
   const session = await requireSessionUser();
   if (!session.user || session.response) {
     return session.response!;
@@ -67,6 +76,7 @@ export async function POST(request: Request) {
               eventEndTime: event.eventEndtime,
               locationLabel: decoded.addressLabel,
               quantity: result.quantity,
+              eventId: result.eventId,
             });
           } catch (emailErr) {
             console.error("Failed to send ticket confirmation email:", emailErr);

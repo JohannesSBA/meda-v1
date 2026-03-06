@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireAdminUser } from "@/lib/auth/guards";
 import { uploadEventImageUnified } from "@/lib/uploadEventImage";
+import { promoteWaitlistForEvent } from "@/services/waitlistPromotion";
 
 export async function GET(
   _request: Request,
@@ -73,15 +74,31 @@ export async function PATCH(
     const image = form.get("image");
     let pictureUrl: string | null | undefined = form.get("pictureUrl")?.toString();
     if (image && image instanceof File && image.size > 0) {
+      const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      if (!ALLOWED_MIME_TYPES.includes(image.type)) {
+        return NextResponse.json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WEBP" }, { status: 400 });
+      }
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const ext = image.type.split("/")[1] || "jpg";
       pictureUrl = await uploadEventImageUnified(id, {
         buffer,
-        mimeType: image.type || "image/jpeg",
+        mimeType: image.type,
         ext,
       });
     }
+    const rawCapacity = form.get("capacity")?.toString();
+    const rawPrice = form.get("price")?.toString();
+    const parsedCapacity = rawCapacity ? Number(rawCapacity) : null;
+    const parsedPrice = rawPrice ? Number(rawPrice) : null;
+
+    if (parsedCapacity !== null && (Number.isNaN(parsedCapacity) || parsedCapacity < 0)) {
+      return NextResponse.json({ error: "Capacity must be a non-negative number" }, { status: 400 });
+    }
+    if (parsedPrice !== null && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
+      return NextResponse.json({ error: "Price must be a non-negative number" }, { status: 400 });
+    }
+
     payload = {
       eventName: form.get("eventName")?.toString(),
       description: form.get("description")?.toString() ?? null,
@@ -92,8 +109,8 @@ export async function PATCH(
         form.get("location") && form.get("latitude") && form.get("longitude")
           ? `${form.get("location")?.toString()}!longitude=${form.get("longitude")?.toString()}&latitude=${form.get("latitude")?.toString()}`
           : form.get("eventLocation")?.toString(),
-      capacity: form.get("capacity") ? Number(form.get("capacity")) : null,
-      priceField: form.get("price") ? Number(form.get("price")) : null,
+      capacity: parsedCapacity,
+      priceField: parsedPrice,
       categoryId: form.get("categoryId")?.toString(),
       applyToSeries: form.get("applyToSeries")?.toString() === "true",
     };
@@ -157,6 +174,20 @@ export async function PATCH(
     if (!refreshed) {
       return NextResponse.json({ error: "Event not found after update" }, { status: 404 });
     }
+
+    if (
+      payload.capacity != null &&
+      payload.capacity > 0
+    ) {
+      const seriesEvents = await prisma.event.findMany({
+        where: { seriesId: existing.seriesId },
+        select: { eventId: true },
+      });
+      for (const e of seriesEvents) {
+        void promoteWaitlistForEvent(e.eventId);
+      }
+    }
+
     return NextResponse.json(
       {
         ok: true,
@@ -177,6 +208,10 @@ export async function PATCH(
     where: { eventId: id },
     data: updateData,
   });
+
+  if (payload.capacity != null && payload.capacity > 0) {
+    void promoteWaitlistForEvent(id);
+  }
 
   return NextResponse.json(
     {

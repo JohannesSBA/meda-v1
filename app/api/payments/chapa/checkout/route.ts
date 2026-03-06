@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { checkoutPaymentSchema } from "@/lib/validations/payments";
 import { initializeChapaCheckout } from "@/services/payments";
+import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 
 function formatUnknownError(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -14,6 +15,14 @@ function formatUnknownError(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit(`checkout:${getClientId(request)}`, 5, 60_000);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before initiating another payment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+
   const session = await requireSessionUser();
   if (!session.user || session.response) {
     return session.response!;

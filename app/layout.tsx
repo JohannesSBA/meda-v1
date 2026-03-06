@@ -14,6 +14,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   title: "Meda - Event Management System",
   description:
@@ -25,7 +31,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Meda - Event Management System",
     description:
-      "A Next.js application with Neon Auth - Meda Event Management System",
+      "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia's night football and weekend runs.",
     images: "/logo.png",
   },
   twitter: {

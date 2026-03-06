@@ -22,6 +22,7 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const hasInitialFitRef = useRef(false);
   const [geoDenied, setGeoDenied] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: DEFAULT_CENTER[1], lng: DEFAULT_CENTER[0] });
 
   const eventsWithCoords = useMemo(
@@ -159,7 +160,7 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         ref={mapContainer}
         className="h-80 w-full overflow-hidden rounded-xl border border-[#1f3850] bg-[#0b1624]"
       />
-      <div className="flex justify-center">
+      <div className="flex flex-wrap justify-center gap-2">
         <Button
           type="button"
           onClick={() => onSearchHere(mapCenter)}
@@ -169,6 +170,39 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
         >
           Search this area
         </Button>
+        {typeof navigator !== "undefined" && navigator.geolocation && !geoDenied ? (
+          <Button
+            type="button"
+            onClick={() => {
+              setGeoLoading(true);
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                  onSearchHere(coords);
+                  if (mapRef.current) {
+                    mapRef.current.flyTo({
+                      center: [coords.lng, coords.lat],
+                      zoom: 12,
+                      speed: 1.2,
+                    });
+                  }
+                  setGeoLoading(false);
+                },
+                () => {
+                  setGeoDenied(true);
+                  setGeoLoading(false);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+              );
+            }}
+            variant="secondary"
+            size="sm"
+            className="rounded-full"
+            disabled={geoLoading}
+          >
+            {geoLoading ? "Getting location…" : "Use my location"}
+          </Button>
+        ) : null}
       </div>
       {geoDenied ? (
         <p className="text-xs text-[#ffb4b4]">Location permission denied. Showing all events.</p>

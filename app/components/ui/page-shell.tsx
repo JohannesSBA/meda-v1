@@ -15,7 +15,8 @@ export function PageShell({
   return (
     <main
       className={cn(
-        "app-shell relative mt-16 min-h-screen overflow-hidden",
+        "app-shell relative min-h-screen overflow-hidden",
+        "mt-[calc(4rem+env(safe-area-inset-top,0px))]",
         className,
       )}
     >

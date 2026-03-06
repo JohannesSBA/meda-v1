@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth/server";
 import { EventCard } from "@/app/components/EventCard";
 import RegisterPanel from "@/app/components/RegisterPanel";
 import StaticEventMap from "@/app/components/StaticEventMap";
@@ -18,16 +21,57 @@ async function getEvent(id: string): Promise<EventDetailResponse | null> {
   return data.event as EventDetailResponse;
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const event = await getEvent(id);
+  if (!event) return { title: "Event not found" };
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const eventUrl = `${baseUrl}/events/${id}`;
+  const description =
+    event.description?.slice(0, 160)?.trim() ||
+    `${event.eventName} - ${new Date(event.eventDatetime).toLocaleDateString()} at ${event.addressLabel ?? event.eventLocation ?? "TBA"}`;
+  const image = event.pictureUrl
+    ? (event.pictureUrl.startsWith("http") ? event.pictureUrl : `${baseUrl}${event.pictureUrl}`)
+    : `${baseUrl}/logo.png`;
+
+  return {
+    title: `${event.eventName} | Meda`,
+    description,
+    openGraph: {
+      title: event.eventName,
+      description,
+      url: eventUrl,
+      images: [{ url: image, alt: event.eventName }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: event.eventName,
+      description,
+      images: [image],
+    },
+  };
+}
+
 export default async function EventDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const event = await getEvent(id);
+  const [event, session] = await Promise.all([
+    getEvent(id),
+    auth.getSession().catch(() => ({ data: null })),
+  ]);
   if (!event) return notFound();
 
   const isSoldOut = event.capacity != null && event.capacity <= 0;
+  const isAdmin = (session?.data?.user as { role?: string } | undefined)?.role === "admin";
 
   return (
     <PageShell>
@@ -38,6 +82,17 @@ export default async function EventDetailPage({
               <EventCard event={event} href="#" />
             </div>
             <article className="space-y-4 text-[var(--color-text-secondary)]">
+              {event.userId ? (
+                <p className="text-sm">
+                  <span className="text-(--color-text-muted)">Hosted by </span>
+                  <Link
+                    href={`/hosts/${event.userId}`}
+                    className="font-medium text-(--color-brand) hover:underline"
+                  >
+                    View organizer
+                  </Link>
+                </p>
+              ) : null}
               <h2 className="text-xl font-semibold text-white">About</h2>
               <p className="leading-relaxed whitespace-pre-line">
                 {event.description ?? "No description yet."}
@@ -78,7 +133,28 @@ export default async function EventDetailPage({
                   Location not available.
                 </div>
               )}
-              <div className="flex items-center justify-end">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {isAdmin ? (
+                  <Link
+                    href={`/events/${event.eventId}/scan`}
+                    className={cn(
+                      buttonVariants("primary", "sm"),
+                      "rounded-full",
+                    )}
+                  >
+                    Scan QR codes
+                  </Link>
+                ) : null}
+                <a
+                  className={cn(
+                    buttonVariants("secondary", "sm"),
+                    "rounded-full",
+                  )}
+                  href={`/api/events/${event.eventId}/ics`}
+                  download
+                >
+                  Add to calendar
+                </a>
                 <a
                   className={cn(
                     buttonVariants("secondary", "sm"),

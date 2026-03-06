@@ -4,23 +4,49 @@ import { NextResponse } from "next/server";
 import { decodeEventLocation, haversineDistanceKm } from "@/app/helpers/locationCodec";
 
 const DEFAULT_LIMIT = 8;
+const MAX_LIMIT = 50;
 const DEFAULT_RADIUS_KM = 50;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   const page = Math.max(Number(searchParams.get("page")) || 1, 1);
-  const limit = Math.max(Number(searchParams.get("limit")) || DEFAULT_LIMIT, 1);
+  const limit = Math.min(Math.max(Number(searchParams.get("limit")) || DEFAULT_LIMIT, 1), MAX_LIMIT);
   const search = searchParams.get("search")?.trim() || "";
   const sort = searchParams.get("sort") === "price" ? "price" : "date";
   const order = searchParams.get("order") === "desc" ? "desc" : "asc";
   const nearLat = Number(searchParams.get("nearLat"));
   const nearLng = Number(searchParams.get("nearLng"));
   const radiusKm = Number(searchParams.get("radiusKm")) || DEFAULT_RADIUS_KM;
+  const categoryId = searchParams.get("categoryId")?.trim() || "";
+  const fromParam = searchParams.get("from")?.trim();
+  const toParam = searchParams.get("to")?.trim();
+  const hostId = searchParams.get("hostId")?.trim() || "";
 
   const predicates: Prisma.EventWhereInput[] = [
     { eventDatetime: { gte: new Date() } }, // only upcoming events
   ];
+
+  if (fromParam) {
+    const fromDate = new Date(fromParam);
+    if (!Number.isNaN(fromDate.getTime())) {
+      predicates.push({ eventDatetime: { gte: fromDate } });
+    }
+  }
+  if (toParam) {
+    const toDate = new Date(toParam);
+    if (!Number.isNaN(toDate.getTime())) {
+      predicates.push({ eventDatetime: { lte: toDate } });
+    }
+  }
+
+  if (categoryId && /^[0-9a-fA-F-]{36}$/.test(categoryId)) {
+    predicates.push({ categoryId });
+  }
+
+  if (hostId && /^[0-9a-fA-F-]{36}$/.test(hostId)) {
+    predicates.push({ userId: hostId });
+  }
 
   if (search) {
     predicates.push({
@@ -39,7 +65,17 @@ export async function GET(request: Request) {
       ? { priceField: order as Prisma.SortOrder }
       : { eventDatetime: order as Prisma.SortOrder };
 
-  const allEvents = await prisma.event.findMany({ where, orderBy });
+  // Hard cap on fetched rows to prevent unbounded memory usage.
+  // In-memory grouping and geo-filtering require candidates to be loaded first,
+  // so we fetch up to MAX_DB_ROWS rows before any in-memory post-processing.
+  const MAX_DB_ROWS = 500;
+
+  const allEvents = await prisma.event.findMany({
+    where,
+    orderBy,
+    include: { category: { select: { categoryName: true } } },
+    take: MAX_DB_ROWS,
+  });
 
   const shaped = allEvents.map((e) => {
     const decoded = decodeEventLocation(e.eventLocation);
@@ -55,6 +91,7 @@ export async function GET(request: Request) {
       priceField: e.priceField,
       userId: e.userId,
       categoryId: e.categoryId,
+      categoryName: e.category?.categoryName ?? null,
       seriesId: e.seriesId,
       isRecurring: e.isRecurring,
       recurrenceKind: e.recurrenceKind,
