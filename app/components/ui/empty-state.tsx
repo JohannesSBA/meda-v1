@@ -1,3 +1,7 @@
+/**
+ * EmptyState -- placeholder for empty lists with optional actions.
+ */
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card } from "./card";

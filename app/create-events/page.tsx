@@ -1,3 +1,9 @@
+/**
+ * Create events page -- form for creating new events with CreateEventForm.
+ *
+ * Fetches categories for the form.
+ */
+
 import { prisma } from "@/lib/prisma";
 import CreateEventForm from "../components/CreateEventForm";
 import { PageShell } from "../components/ui/page-shell";

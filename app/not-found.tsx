@@ -1,3 +1,7 @@
+/**
+ * 404 page -- rendered when a route is not found.
+ */
+
 import Link from "next/link";
 import { PageShell } from "./components/ui/page-shell";
 import { buttonVariants } from "./components/ui/button";

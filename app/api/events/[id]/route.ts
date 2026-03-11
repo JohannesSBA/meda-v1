@@ -3,12 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
-import { sendTicketConfirmationEmail } from "@/services/email";
 import { auth } from "@/lib/auth/server";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-import { MAX_TICKETS_PER_USER_PER_EVENT, MAX_SERIES_OCCURRENCES } from "@/lib/constants";
-import { logger } from "@/lib/logger";
+import { MAX_SERIES_OCCURRENCES } from "@/lib/constants";
 import { eventRegistrationSchema } from "@/lib/validations/events";
+import { registerForEvent } from "@/services/registrations";
 
 export async function GET(
   request: Request,
@@ -152,98 +151,36 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const event = await prisma.event.findUnique({ where: { eventId: id } });
-  if (!event)
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-
-  if (event.eventEndtime <= new Date()) {
-    return NextResponse.json({ error: "Event has ended" }, { status: 400 });
-  }
-
-  if (event.capacity != null && qty > event.capacity) {
-    return NextResponse.json(
-      { error: "Not enough seats available" },
-      { status: 400 },
-    );
-  }
-
-  const existingTickets = await prisma.eventAttendee.count({
-    where: { eventId: id, userId },
-  });
-  if (existingTickets + qty > MAX_TICKETS_PER_USER_PER_EVENT) {
-    return NextResponse.json(
-      {
-        error: `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
-      },
-      { status: 400 },
-    );
-  }
-
-  const rows = Array.from({ length: qty }).map(() => ({
-    eventId: id,
-    userId,
-    status: "RSVPed" as const,
-  }));
-
   try {
-    await prisma.$transaction(async (tx) => {
-      if (event.capacity != null) {
-        const updated = await tx.event.updateMany({
-          where: {
-            eventId: id,
-            capacity: { gte: qty },
-          },
-          data: {
-            capacity: { decrement: qty },
-          },
-        });
-        if (updated.count === 0) throw new Error("Not enough seats available");
-      }
-
-      await tx.eventAttendee.createMany({ data: rows });
+    const result = await registerForEvent({
+      eventId: id,
+      userId,
+      quantity: qty,
+      userEmail: session.user.email ?? null,
+      userName: session.user.name ?? null,
+      baseUrl: new URL(request.url).origin,
     });
+
+    revalidatePath(`/events/${id}`);
+    revalidatePath("/events");
+
+    return NextResponse.json(
+      { ok: result.ok, attendeeCount: result.attendeeCount },
+      { status: 201 },
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to register";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const status =
+      message.includes("Event not found")
+        ? 404
+        : message.includes("ended") ||
+            message.includes("seats") ||
+            message.includes("hold at most")
+          ? 400
+          : 400;
+    return NextResponse.json({ error: message }, { status });
   }
-
-  const updatedCount = await prisma.eventAttendee.count({
-    where: { eventId: id },
-  });
-
-  revalidatePath(`/events/${id}`);
-  revalidatePath("/events");
-
-  if (session.user.email) {
-    const decodedLocation = decodeEventLocation(event.eventLocation);
-    const attendees = await prisma.eventAttendee.findMany({
-      where: { eventId: id, userId },
-      select: { attendeeId: true },
-      orderBy: { createdAt: "desc" },
-    });
-    try {
-      await sendTicketConfirmationEmail({
-        to: session.user.email,
-        buyerName: session.user.name ?? null,
-        eventName: event.eventName,
-        eventDateTime: event.eventDatetime,
-        eventEndTime: event.eventEndtime,
-        locationLabel: decodedLocation.addressLabel,
-        quantity: qty,
-        eventId: id,
-        attendeeIds: attendees.map((a) => a.attendeeId),
-        baseUrl: new URL(request.url).origin,
-      });
-    } catch (error) {
-      logger.error("Failed to send ticket confirmation email", error);
-    }
-  }
-
-  return NextResponse.json(
-    { ok: true, attendeeCount: updatedCount },
-    { status: 201 },
-  );
 }
 
 export async function DELETE(

@@ -1,3 +1,7 @@
+/**
+ * TicketQRPanel -- displays QR code for a ticket and share/refund actions.
+ */
+
 "use client";
 
 import { useEffect, useState } from "react";

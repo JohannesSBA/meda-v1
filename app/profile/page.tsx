@@ -1,3 +1,9 @@
+/**
+ * Profile page -- user dashboard with registered events, saved events, and admin tabs.
+ *
+ * Requires auth; redirects unauthenticated users.
+ */
+
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import ProfileDashboard from "@/app/components/profile/ProfileDashboard";

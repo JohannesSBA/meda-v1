@@ -1,3 +1,9 @@
+/**
+ * MyEventsPanel -- lists events the user is hosting or managing.
+ *
+ * Fetches from profile/events API; supports view and edit actions.
+ */
+
 "use client";
 
 import { useEffect, useState } from "react";

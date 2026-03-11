@@ -1,3 +1,7 @@
+/**
+ * About page -- static content describing the platform and its mission.
+ */
+
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PageShell } from "../components/ui/page-shell";

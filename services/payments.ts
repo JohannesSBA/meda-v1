@@ -1,4 +1,13 @@
+/**
+ * Payments service -- Chapa checkout and balance payment processing.
+ *
+ * Handles payment creation, confirmation, and status updates.
+ */
+
 import { Chapa } from "chapa-nodejs";
+import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { sendTicketConfirmationEmail } from "@/services/email";
+import { logger } from "@/lib/logger";
 import axios from "axios";
 import { prisma } from "@/lib/prisma";
 import { PaymentStatus } from "@/generated/prisma/client";
@@ -18,6 +27,148 @@ type ConfirmPayload = {
   txRef: string;
   userId: string;
 };
+
+export type PayWithBalanceParams = {
+  eventId: string;
+  userId: string;
+  quantity: number;
+  userEmail?: string | null;
+  userName?: string | null;
+  baseUrl: string;
+};
+
+export type PayWithBalanceResult = {
+  ok: true;
+  quantity: number;
+  amountPaid: number;
+  newBalance: number;
+};
+
+export class InsufficientBalanceError extends Error {
+  constructor(
+    public availableBalance: number,
+    public totalCost: number,
+    public shortfall: number,
+  ) {
+    super("Insufficient balance");
+    this.name = "InsufficientBalanceError";
+  }
+}
+
+export async function payWithBalance(params: PayWithBalanceParams): Promise<PayWithBalanceResult> {
+  const { eventId, userId, quantity, userEmail, userName, baseUrl } = params;
+
+  const event = await prisma.event.findUnique({
+    where: { eventId },
+    select: {
+      eventId: true,
+      eventName: true,
+      eventDatetime: true,
+      eventEndtime: true,
+      eventLocation: true,
+      capacity: true,
+      priceField: true,
+    },
+  });
+
+  if (!event) throw new Error("Event not found");
+  if (event.eventEndtime <= new Date()) throw new Error("Event has ended");
+  if (!event.priceField || event.priceField <= 0) {
+    throw new Error("This event does not require payment");
+  }
+  if (event.capacity != null && quantity > event.capacity) {
+    throw new Error("Not enough seats available");
+  }
+
+  const totalCost = event.priceField * quantity;
+
+  const userBalance = await prisma.userBalance.findUnique({
+    where: { userId },
+  });
+
+  const availableBalance = userBalance ? Number(userBalance.balanceEtb) : 0;
+
+  if (availableBalance < totalCost) {
+    throw new InsufficientBalanceError(
+      availableBalance,
+      totalCost,
+      totalCost - availableBalance,
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const bal = await tx.userBalance.findUnique({ where: { userId } });
+    if (!bal || Number(bal.balanceEtb) < totalCost) {
+      throw new Error("Insufficient balance");
+    }
+
+    await tx.userBalance.update({
+      where: { userId },
+      data: { balanceEtb: { decrement: totalCost } },
+    });
+
+    if (event.capacity != null) {
+      const updated = await tx.event.updateMany({
+        where: { eventId, capacity: { gte: quantity } },
+        data: { capacity: { decrement: quantity } },
+      });
+      if (updated.count === 0) throw new Error("Not enough seats available");
+    }
+
+    await tx.eventAttendee.createMany({
+      data: Array.from({ length: quantity }).map(() => ({
+        eventId,
+        userId,
+        status: "RSVPed" as const,
+      })),
+    });
+
+    await tx.payment.create({
+      data: {
+        eventId,
+        userId,
+        amountEtb: totalCost,
+        currency: "ETB",
+        status: "succeeded",
+        telebirrPrepayId: `BALANCE-${Date.now()}`,
+      },
+    });
+  });
+
+  if (userEmail) {
+    const decoded = decodeEventLocation(event.eventLocation);
+    const attendees = await prisma.eventAttendee.findMany({
+      where: { eventId, userId },
+      select: { attendeeId: true },
+      orderBy: { createdAt: "desc" },
+    });
+    try {
+      await sendTicketConfirmationEmail({
+        to: userEmail,
+        buyerName: userName ?? null,
+        eventName: event.eventName,
+        eventDateTime: event.eventDatetime,
+        eventEndTime: event.eventEndtime,
+        locationLabel: decoded.addressLabel,
+        quantity,
+        eventId,
+        attendeeIds: attendees.map((a) => a.attendeeId),
+        baseUrl,
+      });
+    } catch (err) {
+      logger.error("Failed to send ticket confirmation email", err);
+    }
+  }
+
+  const updatedBalance = await prisma.userBalance.findUnique({ where: { userId } });
+
+  return {
+    ok: true,
+    quantity,
+    amountPaid: totalCost,
+    newBalance: updatedBalance ? Number(updatedBalance.balanceEtb) : 0,
+  };
+}
 
 function getChapaClient() {
   const secretKey = process.env.CHAPA_SECRET_KEY;

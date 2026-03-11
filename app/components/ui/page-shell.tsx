@@ -1,3 +1,7 @@
+/**
+ * PageShell -- consistent page layout wrapper with optional header.
+ */
+
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 

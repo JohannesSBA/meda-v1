@@ -1,3 +1,7 @@
+/**
+ * Input -- styled text input with shared base classes.
+ */
+
 import type { InputHTMLAttributes } from "react";
 import { cn } from "./cn";
 

@@ -1,3 +1,9 @@
+/**
+ * Home page -- server-rendered landing with featured events, categories, and city matches.
+ *
+ * Fetches events from Prisma, decodes location data, and passes to HeroSection.
+ */
+
 import HeroSection, {
   type LandingCategory,
   type LandingCity,

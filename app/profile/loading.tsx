@@ -1,3 +1,7 @@
+/**
+ * Profile page loading skeleton.
+ */
+
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Skeleton } from "@/app/components/ui/skeleton";
 

@@ -1,3 +1,7 @@
+/**
+ * ErrorState -- displays error message with optional retry button.
+ */
+
 import { Card } from "./card";
 import { Button } from "./button";
 import { cn } from "./cn";

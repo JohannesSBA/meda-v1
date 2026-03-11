@@ -1,3 +1,9 @@
+/**
+ * HeaderNav -- main navigation bar with logo, links, and auth state.
+ *
+ * Shows UserButton when signed in; sign-in/sign-up when signed out.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

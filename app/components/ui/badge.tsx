@@ -1,3 +1,7 @@
+/**
+ * Badge -- small status label with variants (default, accent, success).
+ */
+
 import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 

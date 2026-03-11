@@ -40,7 +40,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 // ---- helpers ----
 
 const TEST_USER_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-const EVENT_ID = "event-uuid-1";
+const EVENT_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 function makeSessionUser(id = TEST_USER_ID) {
   return {

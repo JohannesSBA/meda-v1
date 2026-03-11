@@ -1,3 +1,9 @@
+/**
+ * EventsMap -- interactive Mapbox map showing multiple event markers with clustering.
+ *
+ * Supports date/category filters and marker selection.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";

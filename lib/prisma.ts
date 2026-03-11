@@ -1,3 +1,7 @@
+/**
+ * Prisma client -- configured with Neon serverless adapter for serverless deployments.
+ */
+
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";

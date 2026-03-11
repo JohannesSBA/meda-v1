@@ -1,3 +1,7 @@
+/**
+ * Events page error boundary -- shows error and retry for events listing.
+ */
+
 "use client";
 
 import { useEffect } from "react";

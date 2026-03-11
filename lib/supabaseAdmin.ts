@@ -1,3 +1,7 @@
+/**
+ * Supabase admin client -- storage for event images.
+ */
+
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "./logger";
 

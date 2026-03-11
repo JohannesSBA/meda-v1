@@ -1,3 +1,7 @@
+/**
+ * Account pages -- profile and settings via Neon Auth AccountView.
+ */
+
 import { AccountView } from "@neondatabase/auth/react";
 import { accountViewPaths } from "@neondatabase/auth/react/ui/server";
 import { Card } from "@/app/components/ui/card";

@@ -1,3 +1,7 @@
+/**
+ * Cookie policy page -- static legal content.
+ */
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageShell } from "../components/ui/page-shell";

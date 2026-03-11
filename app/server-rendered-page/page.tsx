@@ -1,3 +1,7 @@
+/**
+ * Server-rendered demo page -- example of server-side rendering with auth.
+ */
+
 import { Card } from "@/app/components/ui/card";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { auth } from "@/lib/auth/server";

@@ -1,3 +1,9 @@
+/**
+ * Root layout -- wraps all pages with fonts, AuthProviders, and HeaderNav/Footer.
+ *
+ * Fetches session server-side and passes to client components.
+ */
+
 import { auth } from "@/lib/auth/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";

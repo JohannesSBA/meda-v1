@@ -1,3 +1,7 @@
+/**
+ * Host profile page -- displays events hosted by a specific user.
+ */
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventCard } from "@/app/components/EventCard";

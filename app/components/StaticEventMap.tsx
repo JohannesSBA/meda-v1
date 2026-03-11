@@ -1,3 +1,7 @@
+/**
+ * StaticEventMap -- read-only Mapbox map showing a single event location.
+ */
+
 "use client";
 
 import { useEffect, useRef } from "react";

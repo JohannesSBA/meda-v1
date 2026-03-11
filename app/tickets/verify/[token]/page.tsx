@@ -1,3 +1,7 @@
+/**
+ * Ticket verification page -- verifies ticket validity and displays attendee details.
+ */
+
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/tickets/verificationToken";

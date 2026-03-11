@@ -1,3 +1,7 @@
+/**
+ * EventCard -- card displaying event summary with image, title, date, location, and save action.
+ */
+
 import Link from "next/link";
 import Image from "next/image";
 import type { ComponentPropsWithoutRef } from "react";

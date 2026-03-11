@@ -1,3 +1,7 @@
+/**
+ * uploadEventImage -- unified event image upload (Supabase or local fallback).
+ */
+
 import { uploadEventImage as uploadEventImageSupabase } from "./supabaseAdmin";
 
 const hasSupabaseCreds =

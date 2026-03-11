@@ -1,3 +1,9 @@
+/**
+ * Global error boundary -- catches unhandled errors and renders a recovery UI.
+ *
+ * Client component; shows retry and home links.
+ */
+
 "use client";
 
 import { useEffect } from "react";

@@ -1,3 +1,9 @@
+/**
+ * AuthProviders -- wraps app with NeonAuthUIProvider and Toaster.
+ *
+ * Provides auth context and session to child components.
+ */
+
 "use client";
 
 import { NeonAuthUIProvider } from "@neondatabase/auth/react";

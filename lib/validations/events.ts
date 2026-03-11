@@ -1,3 +1,7 @@
+/**
+ * Event validation schemas -- Zod schemas for event create/update.
+ */
+
 import { z } from "zod";
 import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
 

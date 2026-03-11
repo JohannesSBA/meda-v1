@@ -1,3 +1,7 @@
+/**
+ * Table -- styled table component.
+ */
+
 import type { TableHTMLAttributes } from "react";
 import { cn } from "./cn";
 

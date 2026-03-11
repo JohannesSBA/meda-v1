@@ -1,3 +1,7 @@
+/**
+ * Help page -- FAQ and support content.
+ */
+
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PageShell } from "../components/ui/page-shell";

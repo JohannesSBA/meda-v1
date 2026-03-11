@@ -1,3 +1,7 @@
+/**
+ * Logger -- configurable log levels for server-side logging.
+ */
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LOG_LEVELS: Record<LogLevel, number> = {

@@ -1,3 +1,9 @@
+/**
+ * My events page -- lists events the user is hosting or managing.
+ *
+ * Requires auth; uses MyEventsPanel.
+ */
+
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { PageShell } from "@/app/components/ui/page-shell";

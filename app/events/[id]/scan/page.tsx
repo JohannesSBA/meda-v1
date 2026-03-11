@@ -1,3 +1,9 @@
+/**
+ * Event scan page -- QR code scanner for event check-in.
+ *
+ * Requires auth; uses QRScanner component.
+ */
+
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";

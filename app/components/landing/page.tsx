@@ -1,3 +1,9 @@
+/**
+ * Landing page component -- hero section with featured events, categories, and city matches.
+ *
+ * Exports HeroSection and types (LandingCategory, LandingCity, LandingMatch).
+ */
+
 import Link from "next/link";
 import { buttonVariants } from "../ui/button";
 import { cn } from "../ui/cn";

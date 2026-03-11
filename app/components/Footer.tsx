@@ -1,3 +1,7 @@
+/**
+ * Footer -- site footer with product links, legal links, and social links.
+ */
+
 import Link from "next/link";
 import Image from "next/image";
 

@@ -1,3 +1,9 @@
+/**
+ * Refunds service -- processes event registration refunds and waitlist promotions.
+ *
+ * Handles balance restoration, attendee removal, and confirmation emails.
+ */
+
 import { prisma } from "@/lib/prisma";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import {

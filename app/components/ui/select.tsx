@@ -1,3 +1,7 @@
+/**
+ * Select -- styled native select with shared base classes.
+ */
+
 import type { SelectHTMLAttributes } from "react";
 import { cn } from "./cn";
 

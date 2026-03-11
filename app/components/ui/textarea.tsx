@@ -1,3 +1,7 @@
+/**
+ * Textarea -- styled textarea with shared base classes.
+ */
+
 import type { TextareaHTMLAttributes } from "react";
 import { cn } from "./cn";
 

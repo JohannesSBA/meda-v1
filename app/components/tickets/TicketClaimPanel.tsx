@@ -1,3 +1,9 @@
+/**
+ * TicketClaimPanel -- UI for claiming a shared ticket via token.
+ *
+ * Validates token and creates attendee record on claim.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
