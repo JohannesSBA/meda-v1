@@ -1,3 +1,7 @@
+/**
+ * Button -- styled button with variants (primary, secondary, ghost, danger) and sizes.
+ */
+
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "./cn";
 

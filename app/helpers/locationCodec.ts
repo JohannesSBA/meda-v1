@@ -49,4 +49,19 @@ function toRad(deg: number) {
   return (deg * Math.PI) / 180;
 }
 
+/**
+ * Returns a lat/lng bounding box for a rough pre-filter before the
+ * more expensive haversine check. Uses ~111 km per degree of latitude.
+ */
+export function boundingBox(center: { lat: number; lng: number }, radiusKm: number) {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos(toRad(center.lat)));
+  return {
+    minLat: center.lat - latDelta,
+    maxLat: center.lat + latDelta,
+    minLng: center.lng - lngDelta,
+    maxLng: center.lng + lngDelta,
+  };
+}
+
 export type { DecodedLocation };

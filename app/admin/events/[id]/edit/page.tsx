@@ -1,3 +1,9 @@
+/**
+ * Admin event edit page -- edit event details for moderators.
+ *
+ * Requires auth; uses CreateEventForm with existing event data.
+ */
+
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";

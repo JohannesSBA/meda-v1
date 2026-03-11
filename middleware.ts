@@ -1,3 +1,7 @@
+/**
+ * Middleware -- protects /account/* routes; redirects unauthenticated users to sign-in.
+ */
+
 import { auth } from '@/lib/auth/server';
 
 export default auth.middleware({

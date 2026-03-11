@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { NextResponse } from "next/server";
-import { decodeEventLocation, haversineDistanceKm } from "@/app/helpers/locationCodec";
+import { decodeEventLocation, haversineDistanceKm, boundingBox } from "@/app/helpers/locationCodec";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 50;
@@ -109,17 +109,27 @@ export async function GET(request: Request) {
     };
   });
 
-  const filtered =
-    Number.isFinite(nearLat) && Number.isFinite(nearLng)
-      ? shaped.filter((e) => {
-          if (e.latitude == null || e.longitude == null) return false;
-          const dist = haversineDistanceKm(
-            { lat: nearLat, lng: nearLng },
-            { lat: e.latitude, lng: e.longitude }
-          );
-          return dist <= radiusKm;
-        })
-      : shaped;
+  let filtered: typeof shaped;
+  if (Number.isFinite(nearLat) && Number.isFinite(nearLng)) {
+    const bbox = boundingBox({ lat: nearLat, lng: nearLng }, radiusKm);
+    filtered = shaped.filter((e) => {
+      if (e.latitude == null || e.longitude == null) return false;
+      if (
+        e.latitude < bbox.minLat ||
+        e.latitude > bbox.maxLat ||
+        e.longitude < bbox.minLng ||
+        e.longitude > bbox.maxLng
+      ) {
+        return false;
+      }
+      return haversineDistanceKm(
+        { lat: nearLat, lng: nearLng },
+        { lat: e.latitude, lng: e.longitude },
+      ) <= radiusKm;
+    });
+  } else {
+    filtered = shaped;
+  }
 
   const groupedBySeries = new Map<string, (typeof filtered)[number]>();
   const groupedCounts = new Map<string, number>();

@@ -1,3 +1,7 @@
+/**
+ * Event types and schemas -- EventSchema, EventResponse, and related types.
+ */
+
 import { z } from "zod";
 
 export const EventSchema = z.object({

@@ -2,46 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { sendEventReminderEmail } from "@/services/email";
+import { logger } from "@/lib/logger";
+import { getAuthUserEmails } from "@/lib/auth/userLookup";
 
 const REMINDER_WINDOWS = [
   { hours: 24, label: "24h" },
   { hours: 1, label: "1h" },
 ] as const;
-
-const ALLOWED_SCHEMAS = ["neon_auth", "public"];
-const ALLOWED_TABLES = ["user"];
-
-type AuthUser = { id: string; email: string | null; name: string | null };
-
-async function getAuthUserEmails(
-  userIds: string[],
-): Promise<Map<string, AuthUser>> {
-  const map = new Map<string, AuthUser>();
-  if (userIds.length === 0) return map;
-
-  const schema =
-    process.env.AUTH_SCHEMA && ALLOWED_SCHEMAS.includes(process.env.AUTH_SCHEMA)
-      ? process.env.AUTH_SCHEMA
-      : "neon_auth";
-  const table =
-    process.env.AUTH_USER_TABLE && ALLOWED_TABLES.includes(process.env.AUTH_USER_TABLE)
-      ? process.env.AUTH_USER_TABLE
-      : "user";
-
-  try {
-    const qualifiedTable = `"${schema}"."${table}"`;
-    const rows = await prisma.$queryRawUnsafe<AuthUser[]>(
-      `SELECT id, email, name FROM ${qualifiedTable} WHERE id = ANY($1::uuid[]) AND email IS NOT NULL`,
-      userIds,
-    );
-    for (const row of rows ?? []) {
-      if (row.email) map.set(row.id, row);
-    }
-  } catch (err) {
-    console.error("Failed to fetch auth users for reminders:", err);
-  }
-  return map;
-}
 
 async function getAlreadySent(
   eventIds: string[],
@@ -79,7 +46,7 @@ async function logReminderSent(
       reminderType,
     );
   } catch (err) {
-    console.error("Failed to log reminder:", err);
+    logger.error("Failed to log reminder", err);
   }
 }
 
@@ -117,20 +84,28 @@ export async function GET(request: Request) {
     const userMap = await getAuthUserEmails(allUserIds);
     const alreadySent = await getAlreadySent(eventIds, allUserIds, label);
 
+    const BATCH_SIZE = 10;
+    const tasks: Array<{ event: typeof events[number]; userId: string; decoded: ReturnType<typeof decodeEventLocation> }> = [];
+
     for (const event of events) {
       const decoded = decodeEventLocation(event.eventLocation);
-      const eventUrl = `${baseUrl}/events/${event.eventId}`;
-
       for (const attendee of event.attendees) {
         const key = `${event.eventId}:${attendee.userId}`;
         if (alreadySent.has(key)) continue;
-
         const authUser = userMap.get(attendee.userId);
         if (!authUser?.email) continue;
+        tasks.push({ event, userId: attendee.userId, decoded });
+      }
+    }
 
-        try {
+    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+      const batch = tasks.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async ({ event, userId, decoded }) => {
+          const authUser = userMap.get(userId)!;
+          const eventUrl = `${baseUrl}/events/${event.eventId}`;
           await sendEventReminderEmail({
-            to: authUser.email,
+            to: authUser.email!,
             attendeeName: authUser.name,
             eventName: event.eventName,
             eventDateTime: event.eventDatetime,
@@ -139,10 +114,15 @@ export async function GET(request: Request) {
             hoursUntil: hours,
             eventUrl,
           });
-          await logReminderSent(event.eventId, attendee.userId, label);
+          await logReminderSent(event.eventId, userId, label);
+          return { eventId: event.eventId, userId };
+        }),
+      );
+      for (const result of results) {
+        if (result.status === "fulfilled") {
           sent++;
-        } catch (err) {
-          console.error(`Reminder failed for ${event.eventId} / ${attendee.userId}:`, err);
+        } else {
+          logger.error("Reminder batch item failed", result.reason);
           errors++;
         }
       }

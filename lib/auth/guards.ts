@@ -1,3 +1,7 @@
+/**
+ * Auth guards -- requireAuth and requireAdmin helpers for API routes.
+ */
+
 import { NextResponse } from "next/server";
 import { auth } from "./server";
 

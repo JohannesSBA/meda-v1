@@ -1,3 +1,7 @@
+/**
+ * Neon admin API -- user lookup and role/ban management via Neon Auth admin API.
+ */
+
 type NeonAdminResult<T = unknown> = {
   data: T | null;
   error: string | null;

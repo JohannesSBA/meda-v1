@@ -1,3 +1,9 @@
+/**
+ * EventsMap -- interactive Mapbox map showing multiple event markers with clustering.
+ *
+ * Supports date/category filters and marker selection.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +12,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import type { EventResponse } from "../types/eventTypes";
 import { Select } from "./ui/select";
 import { Button } from "./ui/button";
+import { DEFAULT_MAP_CENTER } from "@/lib/constants";
 
 type Props = {
   events: EventResponse[];
@@ -14,7 +21,7 @@ type Props = {
   onSearchHere: (center: { lat: number; lng: number }) => void;
 };
 
-const DEFAULT_CENTER: [number, number] = [38.7578, 9.0301]; // Addis Ababa-ish
+const DEFAULT_CENTER: [number, number] = [DEFAULT_MAP_CENTER.lng, DEFAULT_MAP_CENTER.lat];
 
 export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHere }: Props) {
   const mapContainer = useRef<HTMLDivElement | null>(null);

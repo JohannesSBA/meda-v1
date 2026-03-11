@@ -29,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     eventAttendee: {
       count: mockPrismaAttendeCount,
       createMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([{ attendeeId: "att-1" }]),
     },
     $transaction: mockPrismaTransaction,
   },
@@ -40,6 +41,11 @@ vi.mock("@/services/email", () => ({
 
 vi.mock("@/app/helpers/locationCodec", () => ({
   decodeEventLocation: vi.fn().mockReturnValue({ addressLabel: "Test Venue" }),
+}));
+
+vi.mock("@/lib/ratelimit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue({ limited: false }),
+  getClientId: vi.fn().mockReturnValue("test-client"),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -139,7 +145,7 @@ describe("POST /api/events/[id] — registration", () => {
     );
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/quantity/i);
+    expect(body.error).toMatch(/invalid request body/i);
   });
 
   it("returns 400 when event has ended", async () => {

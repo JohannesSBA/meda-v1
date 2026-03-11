@@ -4,14 +4,12 @@ Meda is a Next.js event platform where users can browse events, register/purchas
 
 ## Feature List
 
-### TODO
-
-- **Refund policy** - Gives back credits within the systems if a user Drops out
-
 ### Core Features
 
 - **Browse events** – Search, filter by category, date range, and location; sort by date or price
-- **Register / purchase tickets** – Free and paid (Chapa) registration
+- **Register / purchase tickets** – Free and paid (Chapa or Meda balance) registration
+- **Refund & cancellation** – Cancel tickets up to 24h before event; refunds credited to Meda balance
+- **Meda Balance** – Platform credit wallet funded by refunds, usable for future ticket purchases
 - **Save events** – Bookmark events from the list or event detail page
 - **My Events** – Dedicated page for events where the user has tickets
 - **Ticket sharing** – Share extra tickets via claim links
@@ -34,7 +32,7 @@ Meda is a Next.js event platform where users can browse events, register/purchas
 
 - **Event reminder emails** – 24h and 1h before event start (cron)
 - **Add to calendar** – ICS export and “Add to calendar” in confirmation emails
-- **Waitlist** – Join waitlist for sold-out events; automatic promotion when capacity increases
+- **Waitlist** – Join waitlist for sold-out events; automatic promotion when capacity increases; notified when spots open from refunds
 
 ### Technical
 
@@ -84,6 +82,50 @@ This document provides:
 - `My Events` feature overview
 - key components, APIs, and data model references
 
+## Recent Improvements
+
+The following improvements were made as part of a comprehensive audit:
+
+### Database & Performance
+
+- **Database indexes** — Added `@@index` to `Event`, `EventAttendee`, `Payment`, and `Refund` models for faster queries
+- **Geo-filtering optimization** — Bounding-box pre-filter reduces in-memory haversine calculations in the events list endpoint
+- **Cron email batching** — Reminder emails are sent in concurrent batches of 10 using `Promise.allSettled` instead of sequentially
+
+### Security
+
+- **Upstash Redis rate limiting** — Rate limiter supports Upstash Redis for distributed deployments with in-memory fallback
+- **Error sanitization** — API 500 responses no longer leak internal error messages; details are logged server-side only
+- **Zod validation** — Standardized Zod schemas for event registration, refund, and payment request bodies
+
+### Frontend Robustness
+
+- **Effect cleanup** — All async `useEffect` hooks now include `cancelled` flags to prevent state updates on unmounted components
+- **CSS bug fixes** — Fixed invalid Tailwind CSS variable syntax (`text-(--var)` → `text-[var(--var)]`) in host profile and ticket verify pages
+- **ARIA tabs** — Tab bars in `ProfileDashboard` and `MyEventsPanel` now include proper `role="tablist"`, `role="tab"`, `role="tabpanel"`, and `aria-selected` attributes
+- **Route-level error boundaries** — Added `error.tsx` for `/events`, `/profile`, and `/create-events` routes
+- **Shared constants** — Extracted magic numbers (`MAX_TICKETS_PER_USER_PER_EVENT`, `REFUND_CUTOFF_HOURS`, `DEFAULT_MAP_CENTER`) to `lib/constants.ts`
+
+### Code Quality
+
+- **Structured logging** — Replaced all `console.error`/`console.warn` calls with a structured `logger` wrapper (`lib/logger.ts`)
+- **Shared API error helper** — `apiError()` and `formatUnknownError()` in `lib/apiResponse.ts` for consistent error responses
+- **Deduplicated utilities** — Extracted shared `getErrorMessage` (`lib/errorMessage.ts`), `getAuthUserEmails` (`lib/auth/userLookup.ts`), and test helpers (`__tests__/helpers/test-utils.ts`)
+- **Prettier** — Added `.prettierrc` config and integrated with ESLint via `eslint-config-prettier`
+
+### SEO & Infrastructure
+
+- **robots.txt** — Machine-readable robots configuration via `app/robots.ts`
+- **Dynamic sitemap** — Auto-generated sitemap with static pages and upcoming events via `app/sitemap.ts`
+- **Canonical URLs** — Added `metadataBase` and `alternates.canonical` to root layout metadata
+- **CI pipeline** — GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, type-check, and tests on PRs
+
+### Testing
+
+- **New test suites** — Added tests for event creation, ticket sharing service, and refund validation
+- **Test helper extraction** — Shared `makeSessionUser`, `makeEvent`, `makeRequest`, `futureDate` in `__tests__/helpers/test-utils.ts`
+- **Rate limit mocks** — Fixed missing rate limit mock in registration tests and updated all mocks for async rate limiter
+
 ## Tech Stack
 
 - Next.js App Router (`app/`)
@@ -91,6 +133,7 @@ This document provides:
 - Prisma + PostgreSQL (Neon)
 - Neon Auth for authentication/session
 - Chapa for paid checkout flow
+- Upstash Redis (optional, for distributed rate limiting)
 
 ## Local Setup
 
@@ -345,6 +388,59 @@ Capabilities:
 - **Leave** – `DELETE /api/events/[id]/waitlist`
 - **Promotion** – Triggered in admin PATCH when `capacity` is updated and `> 0`; `promoteWaitlistForEvent()` creates attendees, decrements capacity, sends confirmation emails
 
+### Refund & Cancellation
+
+Users can cancel tickets and receive a refund credited to their Meda balance (platform credit), which can be used for future ticket purchases.
+
+#### Refund Flow
+
+```mermaid
+flowchart TD
+    A["User requests refund"] --> B["Check 24h policy"]
+    B -->|"Event > 24h away"| C["Process refund"]
+    B -->|"Event < 24h away"| D["Reject request"]
+    C --> E["Delete EventAttendee rows"]
+    C --> F["Increment Event.capacity"]
+    C --> G["Upsert UserBalance"]
+    C --> H["Create Refund record"]
+    C --> I["Send refund confirmation email"]
+    C --> J{"Waitlist has entries?"}
+    J -->|Yes| K["Email waitlisted users"]
+    J -->|No| L["Done"]
+```
+
+#### Refund Policy
+
+- Refunds are available up to **24 hours** before the event start time
+- No refunds within 24 hours of the event start
+- Refund amount is credited to the user's **Meda balance** (not back through Chapa)
+- Free event tickets can be cancelled with the same 24h policy (no monetary refund)
+- Refund policy is displayed during ticket purchase and in confirmation emails
+
+#### Meda Balance
+
+- Platform credit stored in the `UserBalance` table
+- Funded exclusively by refunds
+- Can be used as a payment method during checkout (instead of or alongside Chapa)
+- Balance is displayed on the user's profile page
+- During checkout, users with a balance can choose between paying with Meda Balance or Chapa
+
+#### Data Model
+
+- **`UserBalance`** – One row per user; stores `balanceEtb` (Decimal)
+- **`Refund`** – One row per refund transaction; stores `eventId`, `userId`, `amountEtb`, `ticketCount`
+
+#### API Endpoints
+
+- `POST /api/events/[id]/refund` – Request a refund (body: `{ ticketCount?: number }`)
+- `GET /api/profile/balance` – Get user's current balance
+- `POST /api/payments/balance` – Pay for tickets using Meda balance (body: `{ eventId, quantity }`)
+- `DELETE /api/events/[id]` – Cancel all tickets for an event (alternative to refund endpoint)
+
+#### Waitlist Notification
+
+When a refund opens capacity, the next users on the waitlist (FIFO by join date) receive an email notification that a spot is available. They can then visit the event page and register/purchase.
+
 ### Reminder Emails
 
 - **Cron** – `GET /api/cron/send-reminders` (Vercel Cron, hourly); requires `Authorization: Bearer ${CRON_SECRET}`
@@ -395,6 +491,11 @@ Capabilities:
 - Waitlist
   - `app/api/events/[id]/waitlist/route.ts`
   - `services/waitlistPromotion.ts`
+- Refunds & Balance
+  - `app/api/events/[id]/refund/route.ts`
+  - `app/api/profile/balance/route.ts`
+  - `app/api/payments/balance/route.ts`
+  - `services/refunds.ts`
 - Reminders
   - `app/api/cron/send-reminders/route.ts`
 
@@ -411,3 +512,10 @@ Capabilities:
   - event details
   - my events
   - profile registered events
+- Refund: cancel ticket for event > 24h away and verify balance is credited.
+- Refund: attempt cancel for event < 24h away and verify rejection.
+- Refund: cancel ticket for sold-out event and verify waitlisted user gets notification email.
+- Balance payment: purchase ticket using Meda balance and verify balance is deducted.
+- Balance payment: attempt purchase with insufficient balance and verify error.
+- Verify refund policy text appears in RegisterPanel and confirmation emails.
+- Verify Meda balance is shown on profile page when > 0.

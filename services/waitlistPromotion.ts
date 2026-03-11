@@ -1,41 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { sendTicketConfirmationEmail } from "@/services/email";
-
-const ALLOWED_SCHEMAS = ["neon_auth", "public"];
-const ALLOWED_TABLES = ["user"];
-
-type AuthUser = { id: string; email: string | null; name: string | null };
-
-async function getAuthUserEmails(
-  userIds: string[],
-): Promise<Map<string, AuthUser>> {
-  const map = new Map<string, AuthUser>();
-  if (userIds.length === 0) return map;
-
-  const schema =
-    process.env.AUTH_SCHEMA && ALLOWED_SCHEMAS.includes(process.env.AUTH_SCHEMA)
-      ? process.env.AUTH_SCHEMA
-      : "neon_auth";
-  const table =
-    process.env.AUTH_USER_TABLE && ALLOWED_TABLES.includes(process.env.AUTH_USER_TABLE)
-      ? process.env.AUTH_USER_TABLE
-      : "user";
-
-  try {
-    const qualifiedTable = `"${schema}"."${table}"`;
-    const rows = await prisma.$queryRawUnsafe<AuthUser[]>(
-      `SELECT id, email, name FROM ${qualifiedTable} WHERE id = ANY($1::uuid[]) AND email IS NOT NULL`,
-      userIds,
-    );
-    for (const row of rows ?? []) {
-      if (row.email) map.set(row.id, row);
-    }
-  } catch (err) {
-    console.error("Failed to fetch auth users for waitlist promotion:", err);
-  }
-  return map;
-}
+import { logger } from "@/lib/logger";
+import { getAuthUserEmails } from "@/lib/auth/userLookup";
 
 /**
  * Promotes waitlisted users to attendees when the event has capacity > 0.
@@ -111,8 +78,8 @@ export async function promoteWaitlistForEvent(eventId: string): Promise<number> 
           attendeeIds: attendees.map((a) => a.attendeeId),
         });
       } catch (err) {
-        console.error(
-          `Failed to send waitlist promotion email for ${eventId} / ${w.userId}:`,
+        logger.error(
+          `Failed to send waitlist promotion email for ${eventId} / ${w.userId}`,
           err,
         );
       }

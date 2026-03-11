@@ -1,3 +1,7 @@
+/**
+ * Auth pages -- sign-in, sign-up, and password reset via Neon Auth.
+ */
+
 import { AuthView } from "@neondatabase/auth/react";
 import { PageShell } from "@/app/components/ui/page-shell";
 

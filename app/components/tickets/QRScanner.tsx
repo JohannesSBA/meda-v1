@@ -1,3 +1,9 @@
+/**
+ * QRScanner -- camera-based QR code scanner for event check-in.
+ *
+ * Uses html5-qrcode; validates tokens against event attendees.
+ */
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";

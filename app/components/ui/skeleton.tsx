@@ -1,3 +1,7 @@
+/**
+ * Skeleton -- loading placeholders (Skeleton, SkeletonText, EventCardSkeleton).
+ */
+
 import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 

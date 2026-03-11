@@ -1,3 +1,7 @@
+/**
+ * Card -- semantic article wrapper for content blocks.
+ */
+
 import type { HTMLAttributes } from "react";
 import { cn } from "./cn";
 

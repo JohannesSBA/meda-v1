@@ -1,5 +1,9 @@
+/**
+ * Profile page loading skeleton.
+ */
+
 import { PageShell } from "@/app/components/ui/page-shell";
-import { Skeleton, SkeletonText } from "@/app/components/ui/skeleton";
+import { Skeleton } from "@/app/components/ui/skeleton";
 
 export default function ProfileLoading() {
   return (

@@ -1,3 +1,7 @@
+/**
+ * Ticket claim page -- allows invited users to claim shared tickets via token.
+ */
+
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { PageShell } from "@/app/components/ui/page-shell";

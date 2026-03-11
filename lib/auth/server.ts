@@ -1,3 +1,7 @@
+/**
+ * Auth server -- Neon Auth server instance for session and protected routes.
+ */
+
 import { createNeonAuth } from '@neondatabase/auth/next/server';
 
 export const auth = createNeonAuth({

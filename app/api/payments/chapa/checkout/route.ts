@@ -3,19 +3,11 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { checkoutPaymentSchema } from "@/lib/validations/payments";
 import { initializeChapaCheckout } from "@/services/payments";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-
-function formatUnknownError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Unknown checkout error";
-  }
-}
+import { formatUnknownError } from "@/lib/apiResponse";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`checkout:${getClientId(request)}`, 5, 60_000);
+  const rl = await checkRateLimit(`checkout:${getClientId(request)}`, 5, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before initiating another payment." },
@@ -56,8 +48,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    const message = formatUnknownError(error);
-    console.error("Chapa checkout initialization failed:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    logger.error("Chapa checkout initialization failed", error);
+    return NextResponse.json(
+      { error: formatUnknownError(error) },
+      { status: 400 },
+    );
   }
 }

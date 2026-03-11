@@ -1,3 +1,7 @@
+/**
+ * Ticket verification page -- verifies ticket validity and displays attendee details.
+ */
+
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/tickets/verificationToken";
@@ -55,14 +59,14 @@ export default async function TicketVerifyPage({
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white">Ticket verified</h1>
-          <p className="mt-2 text-(--color-text-secondary)">
+          <p className="mt-2 text-[var(--color-text-secondary)]">
             This ticket is valid for entry.
           </p>
           <div className="mt-6 space-y-2 rounded-xl bg-[#0f1f2d] p-4 text-left">
             <p className="font-semibold text-white">{result.eventName}</p>
-            <p className="text-sm text-(--color-text-muted)">{dateStr}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{dateStr}</p>
             {result.addressLabel ? (
-              <p className="text-sm text-(--color-text-muted)">
+              <p className="text-sm text-[var(--color-text-muted)]">
                 {result.addressLabel}
               </p>
             ) : null}

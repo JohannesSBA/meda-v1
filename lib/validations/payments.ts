@@ -1,8 +1,16 @@
+/**
+ * Payment validation schemas -- Zod schemas for checkout and confirm.
+ */
+
 import { z } from "zod";
 
 export const checkoutPaymentSchema = z.object({
   eventId: z.string().uuid(),
-  quantity: z.coerce.number().int().min(1).max(20).default(1),
+  quantity: z.coerce
+    .number()
+    .int()
+    .transform((n) => Math.max(1, Math.min(20, n)))
+    .default(1),
 });
 
 export const confirmPaymentSchema = z.object({

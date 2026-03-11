@@ -1,3 +1,7 @@
+/**
+ * Host profile page -- displays events hosted by a specific user.
+ */
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventCard } from "@/app/components/EventCard";
@@ -99,7 +103,7 @@ export default async function HostProfilePage({
               <h1 className="mt-2 text-3xl font-bold text-white">
                 Organizer profile
               </h1>
-              <p className="mt-1 text-sm text-(--color-text-secondary)">
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 {upcoming.length + past.length} event
                 {upcoming.length + past.length === 1 ? "" : "s"} total
               </p>

@@ -1,3 +1,7 @@
+/**
+ * Auth pages loading skeleton.
+ */
+
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 import { Skeleton } from "@/app/components/ui/skeleton";

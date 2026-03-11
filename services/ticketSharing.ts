@@ -1,3 +1,9 @@
+/**
+ * Ticket sharing service -- share token generation, claim, and revocation.
+ *
+ * Integrates with shareTokens lib and sends claim/revoke notifications.
+ */
+
 import { InvitationStatus } from "@/generated/prisma/client";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { prisma } from "@/lib/prisma";
