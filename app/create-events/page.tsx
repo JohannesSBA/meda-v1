@@ -1,21 +1,10 @@
+import { prisma } from "@/lib/prisma";
 import CreateEventForm from "../components/CreateEventForm";
 import { PageShell } from "../components/ui/page-shell";
 import { Category } from "../types/catagory";
 
 export default async function CreateEventsPage() {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/categories/get`,
-    {
-      // Ensure fresh data when rendered on the server.
-      cache: "no-store",
-    },
-  );
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch categories");
-  }
-
-  const { categories } = (await res.json()) as { categories: Category[] };
+  const categories = (await prisma.category.findMany()) as Category[];
 
   return (
     <PageShell containerClassName="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-10 sm:px-6 lg:px-8">

@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth/server";
+import { prisma } from "@/lib/prisma";
+import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import RegisterPanel from "@/app/components/RegisterPanel";
 import StaticEventMap from "@/app/components/StaticEventMap";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
@@ -22,11 +24,63 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 async function getEvent(id: string): Promise<EventDetailResponse | null> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
-  const res = await fetch(`${base}/api/events/${id}`, { cache: "no-store" });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.event as EventDetailResponse;
+  const event = await prisma.event.findUnique({
+    where: { eventId: id },
+    include: {
+      category: true,
+      _count: { select: { attendees: true } },
+    },
+  });
+
+  if (!event) return null;
+
+  const decoded = decodeEventLocation(event.eventLocation);
+
+  let occurrences: EventOccurrence[] | undefined;
+  if (event.seriesId) {
+    const seriesEvents = await prisma.event.findMany({
+      where: {
+        seriesId: event.seriesId,
+        eventEndtime: { gte: new Date() },
+      },
+      include: { _count: { select: { attendees: true } } },
+      orderBy: { eventDatetime: "asc" },
+      take: 120,
+    });
+
+    occurrences = seriesEvents.map((entry) => ({
+      eventId: entry.eventId,
+      eventDatetime: entry.eventDatetime.toISOString(),
+      eventEndtime: entry.eventEndtime.toISOString(),
+      attendeeCount: entry._count.attendees,
+      capacity: entry.capacity,
+      myTickets: 0,
+      occurrenceIndex: entry.occurrenceIndex,
+    }));
+  }
+
+  return {
+    eventId: event.eventId,
+    eventName: event.eventName,
+    eventDatetime: event.eventDatetime.toISOString(),
+    eventEndtime: event.eventEndtime.toISOString(),
+    eventLocation: event.eventLocation,
+    description: event.description,
+    pictureUrl: event.pictureUrl,
+    capacity: event.capacity,
+    priceField: event.priceField,
+    userId: event.userId,
+    categoryId: event.categoryId,
+    categoryName: event.category?.categoryName ?? null,
+    seriesId: event.seriesId,
+    occurrenceIndex: event.occurrenceIndex,
+    attendeeCount: event._count.attendees,
+    addressLabel: decoded.addressLabel,
+    latitude: decoded.latitude,
+    longitude: decoded.longitude,
+    myTickets: null,
+    occurrences,
+  };
 }
 
 export async function generateMetadata({

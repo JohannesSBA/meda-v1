@@ -1,15 +1,27 @@
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { verifyToken } from "@/lib/tickets/verificationToken";
+import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 
 async function verifyTicket(token: string) {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
-  const res = await fetch(`${base}/api/tickets/verify/${token}`, {
-    cache: "no-store",
+  const attendeeId = verifyToken(token);
+  if (!attendeeId) return null;
+
+  const attendee = await prisma.eventAttendee.findUnique({
+    where: { attendeeId },
+    include: { event: true },
   });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.valid ? data : null;
+  if (!attendee) return null;
+
+  const decoded = decodeEventLocation(attendee.event.eventLocation);
+  return {
+    valid: true,
+    eventName: attendee.event.eventName,
+    eventDatetime: attendee.event.eventDatetime.toISOString(),
+    addressLabel: decoded.addressLabel,
+  };
 }
 
 export default async function TicketVerifyPage({
