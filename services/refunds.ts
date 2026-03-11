@@ -79,14 +79,13 @@ export async function processRefund(
   let refundId = "";
 
   await prisma.$transaction(async (tx) => {
-    await tx.eventAttendee.deleteMany({
+    await tx.ticketScan.deleteMany({
       where: { attendeeId: { in: attendeeIdsToDelete } },
     });
 
-    await tx.$queryRawUnsafe(
-      `DELETE FROM ticket_scan WHERE attendee_id = ANY($1::uuid[])`,
-      attendeeIdsToDelete,
-    );
+    await tx.eventAttendee.deleteMany({
+      where: { attendeeId: { in: attendeeIdsToDelete } },
+    });
 
     if (event.capacity != null) {
       await tx.event.update({

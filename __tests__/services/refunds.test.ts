@@ -61,6 +61,7 @@ function makeTickets(count: number) {
 function setupDefaultTransaction() {
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     return fn({
+      ticketScan: { deleteMany: vi.fn() },
       eventAttendee: { deleteMany: vi.fn() },
       event: { update: vi.fn() },
       userBalance: {
@@ -71,7 +72,6 @@ function setupDefaultTransaction() {
       refund: {
         create: vi.fn().mockResolvedValue({ refundId: "refund-uuid-1" }),
       },
-      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     });
   });
 }
