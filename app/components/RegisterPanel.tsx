@@ -85,6 +85,11 @@ export default function RegisterPanel({
     occurrenceOptions[0]?.myTickets ?? event.myTickets ?? 0,
   );
   const [userId, setUserId] = useState<string | null>(null);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundQty, setRefundQty] = useState(1);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [userBalance, setUserBalance] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<"chapa" | "balance">("chapa");
 
   const selectedOccurrence =
     occurrenceOptions.find((entry) => entry.eventId === selectedEventId) ??
@@ -98,6 +103,12 @@ export default function RegisterPanel({
   const soldOutForSelection =
     selectedCapacity != null ? remaining <= 0 : isSoldOut;
   const canShareTickets = myTickets > 1;
+  const selectedDatetime =
+    selectedOccurrence?.eventDatetime ?? event.eventDatetime;
+  const hoursUntilEvent =
+    (new Date(selectedDatetime).getTime() - Date.now()) / (1000 * 60 * 60);
+  const refundEligible = myTickets > 0 && hoursUntilEvent >= 24;
+  const isPaid = (event.priceField ?? 0) > 0;
 
   useEffect(() => {
     if (!decodedSelectedFromQuery) return;
@@ -188,6 +199,23 @@ export default function RegisterPanel({
     };
     void load();
   }, [selectedEventId, userId, soldOutForSelection, myTickets]);
+
+  useEffect(() => {
+    if (!userId || !isPaid) return;
+    const loadBalance = async () => {
+      try {
+        const res = await fetch("/api/profile/balance", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const bal = Number(data.balanceEtb) || 0;
+        setUserBalance(bal);
+        if (bal <= 0) setPaymentMethod("chapa");
+      } catch {
+        // silently ignore
+      }
+    };
+    void loadBalance();
+  }, [userId, isPaid]);
 
   useEffect(() => {
     if (!userId) {
@@ -326,7 +354,26 @@ export default function RegisterPanel({
     registerSubmittingRef.current = true;
     setLoading(true);
     try {
-      if ((event.priceField ?? 0) > 0) {
+      if (isPaid) {
+        if (paymentMethod === "balance") {
+          const response = await axios.post("/api/payments/balance", {
+            eventId: selectedEventId,
+            quantity: qty,
+          });
+          const addedTickets = Number(response.data?.quantity) || qty;
+          toast.success("Payment confirmed from your Meda balance.");
+          const nextTicketCount = myTickets + addedTickets;
+          setMyTickets(nextTicketCount);
+          setUserBalance(Number(response.data?.newBalance) ?? 0);
+          if (nextTicketCount > 1) {
+            void generateShareLink(selectedEventId);
+          }
+          router.refresh();
+          setLoading(false);
+          registerSubmittingRef.current = false;
+          return;
+        }
+
         const response = await axios.post("/api/payments/chapa/checkout", {
           eventId: selectedEventId,
           quantity: qty,
@@ -394,6 +441,36 @@ export default function RegisterPanel({
       toast.error(getErrorMessage(err) || "Save action failed");
     } finally {
       saveSubmittingRef.current = false;
+    }
+  };
+
+  const handleRefund = async () => {
+    if (!userId || refundLoading) return;
+    setRefundLoading(true);
+    try {
+      const res = await fetch(`/api/events/${selectedEventId}/refund`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ticketCount: refundQty }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to process refund");
+      const refunded = Number(data.ticketCount) || refundQty;
+      const amount = Number(data.amountEtb) || 0;
+      setMyTickets((prev) => Math.max(0, prev - refunded));
+      setShowRefundConfirm(false);
+      setRefundQty(1);
+      toast.success(
+        amount > 0
+          ? `Refund processed. ETB ${amount} credited to your balance.`
+          : `${refunded} ticket${refunded === 1 ? "" : "s"} cancelled.`,
+      );
+      router.refresh();
+      setTimeout(() => router.refresh(), 5000);
+    } catch (err) {
+      toast.error(getErrorMessage(err) || "Failed to process refund");
+    } finally {
+      setRefundLoading(false);
     }
   };
 
@@ -467,10 +544,52 @@ export default function RegisterPanel({
             </div>
           </div>
 
+          {isPaid && userBalance > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[var(--color-text-secondary)]">Pay with</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("balance")}
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                    paymentMethod === "balance"
+                      ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
+                      : "border-white/10 text-[var(--color-text-secondary)]"
+                  }`}
+                >
+                  <span className="block">Meda Balance</span>
+                  <span className="block text-xs opacity-75">ETB {userBalance.toFixed(2)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("chapa")}
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                    paymentMethod === "chapa"
+                      ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
+                      : "border-white/10 text-[var(--color-text-secondary)]"
+                  }`}
+                >
+                  <span className="block">Chapa</span>
+                  <span className="block text-xs opacity-75">Online payment</span>
+                </button>
+              </div>
+              {paymentMethod === "balance" && userBalance < (event.priceField ?? 0) * qty ? (
+                <p className="text-xs text-red-400">
+                  Insufficient balance. You need ETB {((event.priceField ?? 0) * qty).toFixed(2)} but have ETB {userBalance.toFixed(2)}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid gap-2">
             <Button
               type="button"
-              disabled={loading || confirmingPayment || soldOutForSelection}
+              disabled={
+                loading ||
+                confirmingPayment ||
+                soldOutForSelection ||
+                (isPaid && paymentMethod === "balance" && userBalance < (event.priceField ?? 0) * qty)
+              }
               onClick={handleRegister}
               variant="primary"
               className="h-[52px] w-full rounded-2xl text-base font-bold"
@@ -479,8 +598,10 @@ export default function RegisterPanel({
                 ? "Sold out"
                 : loading
                   ? "Processing…"
-                  : (event.priceField ?? 0) > 0
-                    ? "Pay with Chapa"
+                  : isPaid
+                    ? paymentMethod === "balance"
+                      ? "Pay with balance"
+                      : "Pay with Chapa"
                     : "Get tickets"}
             </Button>
             {soldOutForSelection && myTickets === 0 && userId ? (
@@ -585,6 +706,68 @@ export default function RegisterPanel({
             </Card>
           ) : null}
 
+          {refundEligible && !showRefundConfirm ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-11 w-full rounded-2xl border-none text-red-400"
+              onClick={() => {
+                setRefundQty(1);
+                setShowRefundConfirm(true);
+              }}
+            >
+              {isPaid ? "Cancel & refund tickets" : "Cancel tickets"}
+            </Button>
+          ) : null}
+
+          {showRefundConfirm ? (
+            <Card className="space-y-3 rounded-2xl border border-red-500/30 bg-[#1a0a0a] p-4">
+              <p className="text-sm font-semibold text-white">
+                {isPaid ? "Cancel & refund" : "Cancel tickets"}
+              </p>
+              <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                <span>Tickets to cancel</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={myTickets}
+                  value={refundQty}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setRefundQty(
+                      Number.isFinite(val) ? Math.max(1, Math.min(myTickets, val)) : 1,
+                    );
+                  }}
+                  className="w-24 border-none bg-[#0a1927] text-right"
+                />
+              </div>
+              {isPaid ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  ETB {(event.priceField ?? 0) * refundQty} will be credited to your Meda balance.
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="h-11 flex-1 rounded-xl"
+                  disabled={refundLoading}
+                  onClick={() => void handleRefund()}
+                >
+                  {refundLoading ? "Processing…" : "Confirm"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 flex-1 rounded-xl"
+                  onClick={() => setShowRefundConfirm(false)}
+                >
+                  Keep tickets
+                </Button>
+              </div>
+            </Card>
+          ) : null}
+
           <Button
             type="button"
             onClick={handleToggleSave}
@@ -594,9 +777,20 @@ export default function RegisterPanel({
             {isSaved ? "Remove from saved" : "Save event"}
           </Button>
 
-          <p className="text-sm text-[var(--color-text-muted)]">
-            All reservations are final.
-          </p>
+          <div className="rounded-xl border border-white/10 bg-[#0a1927] p-3 text-xs text-[var(--color-text-muted)]">
+            {isPaid ? (
+              <p>
+                Refunds are available up to 24 hours before the event. Refunded
+                amounts are credited to your Meda balance. No refunds within 24
+                hours of the event start.
+              </p>
+            ) : (
+              <p>
+                You may cancel your registration up to 24 hours before the
+                event. No cancellations within 24 hours of the event start.
+              </p>
+            )}
+          </div>
         </>
       )}
     </Card>

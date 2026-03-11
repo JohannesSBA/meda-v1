@@ -57,7 +57,7 @@ export default function StaticEventMap({ latitude, longitude }: Props) {
   return (
     <div
       ref={containerRef}
-      className="h-80 w-full overflow-hidden rounded-2xl border border-white/8 bg-[#0b1624] shadow-inner shadow-black/30"
+      className="h-full w-full overflow-hidden rounded-2xl border border-white/8 bg-[#0b1624] shadow-inner shadow-black/30"
     />
   );
 }

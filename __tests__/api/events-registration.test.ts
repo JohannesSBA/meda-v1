@@ -29,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     eventAttendee: {
       count: mockPrismaAttendeCount,
       createMany: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([{ attendeeId: "att-1" }]),
     },
     $transaction: mockPrismaTransaction,
   },

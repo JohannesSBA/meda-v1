@@ -257,9 +257,27 @@ export async function POST(
   );
 }
 
-export async function DELETE() {
-  return NextResponse.json(
-    { error: "Reservations are final and cannot be canceled." },
-    { status: 405 },
-  );
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await requireSessionUser();
+  if (!session.user || session.response) return session.response!;
+
+  const { id } = await params;
+
+  const { processRefund } = await import("@/services/refunds");
+
+  try {
+    const result = await processRefund(id, session.user.id);
+
+    revalidatePath(`/events/${id}`);
+    revalidatePath("/events");
+
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to cancel tickets";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

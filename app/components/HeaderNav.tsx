@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, SignedIn, SignedOut } from "@neondatabase/auth/react";
@@ -46,6 +46,23 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
   const isAdmin = session?.user?.role === "admin";
 
   const pathname = usePathname();
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/profile/balance", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const bal = Number(data.balanceEtb) || 0;
+        setBalance(bal > 0 ? bal : null);
+      } catch {
+        // silently ignore
+      }
+    };
+    void load();
+  }, [isLoggedIn]);
 
   const desktopLinks = useMemo(
     () =>
@@ -114,6 +131,16 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
                   </Link>
                 ))}
               </nav>
+            )}
+
+            {balance != null && (
+              <Link
+                href="/profile"
+                className="flex items-center gap-1.5 rounded-full bg-[var(--color-brand)]/10 px-2.5 py-1.5 text-xs font-semibold text-[var(--color-brand)] transition hover:bg-[var(--color-brand)]/20 sm:text-sm md:px-3"
+              >
+                <WalletIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span>ETB {balance.toFixed(2)}</span>
+              </Link>
             )}
 
             <SignedIn>
@@ -225,6 +252,15 @@ function UserIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function WalletIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M16 14a2 2 0 100-4 2 2 0 000 4z" />
     </svg>
   );
 }

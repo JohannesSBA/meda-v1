@@ -204,9 +204,18 @@ export default async function EventDetailPage({
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
             {dateFormatter.format(startDate)}
           </p>
-          <p className="mt-0.5 text-sm text-[var(--color-text-muted)]">
+          <a
+            href={buildDirectionsUrl(event)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-0.5 inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] active:opacity-70"
+          >
+            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
             {locationLabel}
-          </p>
+          </a>
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -301,7 +310,7 @@ export default async function EventDetailPage({
               <h2 className="text-lg font-semibold text-white">Location</h2>
               <Card className="overflow-hidden rounded-2xl bg-[#0b1624]/90">
                 {event.latitude != null && event.longitude != null ? (
-                  <div className="h-[200px] w-full">
+                  <div className="h-[200px] w-full overflow-hidden">
                     <StaticEventMap
                       latitude={event.latitude}
                       longitude={event.longitude}
@@ -312,7 +321,11 @@ export default async function EventDetailPage({
                     Location not available.
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-2 p-3">
+                <div className="relative z-10 space-y-2 p-3">
+                  <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+                    {locationLabel}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                   {isAdmin ? (
                     <Link
                       href={`/events/${event.eventId}/scan`}
@@ -345,6 +358,7 @@ export default async function EventDetailPage({
                   >
                     Get directions
                   </a>
+                  </div>
                 </div>
               </Card>
             </section>

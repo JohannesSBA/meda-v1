@@ -130,7 +130,9 @@ Location: ${locationLabel || "Location to be announced"}
 ${addToCalendarUrl ? `\nAdd to calendar: ${addToCalendarUrl}` : ""}
 ${viewTicketsUrl ? `\nView your tickets: ${viewTicketsUrl}` : ""}
 
-All reservations are final. See you there!
+You may request a refund up to 24 hours before the event. Refunds are credited to your Meda balance. No refunds within 24 hours of the event start.
+
+See you there!
 
 — Meda
 `.trim();
@@ -153,7 +155,8 @@ All reservations are final. See you there!
   </table>
   ${qrSection}
   ${addToCalendarUrl ? `<p><a href="${addToCalendarUrl}" style="color: #00E5FF; font-weight: 600;">Add to calendar</a></p>` : ""}
-  <p style="color: #666; font-size: 14px;">All reservations are final. See you there!</p>
+  <p style="color: #666; font-size: 14px;">You may request a refund up to 24 hours before the event. Refunds are credited to your Meda balance.</p>
+  <p style="color: #666; font-size: 14px;">See you there!</p>
   <p style="color: #666; font-size: 14px;">— Meda</p>
 </body>
 </html>
@@ -259,6 +262,159 @@ See you there!
       (error as { message?: string }).message ??
       (typeof error === "object" ? JSON.stringify(error) : String(error));
     console.error("Resend reminder send failed:", { error, to, subject });
+    throw new Error(`Resend send failed: ${msg}`);
+  }
+}
+
+type RefundConfirmationParams = {
+  to: string;
+  userName: string | null;
+  eventName: string;
+  eventDateTime: Date;
+  ticketCount: number;
+  amountCredited: number;
+  newBalance: number;
+};
+
+export async function sendRefundConfirmationEmail(
+  params: RefundConfirmationParams,
+): Promise<void> {
+  const {
+    to,
+    userName,
+    eventName,
+    eventDateTime,
+    ticketCount,
+    amountCredited,
+    newBalance,
+  } = params;
+
+  const from = FROM_ADDRESS;
+  const subject = `Refund confirmed for ${eventName}`;
+  const dateStr = new Date(eventDateTime).toLocaleString();
+  const greeting = userName ? `Hi ${userName},` : "Hi,";
+  const ticketLabel = ticketCount === 1 ? "1 ticket" : `${ticketCount} tickets`;
+  const amountStr = amountCredited > 0 ? `ETB ${amountCredited.toFixed(2)}` : null;
+
+  const text = `
+${greeting}
+
+Your refund for ${eventName} has been processed.
+
+${ticketLabel} cancelled.
+Event date: ${dateStr}
+${amountStr ? `Amount credited: ${amountStr}` : ""}
+${amountStr ? `Your Meda balance: ETB ${newBalance.toFixed(2)}` : ""}
+
+Your Meda balance can be used for future event purchases.
+
+— Meda
+`.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p>${greeting}</p>
+  <p>Your refund for <strong>${eventName}</strong> has been processed.</p>
+  <p><strong>${ticketLabel}</strong> cancelled.</p>
+  <table style="border-collapse: collapse; margin: 20px 0;">
+    <tr><td style="padding: 8px 12px 8px 0; color: #666;">Event date:</td><td style="padding: 8px 0;">${dateStr}</td></tr>
+    ${amountStr ? `<tr><td style="padding: 8px 12px 8px 0; color: #666;">Amount credited:</td><td style="padding: 8px 0; font-weight: 600; color: #22c55e;">${amountStr}</td></tr>` : ""}
+    ${amountStr ? `<tr><td style="padding: 8px 12px 8px 0; color: #666;">Your Meda balance:</td><td style="padding: 8px 0; font-weight: 600;">ETB ${newBalance.toFixed(2)}</td></tr>` : ""}
+  </table>
+  <p style="color: #666; font-size: 14px;">Your Meda balance can be used for future event purchases.</p>
+  <p style="color: #666; font-size: 14px;">— Meda</p>
+</body>
+</html>
+`.trim();
+
+  const { error } = await getResend().emails.send({ from, to, subject, text, html });
+
+  if (error) {
+    const msg =
+      (error as { message?: string }).message ??
+      (typeof error === "object" ? JSON.stringify(error) : String(error));
+    console.error("Resend refund confirmation send failed:", { error, to, subject });
+    throw new Error(`Resend send failed: ${msg}`);
+  }
+}
+
+type WaitlistSpotAvailableParams = {
+  to: string;
+  userName: string | null;
+  eventName: string;
+  eventDateTime: Date;
+  locationLabel: string | null;
+  eventId: string;
+  baseUrl?: string;
+};
+
+export async function sendWaitlistSpotAvailableEmail(
+  params: WaitlistSpotAvailableParams,
+): Promise<void> {
+  const {
+    to,
+    userName,
+    eventName,
+    eventDateTime,
+    locationLabel,
+    eventId,
+    baseUrl: baseUrlParam,
+  } = params;
+
+  const baseUrl = baseUrlParam ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const eventUrl = `${baseUrl}/events/${eventId}`;
+  const from = FROM_ADDRESS;
+  const subject = `A spot opened up for ${eventName}!`;
+  const dateStr = new Date(eventDateTime).toLocaleString();
+  const greeting = userName ? `Hi ${userName},` : "Hi,";
+
+  const text = `
+${greeting}
+
+Great news! A spot just opened up for ${eventName}.
+
+Date: ${dateStr}
+Location: ${locationLabel || "Location to be announced"}
+
+Register now before it fills up: ${eventUrl}
+
+— Meda
+`.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p>${greeting}</p>
+  <p>Great news! A spot just opened up for <strong>${eventName}</strong>.</p>
+  <table style="border-collapse: collapse; margin: 20px 0;">
+    <tr><td style="padding: 8px 12px 8px 0; color: #666;">Date:</td><td style="padding: 8px 0;">${dateStr}</td></tr>
+    <tr><td style="padding: 8px 12px 8px 0; color: #666;">Location:</td><td style="padding: 8px 0;">${locationLabel || "Location to be announced"}</td></tr>
+  </table>
+  <p><a href="${eventUrl}" style="display: inline-block; padding: 12px 24px; background: #22FF88; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Register now</a></p>
+  <p style="color: #666; font-size: 14px;">Hurry — spots fill up fast!</p>
+  <p style="color: #666; font-size: 14px;">— Meda</p>
+</body>
+</html>
+`.trim();
+
+  const { error } = await getResend().emails.send({ from, to, subject, text, html });
+
+  if (error) {
+    const msg =
+      (error as { message?: string }).message ??
+      (typeof error === "object" ? JSON.stringify(error) : String(error));
+    console.error("Resend waitlist spot notification failed:", { error, to, subject });
     throw new Error(`Resend send failed: ${msg}`);
   }
 }

@@ -109,6 +109,8 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   const [seriesCount, setSeriesCount] = useState<number>(1);
   const [savingEvent, setSavingEvent] = useState(false);
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number>(0);
+  const [refundingEventId, setRefundingEventId] = useState<string | null>(null);
 
   const savedIds = useMemo(
     () => new Set(savedEvents.map((event) => event.eventId)),
@@ -205,6 +207,48 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       toast.error(error instanceof Error ? error.message : "Failed to load categories");
     }
   };
+
+  const loadBalance = async () => {
+    try {
+      const res = await fetch("/api/profile/balance", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setBalance(Number(data.balanceEtb) || 0);
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handleRefundFromProfile = async (eventId: string) => {
+    setRefundingEventId(eventId);
+    try {
+      const res = await fetch(`/api/events/${eventId}/refund`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Refund failed");
+      const amount = Number(data.amountEtb) || 0;
+      const count = Number(data.ticketCount) || 0;
+      toast.success(
+        amount > 0
+          ? `Refund processed. ETB ${amount} credited to your balance.`
+          : `${count} ticket${count === 1 ? "" : "s"} cancelled.`,
+      );
+      void loadRegisteredEvents();
+      void loadBalance();
+      setTimeout(() => router.refresh(), 5000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Refund failed");
+    } finally {
+      setRefundingEventId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAdmin) void loadBalance();
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -372,6 +416,11 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               {user.name}
             </h1>
             <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">{user.email}</p>
+            {!isAdmin && balance > 0 ? (
+              <p className="mt-1 text-sm font-semibold text-[var(--color-brand)]">
+                Meda Balance: ETB {balance.toFixed(2)}
+              </p>
+            ) : null}
           </div>
           {isAdmin ? (
             <Badge className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)]">
@@ -485,6 +534,29 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
                         >
                           {savedIds.has(event.eventId) ? "Unsave" : "Save"}
                         </button>
+                        {registeredStatus !== "past" &&
+                          (new Date(event.eventDatetime).getTime() - Date.now()) / (1000 * 60 * 60) >= 24 ? (
+                          <Button
+                            type="button"
+                            variant="danger"
+                            className="h-11 flex-1 rounded-lg"
+                            disabled={refundingEventId === event.eventId}
+                            onClick={() => {
+                              if (!confirm(
+                                (event.priceField ?? 0) > 0
+                                  ? `Cancel all tickets and refund ETB ${(event.priceField ?? 0) * event.ticketCount} to your Meda balance?`
+                                  : `Cancel all ${event.ticketCount} ticket${event.ticketCount === 1 ? "" : "s"}?`,
+                              )) return;
+                              void handleRefundFromProfile(event.eventId);
+                            }}
+                          >
+                            {refundingEventId === event.eventId
+                              ? "Processing…"
+                              : (event.priceField ?? 0) > 0
+                                ? "Refund"
+                                : "Cancel"}
+                          </Button>
+                        ) : null}
                       </div>
                     </Card>
                   ))}
