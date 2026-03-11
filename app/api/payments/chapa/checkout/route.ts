@@ -37,9 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
-    new URL(request.url).origin;
+  const baseUrl = new URL(request.url).origin;
   const callbackUrl =
     process.env.CHAPA_CALLBACK_URL ??
     `${baseUrl}/api/payments/chapa/confirm`;
