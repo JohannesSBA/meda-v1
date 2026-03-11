@@ -30,10 +30,25 @@ const pillars = [
 ];
 
 const values = [
-  { title: "Reliability over hype", detail: "We optimize for on-time kickoffs and transparent rosters, not vanity metrics." },
-  { title: "Local-first decisions", detail: "We build for Ethiopian payment rails, time zones, and football culture before anything else." },
-  { title: "Calm, confident UX", detail: "Interfaces are intentional, legible in the dark, and respectful of players' limited time." },
-  { title: "Security as a feature", detail: "Role-aware actions, fraud-aware ticket sharing, and protective defaults come standard." },
+  {
+    title: "Reliability over hype",
+    detail: "We optimize for on-time kickoffs and transparent rosters, not vanity metrics.",
+  },
+  {
+    title: "Local-first decisions",
+    detail:
+      "We build for Ethiopian payment rails, time zones, and football culture before anything else.",
+  },
+  {
+    title: "Calm, confident UX",
+    detail:
+      "Interfaces are intentional, legible in the dark, and respectful of players' limited time.",
+  },
+  {
+    title: "Security as a feature",
+    detail:
+      "Role-aware actions, fraud-aware ticket sharing, and protective defaults come standard.",
+  },
 ];
 
 const operatingPrinciples = [
@@ -56,14 +71,21 @@ export default function AboutPage() {
               Building the most trusted way to organize pickup football.
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-[var(--color-text-secondary)]">
-              Meda is crafted for Ethiopia's football community: transparent rosters, ETB-first payments, and a UI that feels right at 10 p.m. under floodlights.
-              Players get clarity, hosts get control, and everyone gets to the pitch on time.
+              Meda is crafted for Ethiopia&apos;s football community: transparent rosters, ETB-first
+              payments, and a UI that feels right at 10 p.m. under floodlights. Players get clarity,
+              hosts get control, and everyone gets to the pitch on time.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/events" className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}>
+              <Link
+                href="/events"
+                className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}
+              >
                 Explore matches
               </Link>
-              <Link href="/create-events" className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}>
+              <Link
+                href="/create-events"
+                className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}
+              >
                 Host with Meda
               </Link>
             </div>
@@ -117,7 +139,10 @@ export default function AboutPage() {
             <ul className="space-y-2 text-sm text-[var(--color-text-secondary)]">
               {operatingPrinciples.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="mt-1 inline-flex h-2 w-2 rounded-full bg-[var(--color-brand)]" aria-hidden />
+                  <span
+                    className="mt-1 inline-flex h-2 w-2 rounded-full bg-[var(--color-brand)]"
+                    aria-hidden
+                  />
                   <span>{item}</span>
                 </li>
               ))}
@@ -127,19 +152,22 @@ export default function AboutPage() {
             <article className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
               <p className="text-sm font-semibold text-white">Safety & trust</p>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Waitlists, refund windows, and shareable tickets are built with audit trails so captains know who&apos;s actually on the pitch.
+                Waitlists, refund windows, and shareable tickets are built with audit trails so
+                captains know who&apos;s actually on the pitch.
               </p>
             </article>
             <article className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
               <p className="text-sm font-semibold text-white">Operational excellence</p>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                Hosts see live attendance and payments without leaving the flow; players get concise confirmations that work offline after loading.
+                Hosts see live attendance and payments without leaving the flow; players get concise
+                confirmations that work offline after loading.
               </p>
             </article>
             <article className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4 sm:col-span-2">
               <p className="text-sm font-semibold text-white">Community-first support</p>
               <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                We respond with context: match IDs, payment references, and timelines so issues resolve quickly. Reach us anytime at support@meda.app.
+                We respond with context: match IDs, payment references, and timelines so issues
+                resolve quickly. Reach us anytime at support@meda.app.
               </p>
             </article>
           </div>

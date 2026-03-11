@@ -5,6 +5,8 @@ import "./globals.css";
 import AuthProviders from "./components/AuthProviders";
 import Footer from "./components/Footer";
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -22,12 +24,16 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: "Meda - Event Management System",
   description:
     "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia’s night football and weekend runs.",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",
+  },
+  alternates: {
+    canonical: "/",
   },
   openGraph: {
     title: "Meda - Event Management System",

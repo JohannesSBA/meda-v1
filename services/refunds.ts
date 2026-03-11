@@ -4,43 +4,9 @@ import {
   sendRefundConfirmationEmail,
   sendWaitlistSpotAvailableEmail,
 } from "@/services/email";
-
-const REFUND_CUTOFF_HOURS = 24;
-
-const ALLOWED_SCHEMAS = ["neon_auth", "public"];
-const ALLOWED_TABLES = ["user"];
-
-type AuthUser = { id: string; email: string | null; name: string | null };
-
-async function getAuthUserEmails(
-  userIds: string[],
-): Promise<Map<string, AuthUser>> {
-  const map = new Map<string, AuthUser>();
-  if (userIds.length === 0) return map;
-
-  const schema =
-    process.env.AUTH_SCHEMA && ALLOWED_SCHEMAS.includes(process.env.AUTH_SCHEMA)
-      ? process.env.AUTH_SCHEMA
-      : "neon_auth";
-  const table =
-    process.env.AUTH_USER_TABLE && ALLOWED_TABLES.includes(process.env.AUTH_USER_TABLE)
-      ? process.env.AUTH_USER_TABLE
-      : "user";
-
-  try {
-    const qualifiedTable = `"${schema}"."${table}"`;
-    const rows = await prisma.$queryRawUnsafe<AuthUser[]>(
-      `SELECT id, email, name FROM ${qualifiedTable} WHERE id = ANY($1::uuid[]) AND email IS NOT NULL`,
-      userIds,
-    );
-    for (const row of rows ?? []) {
-      if (row.email) map.set(row.id, row);
-    }
-  } catch (err) {
-    console.error("Failed to fetch auth users for refund:", err);
-  }
-  return map;
-}
+import { REFUND_CUTOFF_HOURS } from "@/lib/constants";
+import { logger } from "@/lib/logger";
+import { getAuthUserEmails } from "@/lib/auth/userLookup";
 
 export type RefundResult = {
   ok: true;
@@ -180,7 +146,7 @@ export async function processRefund(
         newBalance,
       });
     } catch (err) {
-      console.error("Failed to send refund confirmation email:", err);
+      logger.error("Failed to send refund confirmation email", err);
     }
   }
 
@@ -209,8 +175,8 @@ export async function processRefund(
             eventId,
           });
         } catch (err) {
-          console.error(
-            `Failed to send waitlist notification for ${eventId} / ${entry.userId}:`,
+          logger.error(
+            `Failed to send waitlist notification for ${eventId} / ${entry.userId}`,
             err,
           );
         }

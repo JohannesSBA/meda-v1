@@ -37,7 +37,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  const rl = checkRateLimit(`verify:${getClientId(request)}`, 30, 60_000);
+  const rl = await checkRateLimit(`verify:${getClientId(request)}`, 30, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { valid: false, error: "Too many requests. Please slow down." },

@@ -247,7 +247,10 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
   };
 
   useEffect(() => {
-    if (!isAdmin) void loadBalance();
+    if (isAdmin) return;
+    let cancelled = false;
+    loadBalance().finally(() => { if (cancelled) { /* no-op */ } });
+    return () => { cancelled = true; };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -443,11 +446,14 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       {!isAdmin ? (
         <>
           {/* User tab bar */}
-          <div className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1">
+          <div role="tablist" aria-label="Profile sections" className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1">
             {(["registered", "saved"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
+                role="tab"
+                aria-selected={userTab === tab}
+                aria-controls={`profile-tabpanel-${tab}`}
                 onClick={() => setUserTab(tab)}
                 className={cn(
                   "flex-1 rounded-lg py-3 text-sm font-semibold transition",
@@ -462,7 +468,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </div>
 
           {userTab === "registered" ? (
-            <section className="space-y-4">
+            <section id="profile-tabpanel-registered" role="tabpanel" aria-label="Registered events" className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-white">Registered events</h2>
                 <Select
@@ -564,7 +570,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
               )}
             </section>
           ) : (
-            <section className="space-y-4">
+            <section id="profile-tabpanel-saved" role="tabpanel" aria-label="Saved events" className="space-y-4">
               <h2 className="text-lg font-semibold text-white">Saved events</h2>
               {savedLoading ? (
                 <div className="grid gap-3">
@@ -622,11 +628,14 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
       ) : (
         <>
           {/* Admin tab bar */}
-          <div className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1">
+          <div role="tablist" aria-label="Admin sections" className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1">
             {(["users", "events", "stats"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
+                role="tab"
+                aria-selected={adminTab === tab}
+                aria-controls={`admin-tabpanel-${tab}`}
                 onClick={() => setAdminTab(tab)}
                 className={cn(
                   "flex-1 rounded-lg py-3 text-sm font-semibold transition",
@@ -641,7 +650,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           </div>
 
           {adminTab === "users" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
+            <section id="admin-tabpanel-users" role="tabpanel" aria-label="User administration" className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-lg font-semibold text-white">User administration</h2>
                 <div className="flex gap-2">
@@ -708,7 +717,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "events" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
+            <section id="admin-tabpanel-events" role="tabpanel" aria-label="Event moderation" className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-lg font-semibold text-white">Event moderation</h2>
                 <div className="flex gap-2">
@@ -820,7 +829,7 @@ export default function ProfileDashboard({ user }: { user: ProfileUser }) {
           ) : null}
 
           {adminTab === "stats" ? (
-            <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
+            <section id="admin-tabpanel-stats" role="tabpanel" aria-label="Platform statistics" className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5">
               <h2 className="text-lg font-semibold text-white">Platform statistics</h2>
               {statsLoading ? (
                 <StatsCardsSkeleton count={4} />

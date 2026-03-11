@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 type TicketClaimPanelProps = {
   token: string;
@@ -21,12 +22,6 @@ type ShareDetails = {
     addressLabel?: string | null;
   };
 };
-
-function getErrorMessage(value: unknown) {
-  if (value instanceof Error) return value.message;
-  if (typeof value === "string") return value;
-  return "Something went wrong";
-}
 
 export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
   const router = useRouter();

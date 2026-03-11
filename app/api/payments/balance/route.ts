@@ -5,6 +5,7 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { sendTicketConfirmationEmail } from "@/services/email";
+import { logger } from "@/lib/logger";
 
 /**
  * Pay for tickets using the user's Meda balance.
@@ -13,7 +14,7 @@ import { sendTicketConfirmationEmail } from "@/services/email";
  * the balance portion is deducted here and the remaining is paid via Chapa.
  */
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`balance-pay:${getClientId(request)}`, 5, 60_000);
+  const rl = await checkRateLimit(`balance-pay:${getClientId(request)}`, 5, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before trying again." },
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
         baseUrl: new URL(request.url).origin,
       });
     } catch (err) {
-      console.error("Failed to send ticket confirmation email:", err);
+      logger.error("Failed to send ticket confirmation email", err);
     }
   }
 

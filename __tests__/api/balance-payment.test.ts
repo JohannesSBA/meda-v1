@@ -31,7 +31,7 @@ vi.mock("@/app/helpers/locationCodec", () => ({
 }));
 
 vi.mock("@/lib/ratelimit", () => ({
-  checkRateLimit: vi.fn().mockReturnValue({ limited: false }),
+  checkRateLimit: vi.fn().mockResolvedValue({ limited: false }),
   getClientId: vi.fn().mockReturnValue("test-client"),
 }));
 

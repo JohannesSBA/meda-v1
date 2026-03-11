@@ -128,11 +128,13 @@ export default function CreateEventForm({
   const router = useRouter();
 
   useEffect(() => {
+    let cancelled = false;
     authClient.getSession().then((result) => {
-      if (result.data?.user) {
+      if (!cancelled && result.data?.user) {
         setUser(result.data.user);
       }
     });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

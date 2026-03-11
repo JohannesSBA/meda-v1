@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import QRCode from "qrcode";
 import { createVerificationToken } from "@/lib/tickets/verificationToken";
+import { logger } from "@/lib/logger";
 
 const FROM_ADDRESS = (() => {
   const addr = process.env.EMAIL_FROM?.trim();
@@ -10,8 +11,8 @@ const FROM_ADDRESS = (() => {
         "EMAIL_FROM is required in production. Set it to a verified sender address, e.g. 'Meda <hello@yourdomain.com>'",
       );
     }
-    console.warn(
-      "[email] EMAIL_FROM is not set. Falling back to Resend sandbox address — emails may not be delivered in production.",
+    logger.warn(
+      "EMAIL_FROM is not set. Falling back to Resend sandbox address — emails may not be delivered in production.",
     );
     return "Meda <onboarding@resend.dev>";
   }
@@ -96,7 +97,7 @@ export async function sendTicketConfirmationEmail(
         contentId: `qr-${i}`,
       });
     } catch (err) {
-      console.error(`Failed to generate QR for attendee ${attendeeIds[i]}:`, err);
+      logger.error(`Failed to generate QR for attendee ${attendeeIds[i]}`, err);
     }
   }
 
@@ -175,7 +176,7 @@ See you there!
     const msg =
       (error as { message?: string }).message ??
       (typeof error === "object" ? JSON.stringify(error) : String(error));
-    console.error("Resend send failed:", { error, to, subject });
+    logger.error("Resend send failed", { error, to, subject });
     throw new Error(`Resend send failed: ${msg}`);
   }
 }
@@ -261,7 +262,7 @@ See you there!
     const msg =
       (error as { message?: string }).message ??
       (typeof error === "object" ? JSON.stringify(error) : String(error));
-    console.error("Resend reminder send failed:", { error, to, subject });
+    logger.error("Resend reminder send failed", { error, to, subject });
     throw new Error(`Resend send failed: ${msg}`);
   }
 }
@@ -339,7 +340,7 @@ Your Meda balance can be used for future event purchases.
     const msg =
       (error as { message?: string }).message ??
       (typeof error === "object" ? JSON.stringify(error) : String(error));
-    console.error("Resend refund confirmation send failed:", { error, to, subject });
+    logger.error("Resend refund confirmation send failed", { error, to, subject });
     throw new Error(`Resend send failed: ${msg}`);
   }
 }
@@ -414,7 +415,7 @@ Register now before it fills up: ${eventUrl}
     const msg =
       (error as { message?: string }).message ??
       (typeof error === "object" ? JSON.stringify(error) : String(error));
-    console.error("Resend waitlist spot notification failed:", { error, to, subject });
+    logger.error("Resend waitlist spot notification failed", { error, to, subject });
     throw new Error(`Resend send failed: ${msg}`);
   }
 }

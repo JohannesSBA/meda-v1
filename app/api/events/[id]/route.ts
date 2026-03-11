@@ -6,8 +6,9 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { sendTicketConfirmationEmail } from "@/services/email";
 import { auth } from "@/lib/auth/server";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-
-const MAX_TICKETS_PER_USER_PER_EVENT = 20;
+import { MAX_TICKETS_PER_USER_PER_EVENT, MAX_SERIES_OCCURRENCES } from "@/lib/constants";
+import { logger } from "@/lib/logger";
+import { eventRegistrationSchema } from "@/lib/validations/events";
 
 export async function GET(
   request: Request,
@@ -67,7 +68,7 @@ export async function GET(
         _count: { select: { attendees: true } },
       },
       orderBy: { eventDatetime: "asc" },
-      take: 120,
+      take: MAX_SERIES_OCCURRENCES,
     });
 
     const myTicketCounts = new Map<string, number>();
@@ -122,7 +123,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = checkRateLimit(`register:${getClientId(request)}`, 10, 60_000);
+  const rl = await checkRateLimit(`register:${getClientId(request)}`, 10, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before registering again." },
@@ -138,30 +139,18 @@ export async function POST(
 
   const { id } = await params;
   const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  const parsed = eventRegistrationSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: "Invalid request body", issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
-  const { quantity, userId } = body;
-  const qty = Number(quantity) || 1;
+  const { quantity: qty, userId } = parsed.data;
 
-  const isUuid =
-    typeof userId === "string" && /^[0-9a-fA-F-]{36}$/.test(userId);
-  if (!isUuid)
-    return NextResponse.json(
-      { error: "Valid userId required" },
-      { status: 400 },
-    );
   if (userId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (qty < 1 || qty > 20)
-    return NextResponse.json(
-      { error: "Quantity must be between 1 and 20" },
-      { status: 400 },
-    );
 
   const event = await prisma.event.findUnique({ where: { eventId: id } });
   if (!event)
@@ -247,7 +236,7 @@ export async function POST(
         baseUrl: new URL(request.url).origin,
       });
     } catch (error) {
-      console.error("Failed to send ticket confirmation email:", error);
+      logger.error("Failed to send ticket confirmation email", error);
     }
   }
 

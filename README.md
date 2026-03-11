@@ -82,6 +82,50 @@ This document provides:
 - `My Events` feature overview
 - key components, APIs, and data model references
 
+## Recent Improvements
+
+The following improvements were made as part of a comprehensive audit:
+
+### Database & Performance
+
+- **Database indexes** — Added `@@index` to `Event`, `EventAttendee`, `Payment`, and `Refund` models for faster queries
+- **Geo-filtering optimization** — Bounding-box pre-filter reduces in-memory haversine calculations in the events list endpoint
+- **Cron email batching** — Reminder emails are sent in concurrent batches of 10 using `Promise.allSettled` instead of sequentially
+
+### Security
+
+- **Upstash Redis rate limiting** — Rate limiter supports Upstash Redis for distributed deployments with in-memory fallback
+- **Error sanitization** — API 500 responses no longer leak internal error messages; details are logged server-side only
+- **Zod validation** — Standardized Zod schemas for event registration, refund, and payment request bodies
+
+### Frontend Robustness
+
+- **Effect cleanup** — All async `useEffect` hooks now include `cancelled` flags to prevent state updates on unmounted components
+- **CSS bug fixes** — Fixed invalid Tailwind CSS variable syntax (`text-(--var)` → `text-[var(--var)]`) in host profile and ticket verify pages
+- **ARIA tabs** — Tab bars in `ProfileDashboard` and `MyEventsPanel` now include proper `role="tablist"`, `role="tab"`, `role="tabpanel"`, and `aria-selected` attributes
+- **Route-level error boundaries** — Added `error.tsx` for `/events`, `/profile`, and `/create-events` routes
+- **Shared constants** — Extracted magic numbers (`MAX_TICKETS_PER_USER_PER_EVENT`, `REFUND_CUTOFF_HOURS`, `DEFAULT_MAP_CENTER`) to `lib/constants.ts`
+
+### Code Quality
+
+- **Structured logging** — Replaced all `console.error`/`console.warn` calls with a structured `logger` wrapper (`lib/logger.ts`)
+- **Shared API error helper** — `apiError()` and `formatUnknownError()` in `lib/apiResponse.ts` for consistent error responses
+- **Deduplicated utilities** — Extracted shared `getErrorMessage` (`lib/errorMessage.ts`), `getAuthUserEmails` (`lib/auth/userLookup.ts`), and test helpers (`__tests__/helpers/test-utils.ts`)
+- **Prettier** — Added `.prettierrc` config and integrated with ESLint via `eslint-config-prettier`
+
+### SEO & Infrastructure
+
+- **robots.txt** — Machine-readable robots configuration via `app/robots.ts`
+- **Dynamic sitemap** — Auto-generated sitemap with static pages and upcoming events via `app/sitemap.ts`
+- **Canonical URLs** — Added `metadataBase` and `alternates.canonical` to root layout metadata
+- **CI pipeline** — GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, type-check, and tests on PRs
+
+### Testing
+
+- **New test suites** — Added tests for event creation, ticket sharing service, and refund validation
+- **Test helper extraction** — Shared `makeSessionUser`, `makeEvent`, `makeRequest`, `futureDate` in `__tests__/helpers/test-utils.ts`
+- **Rate limit mocks** — Fixed missing rate limit mock in registration tests and updated all mocks for async rate limiter
+
 ## Tech Stack
 
 - Next.js App Router (`app/`)
@@ -89,6 +133,7 @@ This document provides:
 - Prisma + PostgreSQL (Neon)
 - Neon Auth for authentication/session
 - Chapa for paid checkout flow
+- Upstash Redis (optional, for distributed rate limiting)
 
 ## Local Setup
 

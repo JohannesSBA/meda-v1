@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { uploadEventImageUnified } from "@/lib/uploadEventImage";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
+import { logger } from "@/lib/logger";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB per supabase guidance
 const MAX_RECURRING_OCCURRENCES = 180;
@@ -86,7 +87,7 @@ function buildRecurringWindows(params: {
 }
 
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
+  const rl = await checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before creating another event." },
@@ -243,8 +244,10 @@ export async function POST(request: Request) {
     const event = await prisma.event.findUnique({ where: { eventId: masterEventId } });
     return NextResponse.json({ event, createdOccurrences: rows.length, seriesId }, { status: 201 });
   } catch (error) {
-    console.error("Create event failed", error);
-    const message = error instanceof Error ? error.message : "Failed to create event";
-    return NextResponse.json({ error: message }, { status: 500 });
+    logger.error("Create event failed", error);
+    return NextResponse.json(
+      { error: "Failed to create event" },
+      { status: 500 },
+    );
   }
 }

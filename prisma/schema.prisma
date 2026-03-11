@@ -88,6 +88,10 @@ model Event {
   waitlist      EventWaitlist[]
   refunds       Refund[]
 
+  @@index([eventDatetime])
+  @@index([seriesId])
+  @@index([userId])
+  @@index([categoryId])
   @@map("events")
 }
 
@@ -102,6 +106,7 @@ model EventAttendee {
   // Relations
   event         Event          @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
+  @@index([eventId, userId])
   @@map("eventattendees")
 }
 
@@ -152,6 +157,8 @@ model Payment {
   // Relations
   event               Event         @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
+  @@index([eventId, userId])
+  @@index([status])
   @@map("payments")
 }
 
@@ -201,5 +208,6 @@ model Refund {
   // Relations
   event       Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
+  @@index([eventId, userId])
   @@map("refunds")
 }

@@ -3,12 +3,13 @@ import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { processRefund } from "@/services/refunds";
+import { refundSchema } from "@/lib/validations/events";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = checkRateLimit(`refund:${getClientId(request)}`, 5, 60_000);
+  const rl = await checkRateLimit(`refund:${getClientId(request)}`, 5, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before trying again." },
@@ -24,11 +25,9 @@ export async function POST(
 
   const { id } = await params;
 
-  const body = await request.json().catch(() => null);
-  const ticketCount =
-    body && typeof body === "object" && typeof body.ticketCount === "number"
-      ? Math.max(1, Math.floor(body.ticketCount))
-      : undefined;
+  const body = await request.json().catch(() => ({}));
+  const parsed = refundSchema.safeParse(body);
+  const ticketCount = parsed.success ? parsed.data.ticketCount : undefined;
 
   try {
     const result = await processRefund(id, session.user.id, ticketCount);

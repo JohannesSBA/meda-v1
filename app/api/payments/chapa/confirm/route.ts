@@ -7,19 +7,11 @@ import { confirmPaymentSchema } from "@/lib/validations/payments";
 import { confirmChapaPayment } from "@/services/payments";
 import { sendTicketConfirmationEmail } from "@/services/email";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-
-function formatUnknownError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Unknown confirm error";
-  }
-}
+import { formatUnknownError } from "@/lib/apiResponse";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`confirm:${getClientId(request)}`, 10, 60_000);
+  const rl = await checkRateLimit(`confirm:${getClientId(request)}`, 10, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before confirming payment again." },
@@ -86,7 +78,7 @@ export async function POST(request: Request) {
               baseUrl: new URL(request.url).origin,
             });
           } catch (emailErr) {
-            console.error("Failed to send ticket confirmation email:", emailErr);
+            logger.error("Failed to send ticket confirmation email", emailErr);
           }
         }
       }
@@ -97,8 +89,10 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
-    const message = formatUnknownError(error);
-    console.error("Chapa payment confirmation failed:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    logger.error("Chapa payment confirmation failed", error);
+    return NextResponse.json(
+      { error: formatUnknownError(error) },
+      { status: 400 },
+    );
   }
 }

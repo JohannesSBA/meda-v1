@@ -35,7 +35,7 @@ const groups: LinkGroup[] = [
     title: "Company",
     links: [
       { label: "About Meda", href: "/about" },
-      { label: "Sitemap", href: "/sitemap" },
+      { label: "Sitemap", href: "/site-map" },
     ],
   },
   {

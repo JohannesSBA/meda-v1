@@ -15,13 +15,14 @@ import { EventCardSkeleton } from "../components/ui/skeleton";
 import { Input } from "../components/ui/input";
 import { Select } from "../components/ui/select";
 import { Button } from "../components/ui/button";
+import { DEFAULT_MAP_CENTER } from "@/lib/constants";
 
 const EventsMap = dynamic(() => import("../components/EventsMap"), {
   ssr: false,
 });
 
 const PAGE_SIZE = 8;
-const DEFAULT_CENTER = { lat: 9.0301, lng: 38.7578 };
+const DEFAULT_CENTER = DEFAULT_MAP_CENTER;
 
 export default function EventsPage() {
   const searchParams = useSearchParams();

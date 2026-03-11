@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import axios, { isAxiosError } from "axios";
+import axios from "axios";
 import { toast } from "sonner";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
@@ -12,15 +12,8 @@ import TicketQRPanel from "@/app/components/tickets/TicketQRPanel";
 import { Select } from "@/app/components/ui/select";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
-
-function getErrorMessage(err: unknown): string {
-  if (isAxiosError(err) && typeof err.response?.data?.error === "string") {
-    return err.response.data.error;
-  }
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return "An error occurred";
-}
+import { MAX_TICKETS_PER_USER_PER_EVENT, REFUND_CUTOFF_HOURS } from "@/lib/constants";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 type Props = {
   event: EventResponse;
@@ -99,7 +92,7 @@ export default function RegisterPanel({
   const selectedCapacity = selectedOccurrence?.capacity ?? event.capacity;
   const remaining =
     selectedCapacity != null ? Math.max(selectedCapacity, 0) : Infinity;
-  const maxQty = Math.min(20, remaining || 20);
+  const maxQty = Math.min(MAX_TICKETS_PER_USER_PER_EVENT, remaining || MAX_TICKETS_PER_USER_PER_EVENT);
   const soldOutForSelection =
     selectedCapacity != null ? remaining <= 0 : isSoldOut;
   const canShareTickets = myTickets > 1;
@@ -107,7 +100,7 @@ export default function RegisterPanel({
     selectedOccurrence?.eventDatetime ?? event.eventDatetime;
   const hoursUntilEvent =
     (new Date(selectedDatetime).getTime() - Date.now()) / (1000 * 60 * 60);
-  const refundEligible = myTickets > 0 && hoursUntilEvent >= 24;
+  const refundEligible = myTickets > 0 && hoursUntilEvent >= REFUND_CUTOFF_HOURS;
   const isPaid = (event.priceField ?? 0) > 0;
 
   useEffect(() => {
@@ -136,10 +129,13 @@ export default function RegisterPanel({
   );
 
   useEffect(() => {
+    let cancelled = false;
     authClient.getSession().then((session) => {
-      const id = session.data?.user?.id ?? null;
-      setUserId(id);
+      if (!cancelled) {
+        setUserId(session.data?.user?.id ?? null);
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -185,28 +181,32 @@ export default function RegisterPanel({
       setOnWaitlist(false);
       return;
     }
+    let cancelled = false;
     const load = async () => {
       try {
         const res = await fetch(`/api/events/${selectedEventId}/waitlist`, {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (cancelled || !res.ok) return;
         const data = await res.json();
-        setOnWaitlist(data.onWaitlist ?? false);
+        if (!cancelled) setOnWaitlist(data.onWaitlist ?? false);
       } catch {
-        setOnWaitlist(false);
+        if (!cancelled) setOnWaitlist(false);
       }
     };
     void load();
+    return () => { cancelled = true; };
   }, [selectedEventId, userId, soldOutForSelection, myTickets]);
 
   useEffect(() => {
     if (!userId || !isPaid) return;
+    let cancelled = false;
     const loadBalance = async () => {
       try {
         const res = await fetch("/api/profile/balance", { cache: "no-store" });
-        if (!res.ok) return;
+        if (cancelled || !res.ok) return;
         const data = await res.json();
+        if (cancelled) return;
         const bal = Number(data.balanceEtb) || 0;
         setUserBalance(bal);
         if (bal <= 0) setPaymentMethod("chapa");
@@ -215,6 +215,7 @@ export default function RegisterPanel({
       }
     };
     void loadBalance();
+    return () => { cancelled = true; };
   }, [userId, isPaid]);
 
   useEffect(() => {
@@ -222,24 +223,27 @@ export default function RegisterPanel({
       setIsSaved(false);
       return;
     }
+    let cancelled = false;
     const loadSaved = async () => {
       try {
         const res = await fetch("/api/profile/saved-events", {
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (cancelled || !res.ok) return;
         const data = await res.json();
+        if (cancelled) return;
         const items = Array.isArray(data?.items) ? data.items : [];
         setIsSaved(
           items.some(
             (item: { eventId?: string }) => item.eventId === selectedEventId,
           ),
         );
-      } catch (err) {
-        console.error("Failed to load saved events:", err);
+      } catch {
+        // silently ignore
       }
     };
     void loadSaved();
+    return () => { cancelled = true; };
   }, [selectedEventId, userId]);
 
   const paymentProvider = useMemo(

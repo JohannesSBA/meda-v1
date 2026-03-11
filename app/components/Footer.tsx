@@ -1,7 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { buttonVariants } from "./ui/button";
-import { cn } from "./ui/cn";
 
 const productLinks = [
   { href: "/events", label: "Browse events" },
@@ -19,7 +17,7 @@ const legalLinks = [
   { href: "/privacy", label: "Privacy policy" },
   { href: "/terms", label: "Terms & conditions" },
   { href: "/cookie-policy", label: "Cookie policy" },
-  { href: "/sitemap", label: "Sitemap" },
+  { href: "/site-map", label: "Sitemap" },
 ];
 
 const supportLinks = [
@@ -52,9 +50,8 @@ export default function Footer() {
               </div>
             </div>
             <p className="max-w-xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
-              We obsess over reliable pick-up play: clearer commitments for
-              players, safer hosting for organizers, and transparent flows for
-              every ETB that moves through the pitch.
+              We obsess over reliable pick-up play: clearer commitments for players, safer hosting
+              for organizers, and transparent flows for every ETB that moves through the pitch.
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-[var(--color-text-muted)]">
               <span className="rounded-full border border-[var(--color-border)] px-3 py-1.5">
@@ -105,17 +102,11 @@ function FooterColumn({ title, links }: FooterColumnProps) {
         {links.map((link) => (
           <li key={link.href}>
             {link.href.startsWith("mailto:") ? (
-              <a
-                href={link.href}
-                className="transition hover:text-[var(--color-brand)]"
-              >
+              <a href={link.href} className="transition hover:text-[var(--color-brand)]">
                 {link.label}
               </a>
             ) : (
-              <Link
-                href={link.href}
-                className="transition hover:text-[var(--color-brand)]"
-              >
+              <Link href={link.href} className="transition hover:text-[var(--color-brand)]">
                 {link.label}
               </Link>
             )}

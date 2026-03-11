@@ -1,14 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { createHmac } from "crypto";
 
-// Set the secret before importing the module so the IIFE picks it up
 process.env.TICKET_VERIFICATION_SECRET = "test-secret-for-unit-tests-only";
-
-// eslint-disable-next-line import/first
-import {
-  createVerificationToken,
-  verifyToken,
-} from "@/lib/tickets/verificationToken";
+import { createVerificationToken, verifyToken } from "@/lib/tickets/verificationToken";
 
 describe("createVerificationToken", () => {
   it("returns a token with two base64url parts separated by a dot", () => {
@@ -85,12 +79,7 @@ describe("verifyToken", () => {
 
 describe("rate limit integration: verifyToken round-trip", () => {
   it("correctly verifies multiple distinct attendee IDs", () => {
-    const ids = [
-      "id-one",
-      "id-two",
-      "id-three",
-      "550e8400-e29b-41d4-a716-446655440001",
-    ];
+    const ids = ["id-one", "id-two", "id-three", "550e8400-e29b-41d4-a716-446655440001"];
     for (const id of ids) {
       const token = createVerificationToken(id);
       expect(verifyToken(token)).toBe(id);
