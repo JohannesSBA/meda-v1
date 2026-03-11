@@ -93,6 +93,11 @@ export async function promoteWaitlistForEvent(eventId: string): Promise<number> 
     const w = waitlistSlice[i];
     const user = userMap.get(w.userId);
     if (user?.email) {
+      const attendees = await prisma.eventAttendee.findMany({
+        where: { eventId, userId: w.userId },
+        select: { attendeeId: true },
+        orderBy: { createdAt: "desc" },
+      });
       try {
         await sendTicketConfirmationEmail({
           to: user.email,
@@ -103,6 +108,7 @@ export async function promoteWaitlistForEvent(eventId: string): Promise<number> 
           locationLabel: decoded.addressLabel,
           quantity: 1,
           eventId,
+          attendeeIds: attendees.map((a) => a.attendeeId),
         });
       } catch (err) {
         console.error(

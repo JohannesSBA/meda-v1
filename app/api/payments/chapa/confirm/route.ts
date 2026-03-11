@@ -67,6 +67,11 @@ export async function POST(request: Request) {
         });
         if (event) {
           const decoded = decodeEventLocation(event.eventLocation);
+          const attendees = await prisma.eventAttendee.findMany({
+            where: { eventId: result.eventId, userId: session.user.id },
+            select: { attendeeId: true },
+            orderBy: { createdAt: "desc" },
+          });
           try {
             await sendTicketConfirmationEmail({
               to: session.user.email,
@@ -77,6 +82,8 @@ export async function POST(request: Request) {
               locationLabel: decoded.addressLabel,
               quantity: result.quantity,
               eventId: result.eventId,
+              attendeeIds: attendees.map((a) => a.attendeeId),
+              baseUrl: new URL(request.url).origin,
             });
           } catch (emailErr) {
             console.error("Failed to send ticket confirmation email:", emailErr);
