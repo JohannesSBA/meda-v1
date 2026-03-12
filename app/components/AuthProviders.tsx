@@ -23,7 +23,7 @@ export default function AuthProviders({ children }: AuthProvidersProps) {
     <NeonAuthUIProvider
       authClient={authClient as unknown as NeonUIAuthClient}
       redirectTo="/events"
-      className="bg-black"
+      className="bg-[var(--color-bg)]"
       social={{
         providers: ["google"],
       }}

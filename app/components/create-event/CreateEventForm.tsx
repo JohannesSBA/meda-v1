@@ -1,8 +1,5 @@
 /**
  * CreateEventForm -- Main event creation and edit form.
- *
- * Orchestrates form sections (basics, schedule, recurrence, location, capacity, image)
- * and live preview. Used on /create-events and admin event edit pages.
  */
 
 "use client";
@@ -13,6 +10,8 @@ import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
+import { Card } from "@/app/components/ui/card";
+import { Stack } from "@/app/components/ui/primitives";
 import { useCreateEventForm } from "./useCreateEventForm";
 import { ScheduleSection } from "./ScheduleSection";
 import { RecurrenceSection } from "./RecurrenceSection";
@@ -44,225 +43,158 @@ export default function CreateEventForm(props: CreateEventFormProps) {
   } = useCreateEventForm(props);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
-      <form
-        className="relative z-20 space-y-7 rounded-2xl border border-white/6 bg-[#0f1f2d]/80 px-6 py-8 shadow-xl shadow-black/30 backdrop-blur"
-        onSubmit={handleSubmit}
-      >
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.16em] text-[#7ccfff]">
-              Event basics
-            </p>
-            <h2 className="text-xl font-semibold text-white">Details</h2>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:items-start">
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <Card className="p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <p className="heading-kicker">Event basics</p>
+              <h2 className="section-title">Core details</h2>
+              <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+                Start with the title, category, and pricing. Everything below follows the same spacing rhythm.
+              </p>
+            </div>
+            <Badge variant="accent">TZ: {timezone || "Auto"}</Badge>
           </div>
-          <Badge className="bg-white/10 text-sm text-[var(--color-text-secondary)]">
-            TZ: {timezone || "Auto"}
-          </Badge>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <label
-              htmlFor="eventName"
-              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-            >
-              Event name
+          <div className="mt-8 grid gap-5 md:grid-cols-2">
+            <label className="md:col-span-2">
+              <span className="field-label">Event name</span>
+              <Input
+                type="text"
+                id="eventName"
+                name="eventName"
+                required
+                placeholder="Friday Night 5v5"
+                value={form.eventName}
+                onChange={handleChange}
+              />
             </label>
-            <Input
-              type="text"
-              id="eventName"
-              name="eventName"
-              required
-              placeholder="e.g. Friday Night 5v5"
-              className="h-12 bg-[#112030] px-4"
-              value={form.eventName}
-              onChange={handleChange}
-            />
-          </div>
 
-          <div>
-            <label
-              htmlFor="category"
-              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-            >
-              Category
+            <label>
+              <span className="field-label">Category</span>
+              <Select id="category" name="categoryId" value={form.categoryId} onChange={handleChange}>
+                {categories.map((category) => (
+                  <option value={category.categoryId} key={category.categoryId}>
+                    {category.categoryName}
+                  </option>
+                ))}
+              </Select>
             </label>
-            <Select
-              id="category"
-              name="categoryId"
-              className="h-12 bg-[#112030] px-4"
-              value={form.categoryId}
-              onChange={handleChange}
-            >
-              {categories.map((category) => (
-                <option value={category.categoryId} key={category.categoryId}>
-                  {category.categoryName}
-                </option>
-              ))}
-            </Select>
-          </div>
 
-          <div>
-            <label
-              htmlFor="price"
-              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-            >
-              Price (ETB)
+            <label>
+              <span className="field-label">Price (ETB)</span>
+              <Input
+                type="number"
+                id="price"
+                name="price"
+                min="0"
+                step="1"
+                placeholder="0 for free"
+                value={form.price}
+                onChange={handleChange}
+              />
             </label>
-            <Input
-              type="number"
-              id="price"
-              name="price"
-              min="0"
-              step="1"
-              placeholder="0 for free"
-              className="h-12 bg-[#112030] px-4"
-              value={form.price}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
 
-        <ScheduleSection
-          startDate={form.startDate}
-          startTime={form.startTime}
-          endDate={form.endDate}
-          endTime={form.endTime}
-          timezone={timezone}
-          startMinDate={startMinDate}
-          endMinDate={endMinDate}
-          onStartChange={(date, time) =>
-            setForm((prev) => ({ ...prev, startDate: date, startTime: time }))
-          }
-          onEndChange={(date, time) =>
-            setForm((prev) => ({ ...prev, endDate: date, endTime: time }))
-          }
-        />
+            <div className="md:col-span-2">
+              <ScheduleSection
+                startDate={form.startDate}
+                startTime={form.startTime}
+                endDate={form.endDate}
+                endTime={form.endTime}
+                timezone={timezone}
+                startMinDate={startMinDate}
+                endMinDate={endMinDate}
+                onStartChange={(date, time) => setForm((prev) => ({ ...prev, startDate: date, startTime: time }))}
+                onEndChange={(date, time) => setForm((prev) => ({ ...prev, endDate: date, endTime: time }))}
+              />
+            </div>
 
-        <RecurrenceSection
-          isRecurring={form.isRecurring}
-          recurrenceFrequency={form.recurrenceFrequency}
-          recurrenceInterval={form.recurrenceInterval}
-          recurrenceUntil={form.recurrenceUntil}
-          recurrenceWeekdays={form.recurrenceWeekdays}
-          onRecurrenceChange={onRecurrenceChange}
-        />
+            <div className="md:col-span-2">
+              <RecurrenceSection
+                isRecurring={form.isRecurring}
+                recurrenceFrequency={form.recurrenceFrequency}
+                recurrenceInterval={form.recurrenceInterval}
+                recurrenceUntil={form.recurrenceUntil}
+                recurrenceWeekdays={form.recurrenceWeekdays}
+                onRecurrenceChange={onRecurrenceChange}
+              />
+            </div>
 
-        <div>
-          <label
-            htmlFor="description"
-            className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-          >
-            Description
-          </label>
-          <Textarea
-            id="description"
-            name="description"
-            rows={4}
-            placeholder="Format, skill level, what to bring, etc."
-            className="bg-[#112030] px-4 py-3"
-            value={form.description}
-            onChange={handleChange}
-          />
-          <div className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Keep it crisp. Players decide fast.
-          </div>
-        </div>
-
-        <LocationSection
-          location={form.location}
-          latitude={form.latitude}
-          longitude={form.longitude}
-          locStatus={locStatus}
-          onLocationChange={handleChange}
-          onCoordsChange={(lat, lng) =>
-            setForm((prev) => ({
-              ...prev,
-              latitude: lat.toString(),
-              longitude: lng.toString(),
-            }))
-          }
-          onUseMyLocation={handleUseMyLocation}
-        />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label
-              htmlFor="capacity"
-              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-            >
-              Capacity
+            <label className="md:col-span-2">
+              <span className="field-label">Description</span>
+              <Textarea
+                id="description"
+                name="description"
+                rows={5}
+                placeholder="Format, skill level, what to bring, parking notes, and anything players should know."
+                value={form.description}
+                onChange={handleChange}
+              />
+              <p className="mt-2 text-sm text-[var(--color-text-muted)]">Lead with the format and level so players can self-select quickly.</p>
             </label>
-            <Input
-              type="number"
-              id="capacity"
-              name="capacity"
-              min="1"
-              placeholder="eg. 10"
-              className="h-12 bg-[#112030] px-4"
-              value={form.capacity}
-              onChange={handleChange}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="image"
-              className="mb-1 block text-sm font-medium text-[var(--color-text-secondary)]"
-            >
-              Event image (≤6MB)
-            </label>
-            <input
-              type="file"
-              id="image"
-              name="image"
-              accept="image/*"
-              className="block w-full text-[var(--color-text-secondary)]"
-              onChange={handleImageChange}
-            />
-            {form.imagePreview && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-white/8 bg-[#0f1f2a]">
-                <Image
-                  src={form.imagePreview}
-                  alt="Event Preview"
-                  width={640}
-                  height={360}
-                  className="h-auto w-full object-cover"
-                />
-              </div>
-            )}
-          </div>
-        </div>
 
-        <div>
-          {mode === "edit" && form.isRecurring && initialEvent?.seriesId ? (
-            <div className="mb-3 space-y-2 rounded-xl border border-white/10 bg-[#0f1f2d] p-3 text-sm text-[var(--color-text-secondary)]">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={applyToSeries}
-                  onChange={(e) => setApplyToSeries(e.target.checked)}
-                />
-                Apply edits to all occurrences in this series
+            <div className="md:col-span-2">
+              <LocationSection
+                location={form.location}
+                latitude={form.latitude}
+                longitude={form.longitude}
+                locStatus={locStatus}
+                onLocationChange={handleChange}
+                onCoordsChange={(lat, lng) => setForm((prev) => ({ ...prev, latitude: lat.toString(), longitude: lng.toString() }))}
+                onUseMyLocation={handleUseMyLocation}
+              />
+            </div>
+
+            <label>
+              <span className="field-label">Capacity</span>
+              <Input
+                type="number"
+                id="capacity"
+                name="capacity"
+                min="1"
+                placeholder="10"
+                value={form.capacity}
+                onChange={handleChange}
+              />
+            </label>
+
+            <div>
+              <span className="field-label">Event image</span>
+              <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--color-border-strong)] bg-white/[0.03] px-4 text-sm font-medium text-[var(--color-text-secondary)] hover:border-[rgba(125,211,252,0.42)] hover:text-[var(--color-text-primary)]">
+                <input type="file" id="image" name="image" accept="image/*" className="sr-only" onChange={handleImageChange} />
+                Upload image (max 6MB)
               </label>
-              {applyToSeries ? (
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  This will update {initialEvent.seriesCount ?? 1} occurrence
-                  {(initialEvent.seriesCount ?? 1) === 1 ? "" : "s"}.
-                </p>
+              {form.imagePreview ? (
+                <div className="mt-3 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[rgba(255,255,255,0.02)]">
+                  <Image src={form.imagePreview} alt="Event preview" width={640} height={360} className="h-auto w-full object-cover" />
+                </div>
               ) : null}
             </div>
-          ) : null}
-          <Button
-            type="submit"
-            disabled={submitting}
-            variant="primary"
-            size="lg"
-            className="mt-2 h-12 w-full rounded-full px-6 text-base uppercase tracking-wider"
-          >
-            {submitting ? "Saving…" : mode === "create" ? "Create Event" : "Save Changes"}
-          </Button>
-        </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 sm:p-8">
+          <Stack gap="md">
+            {mode === "edit" && form.isRecurring && initialEvent?.seriesId ? (
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4 text-sm text-[var(--color-text-secondary)]">
+                <label className="inline-flex items-center gap-2 font-medium text-[var(--color-text-primary)]">
+                  <input type="checkbox" checked={applyToSeries} onChange={(e) => setApplyToSeries(e.target.checked)} />
+                  Apply edits to all occurrences in this series
+                </label>
+                {applyToSeries ? (
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                    This will update {initialEvent.seriesCount ?? 1} occurrence{(initialEvent.seriesCount ?? 1) === 1 ? "" : "s"}.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <Button type="submit" disabled={submitting} variant="primary" size="lg" className="w-full rounded-full sm:w-auto sm:px-8">
+              {submitting ? "Saving..." : mode === "create" ? "Create event" : "Save changes"}
+            </Button>
+          </Stack>
+        </Card>
       </form>
 
       <EventFormPreview preview={preview} timezone={timezone} />

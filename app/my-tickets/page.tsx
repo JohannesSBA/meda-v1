@@ -15,7 +15,7 @@ export default async function MyTicketsPage() {
   if (!user) redirect("/auth/sign-in");
 
   return (
-    <PageShell containerClassName="relative mx-auto max-w-5xl px-6 py-10">
+    <PageShell containerClassName="mx-auto max-w-6xl">
       <MyEventsPanel />
     </PageShell>
   );

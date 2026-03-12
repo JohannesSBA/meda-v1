@@ -1,14 +1,13 @@
 /**
  * ProfileDashboard -- Main profile page orchestrator.
- *
- * Renders profile header and tabbed content: My Tickets / Saved Events for users,
- * or Users / Events / Stats for admins.
  */
 
 "use client";
 
 import { useMemo } from "react";
 import { cn } from "@/app/components/ui/cn";
+import { Card } from "@/app/components/ui/card";
+import { Stack } from "@/app/components/ui/primitives";
 import { useProfileData } from "./useProfileData";
 import { ProfileHeader } from "./ProfileHeader";
 import { RegisteredEventsTab } from "./RegisteredEventsTab";
@@ -33,40 +32,33 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
   );
 
   return (
-    <section className="space-y-6">
-      <ProfileHeader
-        user={user}
-        isAdmin={data.isAdmin}
-        balance={data.balance}
-        avatarUrl={avatarUrl}
-      />
+    <Stack gap="xl">
+      <ProfileHeader user={user} isAdmin={data.isAdmin} balance={data.balance} avatarUrl={avatarUrl} />
 
       {!data.isAdmin ? (
         <>
-          <div
-            role="tablist"
-            aria-label="Profile sections"
-            className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1"
-          >
-            {(["registered", "saved"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={data.userTab === tab}
-                aria-controls={`profile-tabpanel-${tab}`}
-                onClick={() => data.setUserTab(tab)}
-                className={cn(
-                  "flex-1 rounded-lg py-3 text-sm font-semibold transition",
-                  data.userTab === tab
-                    ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
-                    : "text-[var(--color-text-secondary)] active:bg-white/5",
-                )}
-              >
-                {tab === "registered" ? "My Tickets" : "Saved Events"}
-              </button>
-            ))}
-          </div>
+          <Card className="p-2">
+            <div role="tablist" aria-label="Profile sections" className="grid grid-cols-2 gap-2">
+              {(["registered", "saved"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={data.userTab === tab}
+                  aria-controls={`profile-tabpanel-${tab}`}
+                  onClick={() => data.setUserTab(tab)}
+                  className={cn(
+                    "rounded-[var(--radius-md)] px-4 py-3 text-sm font-semibold tracking-[-0.01em] transition",
+                    data.userTab === tab
+                      ? "bg-[rgba(125,211,252,0.12)] text-[var(--color-text-primary)]"
+                      : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]",
+                  )}
+                >
+                  {tab === "registered" ? "My tickets" : "Saved events"}
+                </button>
+              ))}
+            </div>
+          </Card>
 
           {data.userTab === "registered" ? (
             <RegisteredEventsTab
@@ -95,30 +87,28 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
         </>
       ) : (
         <>
-          <div
-            role="tablist"
-            aria-label="Admin sections"
-            className="flex rounded-xl border border-white/10 bg-[#0c1d2e]/75 p-1"
-          >
-            {(["users", "events", "stats"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={data.adminTab === tab}
-                aria-controls={`admin-tabpanel-${tab}`}
-                onClick={() => data.setAdminTab(tab)}
-                className={cn(
-                  "flex-1 rounded-lg py-3 text-sm font-semibold transition",
-                  data.adminTab === tab
-                    ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
-                    : "text-[var(--color-text-secondary)] active:bg-white/5",
-                )}
-              >
-                {tab === "users" ? "Users" : tab === "events" ? "Events" : "Stats"}
-              </button>
-            ))}
-          </div>
+          <Card className="p-2">
+            <div role="tablist" aria-label="Admin sections" className="grid grid-cols-3 gap-2">
+              {(["users", "events", "stats"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={data.adminTab === tab}
+                  aria-controls={`admin-tabpanel-${tab}`}
+                  onClick={() => data.setAdminTab(tab)}
+                  className={cn(
+                    "rounded-[var(--radius-md)] px-4 py-3 text-sm font-semibold tracking-[-0.01em] transition",
+                    data.adminTab === tab
+                      ? "bg-[rgba(125,211,252,0.12)] text-[var(--color-text-primary)]"
+                      : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]",
+                  )}
+                >
+                  {tab === "users" ? "Users" : tab === "events" ? "Events" : "Stats"}
+                </button>
+              ))}
+            </div>
+          </Card>
 
           {data.adminTab === "users" ? (
             <AdminUsersTab
@@ -170,6 +160,6 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
 
       {data.deleteEventDialog}
       {data.applyToSeriesDialog}
-    </section>
+    </Stack>
   );
 }

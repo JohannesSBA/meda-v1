@@ -3,6 +3,7 @@
  */
 
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getAppBaseUrl } from "@/lib/env";
 import "./globals.css";
@@ -25,11 +26,13 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  themeColor: "#07111a",
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: "Meda - Event Management System",
+  other: { "color-scheme": "dark" },
   description:
     "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia’s night football and weekend runs.",
   icons: {
@@ -56,10 +59,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="dark" style={{ colorScheme: "dark" }} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased `}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Script
+          id="force-dark-mode"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.style.colorScheme='dark';document.documentElement.classList.add('dark');`,
+          }}
+        />
         <AuthProviders>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1 min-w-0">{children}</div>

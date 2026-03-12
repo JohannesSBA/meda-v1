@@ -1,17 +1,25 @@
 /**
- * Card -- semantic article wrapper for content blocks.
+ * Card -- semantic surface wrapper for content blocks.
  */
 
-import type { HTMLAttributes } from "react";
+import type { ComponentPropsWithoutRef, ElementType } from "react";
 import { cn } from "./cn";
 
-type CardProps = HTMLAttributes<HTMLElement>;
+type CardProps<T extends ElementType> = {
+  as?: T;
+} & ComponentPropsWithoutRef<T>;
 
-export function Card({ className, ...props }: CardProps) {
+export function Card<T extends ElementType = "div">({
+  as,
+  className,
+  ...props
+}: CardProps<T>) {
+  const Component = as ?? "div";
+
   return (
-    <article
+    <Component
       className={cn(
-        "rounded-2xl  shadow-[0_18px_45px_rgba(0,0,0,0.28)]",
+        "surface-card rounded-[var(--radius-lg)]",
         className,
       )}
       {...props}

@@ -1,7 +1,7 @@
 /**
  * HeaderNav -- main navigation bar with logo, links, and auth state.
  *
- * Shows UserButton when signed in; sign-in/sign-up when signed out.
+ * Shows UserButton when signed in; sign-in when signed out.
  */
 
 "use client";
@@ -22,11 +22,18 @@ type HeaderNavProps = {
   initialSession?: SessionPayload | null;
 };
 
-const desktopNavItems = [
-  { href: "/events", label: "Events", requiresAdmin: false, public: true },
-  { href: "/my-tickets", label: "My Tickets", requiresAdmin: false, requiresAuth: true, public: false },
-  { href: "/create-events", label: "Create Event", requiresAdmin: false, requiresAuth: true, public: false },
-  { href: "/profile", label: "Profile", requiresAdmin: false, requiresAuth: true, public: false },
+type DesktopNavItem = {
+  href: string;
+  label: string;
+  public?: boolean;
+  requiresAuth?: boolean;
+};
+
+const desktopNavItems: DesktopNavItem[] = [
+  { href: "/events", label: "Events", public: true },
+  { href: "/my-tickets", label: "My Tickets", requiresAuth: true },
+  { href: "/create-events", label: "Create Event", requiresAuth: true },
+  { href: "/profile", label: "Profile", requiresAuth: true },
 ];
 
 type BottomTab = {
@@ -34,14 +41,13 @@ type BottomTab = {
   label: string;
   icon: (props: { className?: string }) => React.JSX.Element;
   requiresAuth?: boolean;
-  requiresAdmin?: boolean;
 };
 
 const bottomTabs: BottomTab[] = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/events", label: "Events", icon: SearchIcon },
-  { href: "/create-events", label: "Create", icon: PlusIcon, requiresAdmin: true },
-  { href: "/my-tickets", label: "My Tickets", icon: TicketIcon, requiresAuth: true },
+  { href: "/create-events", label: "Create", icon: PlusIcon, requiresAuth: true },
+  { href: "/my-tickets", label: "Tickets", icon: TicketIcon, requiresAuth: true },
   { href: "/profile", label: "Profile", icon: UserIcon, requiresAuth: true },
 ];
 
@@ -50,8 +56,6 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
   const session = clientSession ?? initialSession ?? null;
 
   const isLoggedIn = Boolean(session?.user);
-  const isAdmin = session?.user?.role === "admin";
-
   const pathname = usePathname();
   const [balance, setBalance] = useState<number | null>(null);
 
@@ -63,12 +67,13 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
           "/api/profile/balance",
           { cache: "no-store" },
         );
-        const bal = Number(data.balanceEtb) || 0;
-        setBalance(bal > 0 ? bal : null);
+        const nextBalance = Number(data.balanceEtb) || 0;
+        setBalance(nextBalance > 0 ? nextBalance : null);
       } catch {
-        // silently ignore
+        // Ignore balance failures in chrome.
       }
     };
+
     void load();
   }, [isLoggedIn]);
 
@@ -77,139 +82,111 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
       desktopNavItems.filter((item) => {
         if (item.public) return true;
         if (item.requiresAuth && !isLoggedIn) return false;
-        if (item.requiresAdmin && !isAdmin) return false;
         return true;
       }),
-    [isAdmin, isLoggedIn],
+    [isLoggedIn],
   );
 
   const mobileTabs = useMemo(
-    () =>
-      bottomTabs.filter((tab) => {
-        if (tab.requiresAdmin && !isAdmin) return false;
-        if (tab.requiresAuth && !isLoggedIn) return false;
-        return true;
-      }),
-    [isLoggedIn, isAdmin],
+    () => bottomTabs.filter((tab) => !tab.requiresAuth || isLoggedIn),
+    [isLoggedIn],
   );
-
-  const desktopLinkClasses = (href: string) => {
-    const isActive = pathname === href;
-    return `rounded-lg px-3 py-2 text-sm font-medium transition ${
-      isActive
-        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
-        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]"
-    }`;
-  };
 
   const isTabActive = (href: string) => {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   };
 
+  const desktopLinkClasses = (href: string) => {
+    const active = isTabActive(href);
+    return cn(
+      "rounded-full px-4 py-2 text-sm font-medium tracking-[-0.01em] transition",
+      active
+        ? "border border-[rgba(125,211,252,0.22)] bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]"
+        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-control-bg-hover)] hover:text-[var(--color-text-primary)]",
+    );
+  };
+
   return (
     <>
       <a
         href="#main-content"
-        className="sr-only z-[60] rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-text)] focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+        className="sr-only z-[80] rounded-md bg-[var(--color-brand)] px-4 py-2 text-sm font-semibold text-[var(--color-brand-text)] focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
       >
         Skip to main content
       </a>
 
-      {/* Top header bar */}
-      <header className="fixed left-0 right-0 top-0 z-50 bg-[rgba(5,13,23,0.82)] pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex h-14 min-h-[3.5rem] max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-3 font-semibold text-[var(--color-text-primary)]"
-          >
-            <Image src="/logo-White.svg" alt="Meda" width={50} height={50} />
-          </Link>
+      <header className="fixed inset-x-0 top-0 z-50 pt-[calc(env(safe-area-inset-top,0px)+8px)]">
+        <div className="site-container">
+          <div className="surface-card flex min-h-[60px] items-center justify-between gap-4 rounded-[28px] px-3 py-2 sm:px-4">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+              <Link href="/" className="flex items-center gap-3 text-[var(--color-text-primary)]">
+                <Image src="/logo-White.svg" alt="Meda" width={42} height={42} className="h-10 w-10 shrink-0" />
+                <div className="hidden min-w-0 sm:block">
+                  <p className="text-sm font-semibold tracking-[-0.02em]">Meda</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">Football community platform</p>
+                </div>
+              </Link>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {desktopLinks.length > 0 && (
-              <nav className="hidden items-center gap-4 md:flex">
+              <nav className="hidden items-center gap-1 lg:flex">
                 {desktopLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={desktopLinkClasses(link.href)}
-                  >
+                  <Link key={link.href} href={link.href} className={desktopLinkClasses(link.href)}>
                     {link.label}
                   </Link>
                 ))}
               </nav>
-            )}
+            </div>
 
-            {balance != null && (
-              <Link
-                href="/profile"
-                className="flex items-center gap-1.5 rounded-full bg-[var(--color-brand)]/10 px-2.5 py-1.5 text-xs font-semibold text-[var(--color-brand)] transition hover:bg-[var(--color-brand)]/20 sm:text-sm md:px-3"
-              >
-                <WalletIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span>ETB {balance.toFixed(2)}</span>
-              </Link>
-            )}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {balance != null ? (
+                <Link
+                  href="/profile"
+                  className="hidden items-center gap-1.5 rounded-full border border-[rgba(125,211,252,0.24)] bg-[var(--color-accent-soft)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] sm:inline-flex"
+                >
+                  <WalletIcon className="h-4 w-4 text-[var(--color-brand)]" />
+                  <span>ETB {balance.toFixed(2)}</span>
+                </Link>
+              ) : null}
 
-            <SignedIn>
-              <UserButton size="icon" className="text-white" />
-            </SignedIn>
-            <SignedOut>
-              <Link
-                href="/auth/sign-in"
-                className={cn(
-                  buttonVariants("primary", "md"),
-                  "flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold",
-                )}
-              >
-                Sign in
-              </Link>
-            </SignedOut>
+              <SignedIn>
+                <div className="rounded-full border border-[var(--color-border-strong)] bg-[var(--color-control-bg)] p-1">
+                  <UserButton size="icon" className="text-[var(--color-text-primary)]" />
+                </div>
+              </SignedIn>
+              <SignedOut>
+                <Link href="/auth/sign-in" className={cn(buttonVariants("primary", "md"), "rounded-full px-5")}>
+                  Sign in
+                </Link>
+              </SignedOut>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile bottom tab bar */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--color-border)] bg-[rgba(5,13,23,0.95)] backdrop-blur-lg md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        className="fixed bottom-[max(12px,env(safe-area-inset-bottom,0px))] left-1/2 z-50 w-[calc(100%-24px)] max-w-md -translate-x-1/2 md:hidden"
+        aria-label="Primary"
       >
-        <div className="flex h-14 items-stretch">
+        <div className="surface-card flex items-stretch rounded-[24px] px-1.5 py-1.5">
           {mobileTabs.map((tab) => {
             const active = isTabActive(tab.href);
             const Icon = tab.icon;
-            const isCreate = tab.href === "/create-events";
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  "relative flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors",
-                  isCreate
-                    ? "text-[var(--color-brand-alt)]"
-                    : active
-                      ? "text-[var(--color-brand)]"
-                      : "text-[var(--color-text-muted)] active:text-[var(--color-text-secondary)]",
+                  "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-[18px] px-2 py-2.5 text-[0.68rem] font-semibold transition",
+                  active
+                    ? "bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]"
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-control-bg-hover)] hover:text-[var(--color-text-primary)]",
                 )}
               >
-                {active && !isCreate && (
-                  <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[var(--color-brand)]" />
-                )}
-                {isCreate ? (
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-brand-alt)]/20">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                ) : (
-                  <Icon className="h-6 w-6" />
-                )}
-                <span
-                  className={cn(
-                    "text-[0.625rem] leading-tight",
-                    active || isCreate ? "font-bold" : "font-medium",
-                  )}
-                >
-                  {tab.label}
-                </span>
+                <Icon className={cn("h-5 w-5", active && "text-[var(--color-brand)]")} />
+                <span className="truncate">{tab.label}</span>
+                {active ? (
+                  <span className="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-[var(--color-brand)]" />
+                ) : null}
               </Link>
             );
           })}
@@ -222,7 +199,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
 function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
       <polyline points="9 22 9 12 15 12 15 22" />
     </svg>
   );
@@ -249,7 +226,7 @@ function PlusIcon({ className }: { className?: string }) {
 function TicketIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 9a3 3 0 013-3h14a3 3 0 013 3v0a3 3 0 01-3 3v0a3 3 0 01-3 3H5a3 3 0 01-3-3v0z" />
+      <path d="M2 9a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v0a3 3 0 0 1-3 3v0a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v0z" />
       <path d="M13 6v12" />
     </svg>
   );
@@ -258,7 +235,7 @@ function TicketIcon({ className }: { className?: string }) {
 function UserIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
   );
@@ -268,7 +245,7 @@ function WalletIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="5" width="20" height="14" rx="2" />
-      <path d="M16 14a2 2 0 100-4 2 2 0 000 4z" />
+      <path d="M16 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
     </svg>
   );
 }

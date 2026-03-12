@@ -135,6 +135,25 @@ async function verifyChapaTransaction(txRef: string) {
   return verification;
 }
 
+const CHAPA_VERIFY_RETRY_DELAYS_MS = [0, 2000, 4000, 6000];
+const CHAPA_VERIFY_MAX_ATTEMPTS = 4;
+
+async function verifyChapaTransactionWithRetry(txRef: string) {
+  let lastVerification: ChapaVerification | null = null;
+  for (let attempt = 0; attempt < CHAPA_VERIFY_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      const delayMs = CHAPA_VERIFY_RETRY_DELAYS_MS[attempt] ?? 6000;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    const verification = await verifyChapaTransaction(txRef);
+    lastVerification = verification;
+    const paidStatus = verification.data?.status?.toLowerCase();
+    if (paidStatus === "success") return verification;
+    if (paidStatus === "failed") break;
+  }
+  return lastVerification!;
+}
+
 async function markPaymentRequiresRefund(
   paymentId: string,
   failureReason: string,
@@ -506,7 +525,7 @@ export async function confirmChapaPayment(
     };
   }
 
-  const verification = await verifyChapaTransaction(payload.txRef);
+  const verification = await verifyChapaTransactionWithRetry(payload.txRef);
   const paidStatus = verification.data?.status?.toLowerCase();
   if (verification.status !== "success" || paidStatus !== "success") {
     await prisma.payment.update({

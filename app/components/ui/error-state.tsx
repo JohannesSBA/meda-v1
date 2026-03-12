@@ -16,16 +16,15 @@ export function ErrorState({ message, onRetry, className }: ErrorStateProps) {
   return (
     <Card
       className={cn(
-        "flex flex-col items-center justify-center gap-4 rounded-2xl border-red-500/40 bg-red-900/30 px-6 py-10 text-center",
+        "flex flex-col items-center justify-center gap-5 border-[rgba(251,113,133,0.3)] bg-[linear-gradient(180deg,rgba(69,10,10,0.45),rgba(31,9,10,0.72))] px-6 py-12 text-center",
         className,
       )}
     >
       <div
-        className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-red-400/50 bg-red-500/20 text-red-200"
+        className="flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(251,113,133,0.4)] bg-[rgba(251,113,133,0.16)] text-[#fecdd3]"
         aria-hidden
       >
         <svg
-          xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -38,7 +37,10 @@ export function ErrorState({ message, onRetry, className }: ErrorStateProps) {
           <path d="M12 8v4M12 16h.01" />
         </svg>
       </div>
-      <p className="text-red-200">{message}</p>
+      <div className="max-w-md space-y-2">
+        <h3 className="text-xl font-semibold tracking-[-0.03em] text-white">Something went wrong</h3>
+        <p className="text-sm leading-6 text-[#fecdd3]">{message}</p>
+      </div>
       {onRetry ? (
         <Button variant="secondary" size="md" onClick={onRetry}>
           Try again

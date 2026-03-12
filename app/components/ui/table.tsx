@@ -11,7 +11,7 @@ export function Table({ className, ...props }: TableProps) {
   return (
     <table
       className={cn(
-        "min-w-full text-left text-sm text-[var(--color-text-secondary)]",
+        "table-shell min-w-full text-left text-sm text-[var(--color-text-secondary)]",
         className,
       )}
       {...props}

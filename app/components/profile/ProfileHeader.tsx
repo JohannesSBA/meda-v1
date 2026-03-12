@@ -10,6 +10,7 @@ import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { buttonVariants } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/cn";
+import { Cluster } from "@/app/components/ui/primitives";
 import type { ProfileUser } from "./types";
 
 type ProfileHeaderProps = {
@@ -19,51 +20,49 @@ type ProfileHeaderProps = {
   avatarUrl: string;
 };
 
-export function ProfileHeader({
-  user,
-  isAdmin,
-  balance,
-  avatarUrl,
-}: ProfileHeaderProps) {
+export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHeaderProps) {
   return (
-    <Card className="rounded-2xl bg-gradient-to-br from-[#0f2235]/80 via-[#0c1c2d]/70 to-[#0a1523]/80 p-6 sm:rounded-3xl">
-      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+    <Card className="overflow-hidden p-6 sm:p-8">
+      <div className="grid gap-6 lg:grid-cols-[auto_1fr_auto] lg:items-center">
         <Image
           src={avatarUrl}
           alt={`${user.name} profile`}
-          width={96}
-          height={96}
-          className="h-24 w-24 rounded-full border-2 border-white/15 object-cover"
+          width={112}
+          height={112}
+          className="h-24 w-24 rounded-[28px] border border-[var(--color-border-strong)] object-cover shadow-[0_16px_36px_rgba(2,6,23,0.18)] sm:h-28 sm:w-28"
         />
-        <div className="flex-1">
-          <p className="text-sm uppercase tracking-widest text-[var(--color-brand)]">
-            {isAdmin ? "Admin profile" : "My profile"}
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-white sm:text-3xl">
-            {user.name}
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">{user.email}</p>
-          {!isAdmin && balance > 0 ? (
-            <p className="mt-1 text-sm font-semibold text-[var(--color-brand)]">
-              Meda Balance: ETB {balance.toFixed(2)}
-            </p>
-          ) : null}
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="heading-kicker">{isAdmin ? "Admin workspace" : "Player profile"}</p>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[var(--color-text-primary)] sm:text-4xl">
+                {user.name}
+              </h1>
+              <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">{user.email}</p>
+            </div>
+          </div>
+
+          <Cluster gap="sm">
+            {isAdmin ? <Badge variant="accent">Admin access</Badge> : <Badge variant="default">Community member</Badge>}
+            {!isAdmin ? (
+              <Badge variant={balance > 0 ? "accent" : "default"}>
+                Balance: ETB {balance.toFixed(2)}
+              </Badge>
+            ) : null}
+          </Cluster>
         </div>
-        {isAdmin ? (
-          <Badge className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)]">
-            Admin
-          </Badge>
-        ) : (
-          <Link
-            href="/events"
-            className={cn(
-              buttonVariants("secondary", "sm"),
-              "rounded-full",
-            )}
-          >
-            Browse events
+
+        <Cluster gap="sm" className="lg:justify-end">
+          {!isAdmin ? (
+            <Link href="/events" className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Browse events
+            </Link>
+          ) : null}
+          <Link href="/my-tickets" className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+            My tickets
           </Link>
-        )}
+        </Cluster>
       </div>
     </Card>
   );

@@ -8,7 +8,7 @@ import HeroSection, {
   type LandingCategory,
   type LandingCity,
   type LandingMatch,
-} from "./components/landing/page";
+} from "./components/landing/LandingHome";
 import { unstable_cache } from "next/cache";
 import { PageShell } from "./components/ui/page-shell";
 import {
@@ -79,30 +79,9 @@ const getLandingData = unstable_cache(async () => {
               : `ETB ${event.priceField}`,
           spotsLeft,
           attendeeCount: event._count.attendees,
+          pictureUrl: event.pictureUrl ?? null,
         };
       });
-
-    const onlineMatches: LandingMatch[] = upcomingEvents
-      .filter((event) =>
-        (event.eventLocation ?? "").toLowerCase().includes("online"),
-      )
-      .slice(0, 6)
-      .map((event) => ({
-        eventId: event.eventId,
-        title: event.eventName,
-        when: formatMatchTime(event.eventDatetime),
-        locationLabel: "Online",
-        priceLabel:
-          event.priceField == null || event.priceField === 0
-            ? "Free"
-            : `ETB ${event.priceField}`,
-        spotsLeft: computeSpotsLeft(
-          event.capacity,
-          event._count.attendees,
-          reservationCounts.get(event.eventId) ?? 0,
-        ),
-        attendeeCount: event._count.attendees,
-      }));
 
     const categoryCounts = new Map<string, { label: string; count: number }>();
     for (const event of upcomingEvents) {
@@ -134,7 +113,6 @@ const getLandingData = unstable_cache(async () => {
     return {
       totalUpcoming,
       featuredMatches,
-      onlineMatches,
       topCategories,
       topCities,
     };
@@ -143,7 +121,6 @@ const getLandingData = unstable_cache(async () => {
     return {
       totalUpcoming: 0,
       featuredMatches: [],
-      onlineMatches: [],
       topCategories: [],
       topCities: [],
     };
@@ -157,7 +134,7 @@ export default async function Home() {
   const data = await getLandingData();
 
   return (
-    <PageShell containerClassName="max-w-[1240px] px-4 py-4">
+    <PageShell containerClassName="max-w-[1240px]">
       <HeroSection {...data} />
     </PageShell>
   );

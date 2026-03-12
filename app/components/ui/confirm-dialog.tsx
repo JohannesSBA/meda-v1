@@ -63,7 +63,7 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-[rgba(2,6,23,0.68)] backdrop-blur-sm"
         aria-label="Close confirmation dialog"
         onClick={onCancel}
       />
@@ -71,29 +71,20 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="relative z-10 w-full max-w-md rounded-3xl border border-white/10 bg-[#0d1d2e] p-6 shadow-2xl shadow-black/50"
+        className="relative z-10 w-full max-w-lg rounded-[var(--radius-xl)] p-6 sm:p-7"
       >
-        <div className="space-y-2">
-          <p
-            id="confirm-dialog-title"
-            className="text-xl font-semibold text-white"
-          >
+        <div className="space-y-3">
+          <p id="confirm-dialog-title" className="text-2xl font-semibold tracking-[-0.04em] text-[var(--color-text-primary)]">
             {title}
           </p>
-          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
-            {description}
-          </p>
+          <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{description}</p>
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button
-            type="button"
-            variant={tone === "danger" ? "danger" : "primary"}
-            onClick={onConfirm}
-          >
+          <Button type="button" variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>

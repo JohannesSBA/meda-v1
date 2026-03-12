@@ -1,8 +1,5 @@
 /**
  * EventFormPreview -- Live preview sidebar for event creation form.
- *
- * Shows title, date, location, price, capacity as the user types.
- * Includes tips for creating effective event listings.
  */
 
 "use client";
@@ -24,45 +21,35 @@ type EventFormPreviewProps = {
 
 export function EventFormPreview({ preview, timezone }: EventFormPreviewProps) {
   return (
-    <Card className="relative z-10 space-y-4 rounded-2xl bg-[#0d1d2e]/70 p-6 backdrop-blur">
-      <div className="space-y-1">
-        <p className="text-sm uppercase tracking-[0.18em] text-[#7ccfff]">
-          Live preview
-        </p>
-        <div className="rounded-2xl border border-white/10 bg-linear-to-br from-[#0f2235] to-[#0b1624] p-5 shadow-lg shadow-black/30">
-          <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
-            <span>{preview.date}</span>
-            <span className="rounded-full bg-white/10 px-2 py-1 text-sm text-[#22FF88]">
-              {preview.price}
-            </span>
-          </div>
-          <h3 className="mt-3 text-lg font-semibold text-white">
-            {preview.title}
-          </h3>
-          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{preview.location}</p>
-          <div className="mt-3 flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-            <span className="rounded-full bg-white/5 px-2 py-1">
-              Capacity: {preview.capacity}
-            </span>
-            <span className="rounded-full bg-white/5 px-2 py-1">
-              TZ: {timezone || "local"}
-            </span>
+    <div className="xl:sticky xl:top-[calc(var(--header-height)+32px)]">
+      <Card className="space-y-5 p-6 sm:p-8">
+        <div className="space-y-3">
+          <p className="heading-kicker">Live preview</p>
+          <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[linear-gradient(160deg,#102033,#0b1724)] p-5 shadow-[0_18px_36px_rgba(2,6,23,0.24)]">
+            <div className="flex items-center justify-between gap-3 text-sm text-[var(--color-text-secondary)]">
+              <span>{preview.date}</span>
+              <span className="rounded-full bg-[rgba(52,211,153,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-brand-alt)]">
+                {preview.price}
+              </span>
+            </div>
+            <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-[var(--color-text-primary)]">{preview.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{preview.location}</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-sm text-[var(--color-text-muted)]">
+              <span className="rounded-full border border-[var(--color-border)] bg-white/[0.04] px-3 py-1.5">Capacity: {preview.capacity}</span>
+              <span className="rounded-full border border-[var(--color-border)] bg-white/[0.04] px-3 py-1.5">TZ: {timezone || "local"}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="rounded-2xl border border-white/8 bg-[#0f2235] p-4 text-sm text-[var(--color-text-secondary)] shadow-inner shadow-black/20">
-        <p className="mb-2 text-sm uppercase tracking-[0.12em] text-[#7ccfff]">
-          Tips
-        </p>
-        <ul className="space-y-2 list-disc pl-4">
-          <li>Lead with format and level so players self-select.</li>
-          <li>
-            Add exact pin; we&apos;ll surface it on the map for nearby players.
-          </li>
-          <li>Images load best at 1200x630, under 6MB.</li>
-        </ul>
-      </div>
-    </Card>
+        <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-white/[0.03] p-5 text-sm text-[var(--color-text-secondary)]">
+          <p className="heading-kicker">Writing tips</p>
+          <ul className="mt-4 list-disc space-y-2 pl-5 leading-6">
+            <li>Lead with format and level so players self-select.</li>
+            <li>Add the exact pin. It improves discovery and trust.</li>
+            <li>Images work best at 1200x630 and under 6MB.</li>
+          </ul>
+        </div>
+      </Card>
+    </div>
   );
 }

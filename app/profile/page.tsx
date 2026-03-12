@@ -25,7 +25,7 @@ export default async function ProfilePage() {
   if (!user) redirect("/auth/sign-in");
 
   return (
-    <PageShell containerClassName="relative mx-auto max-w-7xl px-6 py-10">
+    <PageShell containerClassName="mx-auto max-w-7xl">
         <ProfileDashboard
           user={{
             id: user.id,

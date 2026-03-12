@@ -60,12 +60,11 @@ type NeonAdminApi = {
   }): Promise<NeonAdminResponse>;
 };
 
-function getNeonAdmin() {
-  const admin = (auth as unknown as { admin?: NeonAdminApi }).admin;
-  if (!admin) {
-    throw new Error("Neon Auth admin API is unavailable");
-  }
-  return admin;
+const ADMIN_UNAVAILABLE_MESSAGE =
+  "User management is temporarily unavailable. The admin API may not be enabled for this environment.";
+
+function getNeonAdmin(): NeonAdminApi | null {
+  return (auth as unknown as { admin?: NeonAdminApi }).admin ?? null;
 }
 
 function toFailure<T = never>(error: unknown): NeonAdminResult<T> {
@@ -99,8 +98,16 @@ export async function callNeonAdminGet<T = unknown>(
   path: "admin/list-users",
   query?: AdminListUsersQuery,
 ): Promise<NeonAdminResult<T>> {
+  const admin = getNeonAdmin();
+  if (!admin) {
+    return {
+      data: null,
+      error: ADMIN_UNAVAILABLE_MESSAGE,
+      status: 503,
+    };
+  }
   try {
-    const result = await getNeonAdmin().listUsers({
+    const result = await admin.listUsers({
       headers: request.headers,
       query,
       returnStatus: true,
@@ -121,9 +128,17 @@ export async function callNeonAdminPost<T = unknown>(
   path: "admin/set-role" | "admin/ban-user" | "admin/unban-user",
   payload: AdminSetRolePayload | AdminBanPayload | AdminUnbanPayload,
 ): Promise<NeonAdminResult<T>> {
+  const admin = getNeonAdmin();
+  if (!admin) {
+    return {
+      data: null,
+      error: ADMIN_UNAVAILABLE_MESSAGE,
+      status: 503,
+    };
+  }
   try {
     if (path === "admin/set-role") {
-      const result = await getNeonAdmin().setRole({
+      const result = await admin.setRole({
         headers: request.headers,
         body: payload as AdminSetRolePayload,
         returnStatus: true,
@@ -136,7 +151,7 @@ export async function callNeonAdminPost<T = unknown>(
     }
 
     if (path === "admin/ban-user") {
-      const result = await getNeonAdmin().banUser({
+      const result = await admin.banUser({
         headers: request.headers,
         body: payload as AdminBanPayload,
         returnStatus: true,
@@ -148,7 +163,7 @@ export async function callNeonAdminPost<T = unknown>(
       };
     }
 
-    const result = await getNeonAdmin().unbanUser({
+    const result = await admin.unbanUser({
       headers: request.headers,
       body: payload as AdminUnbanPayload,
       returnStatus: true,

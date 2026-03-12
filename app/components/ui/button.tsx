@@ -9,23 +9,23 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
 
 export const buttonBaseClass =
-  "inline-flex items-center justify-center whitespace-nowrap rounded-xl font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)]";
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius-md)] border border-transparent font-semibold tracking-[-0.01em] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] disabled:cursor-not-allowed disabled:opacity-50";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-alt)] text-[var(--color-brand-text)] shadow-[0_8px_30px_rgba(0,229,255,0.24)] hover:brightness-110",
+    "bg-[linear-gradient(135deg,var(--color-brand)_0%,var(--color-brand-strong)_58%,#dff7ff_100%)] text-[var(--color-brand-text)] shadow-[0_18px_44px_rgba(56,189,248,0.24)] hover:-translate-y-0.5 hover:shadow-[0_22px_48px_rgba(56,189,248,0.28)]",
   secondary:
-    "border border-[var(--color-border-strong)] bg-[var(--color-surface-2)] text-[var(--color-text-primary)] hover:border-[var(--color-brand-alt)] hover:text-[var(--color-brand-alt)]",
+    "border-[var(--color-border-strong)] bg-[var(--color-control-bg)] text-[var(--color-text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[rgba(125,211,252,0.46)] hover:bg-[var(--color-control-bg-hover)]",
   ghost:
-    "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text-primary)]",
+    "text-[var(--color-text-secondary)] hover:bg-[var(--color-control-bg)] hover:text-[var(--color-text-primary)]",
   danger:
-    "border border-red-300/40 bg-red-500/10 text-red-100 hover:border-red-300/80",
+    "border-[rgba(251,113,133,0.4)] bg-[rgba(127,29,29,0.18)] text-[#fecdd3] hover:bg-[rgba(153,27,27,0.28)] hover:border-[rgba(251,113,133,0.55)]",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-11 px-4 text-sm",
+  sm: "h-10 px-4 text-sm",
   md: "h-11 px-5 text-sm",
-  lg: "h-12 px-6 text-base",
+  lg: "h-12 px-6 text-sm sm:text-base",
 };
 
 export function buttonVariants(

@@ -9,7 +9,11 @@ export default async function ChapaStatusPage({
   const params = await searchParams;
   const eventIdParam = params.eventId;
   const txRefParam =
-    params.tx_ref ?? params.txRef ?? params.reference;
+    params.tx_ref ??
+    params.txRef ??
+    params.reference ??
+    params["amp;tx_ref"] ??
+    params["amp%3Btx_ref"];
 
   const eventId =
     typeof eventIdParam === "string" && eventIdParam.trim()
@@ -21,7 +25,7 @@ export default async function ChapaStatusPage({
       : null;
 
   return (
-    <PageShell containerClassName="mx-auto flex min-h-[70vh] max-w-4xl items-center px-4 py-10 sm:px-6">
+    <PageShell containerClassName="mx-auto flex min-h-[70vh] max-w-4xl items-center">
       <ChapaStatusPanel eventId={eventId} txRef={txRef} />
     </PageShell>
   );

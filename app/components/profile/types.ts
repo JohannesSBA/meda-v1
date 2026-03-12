@@ -17,6 +17,7 @@ export type RegisteredEventItem = {
   ticketCount: number;
   priceField?: number | null;
   addressLabel?: string | null;
+  pictureUrl?: string | null;
 };
 
 export type SavedEventItem = {

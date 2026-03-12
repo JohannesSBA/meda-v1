@@ -12,9 +12,11 @@ export async function acquireTransactionLock(
   }
 
   await tx.$queryRaw`
-    SELECT pg_advisory_xact_lock(
-      hashtext(${namespace}),
-      hashtext(${key})
-    )
+    SELECT 1 as ok FROM (
+      SELECT pg_advisory_xact_lock(
+        hashtext(${namespace}),
+        hashtext(${key})
+      )
+    ) AS _
   `;
 }
