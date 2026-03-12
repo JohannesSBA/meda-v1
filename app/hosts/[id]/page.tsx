@@ -1,17 +1,22 @@
+/**
+ * Host profile page -- displays events hosted by a specific user.
+ */
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { EventCard } from "@/app/components/EventCard";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 import { buttonVariants } from "@/app/components/ui/button";
+import { getActiveReservationCountMap } from "@/lib/events/availability";
+import { serializePublicEvent } from "@/lib/events/serializers";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 
 async function getHostEvents(userId: string) {
   const now = new Date();
   const [upcoming, past] = await Promise.all([
     prisma.event.findMany({
-      where: { userId, eventDatetime: { gte: now } },
+      where: { userId, eventEndtime: { gte: now } },
       orderBy: { eventDatetime: "asc" },
       include: {
         category: true,
@@ -19,7 +24,7 @@ async function getHostEvents(userId: string) {
       },
     }),
     prisma.event.findMany({
-      where: { userId, eventDatetime: { lt: now } },
+      where: { userId, eventEndtime: { lt: now } },
       orderBy: { eventDatetime: "desc" },
       take: 12,
       include: {
@@ -44,48 +49,24 @@ export default async function HostProfilePage({
   if (eventCount === 0) return notFound();
 
   const { upcoming, past } = await getHostEvents(userId);
+  const reservationCounts = await getActiveReservationCountMap([
+    ...upcoming.map((event) => event.eventId),
+    ...past.map((event) => event.eventId),
+  ]);
 
-  const upcomingShaped = upcoming.map((e) => {
-    const decoded = decodeEventLocation(e.eventLocation);
-    return {
-      eventId: e.eventId,
-      eventName: e.eventName,
-      eventDatetime: e.eventDatetime.toISOString(),
-      eventEndtime: e.eventEndtime.toISOString(),
-      eventLocation: e.eventLocation,
-      description: e.description,
-      pictureUrl: e.pictureUrl,
-      capacity: e.capacity,
-      priceField: e.priceField,
-      userId: e.userId,
-      categoryId: e.categoryId,
-      addressLabel: decoded.addressLabel,
-      latitude: decoded.latitude,
-      longitude: decoded.longitude,
-      attendeeCount: e._count.attendees,
-    };
-  });
+  const upcomingShaped = upcoming.map((event) =>
+    serializePublicEvent(event, {
+      attendeeCount: event._count.attendees,
+      reservedCount: reservationCounts.get(event.eventId) ?? 0,
+    }),
+  );
 
-  const pastShaped = past.map((e) => {
-    const decoded = decodeEventLocation(e.eventLocation);
-    return {
-      eventId: e.eventId,
-      eventName: e.eventName,
-      eventDatetime: e.eventDatetime.toISOString(),
-      eventEndtime: e.eventEndtime.toISOString(),
-      eventLocation: e.eventLocation,
-      description: e.description,
-      pictureUrl: e.pictureUrl,
-      capacity: e.capacity,
-      priceField: e.priceField,
-      userId: e.userId,
-      categoryId: e.categoryId,
-      addressLabel: decoded.addressLabel,
-      latitude: decoded.latitude,
-      longitude: decoded.longitude,
-      attendeeCount: e._count.attendees,
-    };
-  });
+  const pastShaped = past.map((event) =>
+    serializePublicEvent(event, {
+      attendeeCount: event._count.attendees,
+      reservedCount: reservationCounts.get(event.eventId) ?? 0,
+    }),
+  );
 
   return (
     <PageShell>
@@ -99,7 +80,7 @@ export default async function HostProfilePage({
               <h1 className="mt-2 text-3xl font-bold text-white">
                 Organizer profile
               </h1>
-              <p className="mt-1 text-sm text-(--color-text-secondary)">
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 {upcoming.length + past.length} event
                 {upcoming.length + past.length === 1 ? "" : "s"} total
               </p>

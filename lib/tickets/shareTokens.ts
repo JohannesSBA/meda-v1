@@ -1,3 +1,7 @@
+/**
+ * Share tokens -- generate and hash share tokens for ticket sharing.
+ */
+
 import { createHash, randomBytes } from "crypto";
 
 export function generateShareToken() {

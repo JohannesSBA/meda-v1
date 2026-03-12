@@ -1,3 +1,7 @@
+/**
+ * BottomSheet -- slide-up overlay panel for mobile-friendly modals.
+ */
+
 "use client";
 
 import { useCallback, useEffect, useRef, type ReactNode } from "react";

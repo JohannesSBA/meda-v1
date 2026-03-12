@@ -1,11 +1,16 @@
+/**
+ * Supabase admin client -- storage for event images.
+ */
+
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const SUPABASE_BUCKET_EVENTS = process.env.SUPABASE_BUCKET_EVENTS || "event=picture";
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn("Supabase env vars missing: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  logger.warn("Supabase env vars missing: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
 }
 
 export const supabaseAdmin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY

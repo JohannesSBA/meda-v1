@@ -1,3 +1,9 @@
+/**
+ * EventsMap -- interactive Mapbox map showing multiple event markers with clustering.
+ *
+ * Supports date/category filters and marker selection.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +12,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import type { EventResponse } from "../types/eventTypes";
 import { Select } from "./ui/select";
 import { Button } from "./ui/button";
+import { DEFAULT_MAP_CENTER } from "@/lib/constants";
 
 type Props = {
   events: EventResponse[];
@@ -14,7 +21,101 @@ type Props = {
   onSearchHere: (center: { lat: number; lng: number }) => void;
 };
 
-const DEFAULT_CENTER: [number, number] = [38.7578, 9.0301]; // Addis Ababa-ish
+const DEFAULT_CENTER: [number, number] = [DEFAULT_MAP_CENTER.lng, DEFAULT_MAP_CENTER.lat];
+
+function buildPopupContent(
+  event: EventResponse,
+  dateLabel: string,
+  priceLabel: string,
+) {
+  const container = document.createElement("div");
+  container.style.fontFamily = "Inter, system-ui, sans-serif";
+  container.style.minWidth = "200px";
+  container.style.background = "#ffffff";
+  container.style.border = "1px solid #e3ebf5";
+  container.style.borderRadius = "10px";
+  container.style.boxShadow = "0 10px 26px rgba(0,0,0,0.14)";
+  container.style.overflow = "hidden";
+
+  const header = document.createElement("div");
+  header.style.padding = "10px 12px 6px";
+  header.style.borderBottom = "1px solid #e9f1fb";
+  header.style.display = "flex";
+  header.style.justifyContent = "space-between";
+  header.style.alignItems = "center";
+  header.style.gap = "8px";
+
+  const title = document.createElement("div");
+  title.style.fontWeight = "700";
+  title.style.fontSize = "13px";
+  title.style.lineHeight = "1.3";
+  title.style.color = "#0f2235";
+  title.textContent = event.eventName;
+
+  const priceBadge = document.createElement("span");
+  priceBadge.style.background = "#e8f6ff";
+  priceBadge.style.color = "#0a6fcb";
+  priceBadge.style.borderRadius = "999px";
+  priceBadge.style.padding = "3px 8px";
+  priceBadge.style.fontSize = "10px";
+  priceBadge.style.fontWeight = "700";
+  priceBadge.textContent = priceLabel;
+
+  header.append(title, priceBadge);
+
+  const body = document.createElement("div");
+  body.style.padding = "8px 12px";
+  body.style.display = "grid";
+  body.style.gap = "4px";
+  body.style.fontSize = "11px";
+  body.style.lineHeight = "1.35";
+  body.style.color = "#2f3e52";
+
+  const dateRow = document.createElement("div");
+  dateRow.style.display = "flex";
+  dateRow.style.gap = "6px";
+  dateRow.style.alignItems = "flex-start";
+  const dateLabelNode = document.createElement("span");
+  dateLabelNode.style.color = "#0a6fcb";
+  dateLabelNode.style.fontWeight = "600";
+  dateLabelNode.textContent = "Date:";
+  const dateValue = document.createElement("span");
+  dateValue.textContent = dateLabel;
+  dateRow.append(dateLabelNode, dateValue);
+  body.append(dateRow);
+
+  if (event.addressLabel) {
+    const locationRow = document.createElement("div");
+    locationRow.style.display = "flex";
+    locationRow.style.gap = "6px";
+    locationRow.style.alignItems = "flex-start";
+    const locationLabelNode = document.createElement("span");
+    locationLabelNode.style.color = "#0a6fcb";
+    locationLabelNode.style.fontWeight = "600";
+    locationLabelNode.textContent = "Where:";
+    const locationValue = document.createElement("span");
+    locationValue.textContent = event.addressLabel;
+    locationRow.append(locationLabelNode, locationValue);
+    body.append(locationRow);
+  }
+
+  const link = document.createElement("a");
+  link.href = `/events/${event.eventId}`;
+  link.textContent = "View details";
+  link.style.display = "block";
+  link.style.textAlign = "center";
+  link.style.margin = "0 10px 10px";
+  link.style.padding = "8px 10px";
+  link.style.background = "linear-gradient(90deg,#00E5FF,#22FF88)";
+  link.style.color = "#001021";
+  link.style.fontWeight = "800";
+  link.style.fontSize = "11px";
+  link.style.borderRadius = "9px";
+  link.style.textDecoration = "none";
+
+  container.append(header, body, link);
+  return container;
+}
 
 export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHere }: Props) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
@@ -69,23 +170,8 @@ export default function EventsMap({ events, radiusKm, onRadiusChange, onSearchHe
       const marker = new mapboxgl.Marker({ color: "#22FF88" })
         .setLngLat([e.longitude!, e.latitude!])
         .setPopup(
-          new mapboxgl.Popup({ offset: 10, closeButton: true }).setHTML(
-            `<div style="font-family:Inter, system-ui, sans-serif; min-width:200px; margin:0; padding:0; background:#ffffff; border:1px solid #e3ebf5; border-radius:10px; box-shadow:0 10px 26px rgba(0,0,0,0.14); overflow:hidden">
-              <div style="padding:10px 12px 6px; border-bottom:1px solid #e9f1fb; display:flex; justify-content:space-between; align-items:center; gap:8px">
-                <div style="font-weight:700; font-size:13px; line-height:1.3; color:#0f2235;">${e.eventName}</div>
-                <span style="background:#e8f6ff; color:#0a6fcb; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:700;">${priceLabel}</span>
-              </div>
-              <div style="padding:8px 12px; display:grid; gap:4px; font-size:11px; line-height:1.35; color:#2f3e52;">
-                <div style="display:flex; gap:6px; align-items:flex-start;">
-                  <span style="color:#0a6fcb; font-weight:600;">Date:</span>
-                  <span>${dateLabel}</span>
-                </div>
-                ${e.addressLabel ? `<div style="display:flex; gap:6px; align-items:flex-start;"><span style="color:#0a6fcb; font-weight:600;">Where:</span><span>${e.addressLabel}</span></div>` : ""}
-              </div>
-              <a href="/events/${e.eventId}" style="display:block; text-align:center; margin:0 10px 10px; padding:8px 10px; background:linear-gradient(90deg,#00E5FF,#22FF88); color:#001021; font-weight:800; font-size:11px; border-radius:9px; text-decoration:none;">
-                View details
-              </a>
-            </div>`
+          new mapboxgl.Popup({ offset: 10, closeButton: true }).setDOMContent(
+            buildPopupContent(e, dateLabel, priceLabel),
           )
         )
         .addTo(mapRef.current!);

@@ -1,22 +1,32 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireAdminUser } from "@/lib/auth/guards";
+import {
+  computeSpotsLeft,
+  getActiveReservationCountMap,
+} from "@/lib/events/availability";
+import { resolveEventLocation } from "@/lib/location";
+import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
+import { adminEventListQuerySchema } from "@/lib/validations/admin";
 
 export async function GET(request: Request) {
   const adminCheck = await requireAdminUser();
   if (adminCheck.response) return adminCheck.response;
 
   const url = new URL(request.url);
-  const page = Math.max(Number(url.searchParams.get("page")) || 1, 1);
-  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 20, 1), 100);
-  const search = url.searchParams.get("search")?.trim() ?? "";
+  const parsed = parseSearchParams(adminEventListQuerySchema, url.searchParams);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid admin event query");
+  }
+
+  const { page, limit, search } = parsed.data;
 
   const where = search
     ? {
         OR: [
           { eventName: { contains: search, mode: "insensitive" as const } },
           { description: { contains: search, mode: "insensitive" as const } },
+          { addressLabel: { contains: search, mode: "insensitive" as const } },
           { eventLocation: { contains: search, mode: "insensitive" as const } },
         ],
       }
@@ -32,13 +42,16 @@ export async function GET(request: Request) {
       take: limit,
     }),
   ]);
+  const reservationCounts = await getActiveReservationCountMap(
+    events.map((event) => event.eventId),
+  );
 
   return NextResponse.json({
     total,
     page,
     limit,
     items: events.map((event) => {
-      const decoded = decodeEventLocation(event.eventLocation);
+      const location = resolveEventLocation(event);
       return {
         eventId: event.eventId,
         eventName: event.eventName,
@@ -52,10 +65,18 @@ export async function GET(request: Request) {
         pictureUrl: event.pictureUrl,
         priceField: event.priceField,
         capacity: event.capacity,
+        spotsLeft: computeSpotsLeft(
+          event.capacity,
+          event._count.attendees,
+          reservationCounts.get(event.eventId) ?? 0,
+        ),
+        reservedCount: reservationCounts.get(event.eventId) ?? 0,
         categoryId: event.categoryId,
         eventLocation: event.eventLocation,
         updatedAt: event.updatedAt.toISOString(),
-        addressLabel: decoded.addressLabel,
+        addressLabel: location.addressLabel,
+        latitude: location.latitude,
+        longitude: location.longitude,
       };
     }),
   });

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { createShareLinkSchema } from "@/lib/validations/ticketSharing";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
+import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { createShareLink } from "@/services/ticketSharing";
 
 function formatUnknownError(error: unknown) {
@@ -14,16 +16,23 @@ function formatUnknownError(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const rl = await checkRateLimit(`share-create:${getClientId(request)}`, 10, 60_000);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before creating another share link." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
+    );
+  }
+
   const session = await requireSessionUser();
   if (!session.user || session.response) return session.response!;
 
-  const body = await request.json().catch(() => null);
-  const parsed = createShareLinkSchema.safeParse(body);
+  const parsed = await parseJsonBody(createShareLinkSchema, request);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationErrorResponse(parsed.error, "Invalid share-link payload");
   }
 
   const baseUrl = new URL(request.url).origin;

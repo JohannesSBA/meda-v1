@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { callNeonAdminGet } from "@/lib/auth/neonAdmin";
 import { requireAdminUser } from "@/lib/auth/guards";
+import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
+import { adminListUsersQuerySchema } from "@/lib/validations/admin";
 
 function normalizeUsersPayload(raw: unknown) {
   const body = (raw ?? null) as
@@ -24,9 +26,12 @@ export async function GET(request: Request) {
   if (adminCheck.response) return adminCheck.response;
 
   const url = new URL(request.url);
-  const search = url.searchParams.get("search")?.trim() ?? "";
-  const page = Math.max(Number(url.searchParams.get("page")) || 1, 1);
-  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 20, 1), 100);
+  const parsed = parseSearchParams(adminListUsersQuerySchema, url.searchParams);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid user search query");
+  }
+
+  const { search, page, limit } = parsed.data;
   const offset = (page - 1) * limit;
 
   const result = await callNeonAdminGet(request, "admin/list-users", {
@@ -38,7 +43,7 @@ export async function GET(request: Request) {
   if (result.error) {
     return NextResponse.json(
       { error: result.error },
-      { status: result.status || 500 }
+      { status: result.status || 500 },
     );
   }
 

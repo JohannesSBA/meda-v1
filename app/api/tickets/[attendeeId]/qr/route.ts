@@ -3,6 +3,9 @@ import QRCode from "qrcode";
 import { createVerificationToken } from "@/lib/tickets/verificationToken";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
+import { getAppBaseUrl } from "@/lib/env";
+import { attendeeIdParamSchema } from "@/lib/validations/events";
+import { parseParams, validationErrorResponse } from "@/lib/validations/http";
 
 export async function GET(
   _request: Request,
@@ -12,10 +15,11 @@ export async function GET(
   if (sessionCheck.response) return sessionCheck.response;
   const user = sessionCheck.user!;
 
-  const { attendeeId } = await params;
-  if (!attendeeId || !/^[0-9a-fA-F-]{36}$/.test(attendeeId)) {
-    return NextResponse.json({ error: "Invalid attendee" }, { status: 400 });
+  const parsed = parseParams(attendeeIdParamSchema, await params);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid attendee");
   }
+  const { attendeeId } = parsed.data;
 
   const attendee = await prisma.eventAttendee.findFirst({
     where: { attendeeId, userId: user.id },
@@ -25,7 +29,7 @@ export async function GET(
     return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const baseUrl = getAppBaseUrl();
   const token = createVerificationToken(attendeeId);
   const verifyUrl = `${baseUrl}/tickets/verify/${token}`;
 

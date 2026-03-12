@@ -1,15 +1,22 @@
+/**
+ * TicketQRPanel -- displays QR code for a ticket and share/refund actions.
+ */
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Card } from "../ui/card";
 import { cn } from "../ui/cn";
+import { browserApi } from "@/lib/browserApi";
 
 type Props = {
   eventId: string;
   eventName: string;
   ticketCount: number;
 };
+
+const TAB_THRESHOLD = 4;
 
 export default function TicketQRPanel({
   eventId,
@@ -24,11 +31,13 @@ export default function TicketQRPanel({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/events/${eventId}/my-attendees`, {
+        const data = await browserApi.get<{ attendeeIds?: string[] }>(
+          `/api/events/${eventId}/my-attendees`,
+          {
           cache: "no-store",
-        });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
+          },
+        );
+        if (cancelled) return;
         setAttendeeIds(data.attendeeIds ?? []);
       } catch {
         if (!cancelled) setAttendeeIds([]);
@@ -45,6 +54,8 @@ export default function TicketQRPanel({
   if (ticketCount === 0 || loading || attendeeIds.length === 0) return null;
 
   const hasMultiple = attendeeIds.length > 1;
+  const useTabs = hasMultiple && attendeeIds.length < TAB_THRESHOLD;
+  const useDropdown = hasMultiple && attendeeIds.length >= TAB_THRESHOLD;
 
   return (
     <Card className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[#0a1927]">
@@ -59,23 +70,66 @@ export default function TicketQRPanel({
 
       {hasMultiple ? (
         <div className="p-4">
-          <div className="mb-3 flex gap-2 overflow-x-auto">
-            {attendeeIds.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setActiveIndex(i)}
-                className={cn(
-                  "h-11 shrink-0 rounded-lg px-4 text-sm font-medium transition",
-                  activeIndex === i
-                    ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
-                    : "bg-[#0f1f2d] text-[var(--color-text-muted)] hover:bg-[#15293d]",
-                )}
+          {useTabs ? (
+            <div className="mb-3 flex gap-2 overflow-x-auto">
+              {attendeeIds.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveIndex(i)}
+                  className={cn(
+                    "h-11 shrink-0 rounded-lg px-4 text-sm font-medium transition",
+                    activeIndex === i
+                      ? "bg-[var(--color-brand)] text-[var(--color-brand-text)]"
+                      : "bg-[#0f1f2d] text-[var(--color-text-muted)] hover:bg-[#15293d]",
+                  )}
+                >
+                  Ticket {i + 1}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {useDropdown ? (
+            <div className="mb-3 flex items-center gap-3">
+              <select
+                value={activeIndex}
+                onChange={(e) => setActiveIndex(Number(e.target.value))}
+                className="h-11 w-full rounded-lg border border-[var(--color-border)] bg-[#0f1f2d] px-3 text-sm font-medium text-white outline-none focus:border-[var(--color-brand)]"
               >
-                Ticket {i + 1}
-              </button>
-            ))}
-          </div>
+                {attendeeIds.map((_, i) => (
+                  <option key={i} value={i}>
+                    Ticket {i + 1} of {attendeeIds.length}
+                  </option>
+                ))}
+              </select>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  disabled={activeIndex === 0}
+                  onClick={() => setActiveIndex((i) => i - 1)}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#0f1f2d] text-[var(--color-text-muted)] transition hover:bg-[#15293d] disabled:opacity-30"
+                  aria-label="Previous ticket"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled={activeIndex === attendeeIds.length - 1}
+                  onClick={() => setActiveIndex((i) => i + 1)}
+                  className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#0f1f2d] text-[var(--color-text-muted)] transition hover:bg-[#15293d] disabled:opacity-30"
+                  aria-label="Next ticket"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex justify-center rounded-2xl border border-[var(--color-border)] bg-white p-6">
             <Image
               src={`/api/tickets/${attendeeIds[activeIndex]}/qr`}

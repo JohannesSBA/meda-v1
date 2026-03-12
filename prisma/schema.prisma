@@ -41,8 +41,16 @@ enum PaymentStatus {
   succeeded
   failed
   canceled
+  requires_refund
 
   @@map("payment_status")
+}
+
+enum PaymentProvider {
+  balance
+  chapa
+
+  @@map("payment_provider")
 }
 
 model Category {
@@ -62,6 +70,9 @@ model Event {
   eventDatetime DateTime @map("event_datetime") @db.Timestamptz(6)
   eventEndtime  DateTime @map("event_endtime") @db.Timestamptz(6)
   eventLocation String?   @db.VarChar(255) @map("event_location")
+  addressLabel  String?   @db.VarChar(255) @map("address_label")
+  latitude      Float?
+  longitude     Float?
   description   String?   @db.Text
   pictureUrl    String?   @db.VarChar(255) @map("picture_url")
   capacity      Int?
@@ -86,7 +97,16 @@ model Event {
   payments      Payment[]
   savedEvents   SavedEvent[]
   waitlist      EventWaitlist[]
+  refunds       Refund[]
+  ticketScans   TicketScan[]
 
+  @@index([eventDatetime])
+  @@index([eventDatetime, categoryId])
+  @@index([seriesId])
+  @@index([userId])
+  @@index([userId, eventDatetime])
+  @@index([categoryId])
+  @@index([latitude, longitude])
   @@map("events")
 }
 
@@ -100,7 +120,10 @@ model EventAttendee {
 
   // Relations
   event         Event          @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  ticketScan    TicketScan?
 
+  @@index([eventId, userId])
+  @@index([userId])
   @@map("eventattendees")
 }
 
@@ -120,6 +143,7 @@ model Invitation {
   event         Event           @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
   claims        InvitationClaim[]
 
+  @@index([eventId, userId, status])
   @@map("invitations")
 }
 
@@ -141,16 +165,28 @@ model Payment {
   eventId             String       @map("event_id") @db.Uuid
   userId              String       @map("user_id") @db.Uuid
   amountEtb           Decimal      @db.Decimal(10, 2) @map("amount_etb")
+  unitPriceEtb        Decimal      @default(0) @db.Decimal(10, 2) @map("unit_price_etb")
+  quantity            Int          @default(1)
   currency            String        @default("ETB") @db.VarChar(10)
+  provider            PaymentProvider @default(chapa)
   status              PaymentStatus @default(created)
-  telebirrPrepayId    String?       @db.VarChar(128) @map("telebirr_prepay_id")
-  telebirrCheckoutUrl String?       @db.VarChar(512) @map("telebirr_checkout_url")
+  providerReference   String?       @db.VarChar(128) @map("telebirr_prepay_id")
+  checkoutUrl         String?       @db.VarChar(512) @map("telebirr_checkout_url")
+  reservationExpiresAt DateTime?    @db.Timestamptz(6) @map("reservation_expires_at")
+  verifiedAt          DateTime?     @db.Timestamptz(6) @map("verified_at")
+  fulfilledAt         DateTime?     @db.Timestamptz(6) @map("fulfilled_at")
+  failureReason       String?       @db.VarChar(255) @map("failure_reason")
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   // Relations
   event               Event         @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
+  @@index([eventId, userId])
+  @@index([status])
+  @@index([eventId, status, reservationExpiresAt])
+  @@index([provider, status, reservationExpiresAt])
+  @@unique([provider, providerReference])
   @@map("payments")
 }
 
@@ -165,6 +201,7 @@ model SavedEvent {
   event        Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
   @@unique([eventId, userId])
+  @@index([userId, createdAt])
   @@map("saved_events")
 }
 
@@ -178,5 +215,45 @@ model EventWaitlist {
   event      Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
 
   @@unique([eventId, userId])
+  @@index([eventId, createdAt])
   @@map("event_waitlist")
+}
+
+model UserBalance {
+  userId     String   @id @db.Uuid @map("user_id")
+  balanceEtb Decimal  @default(0) @db.Decimal(10, 2) @map("balance_etb")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@map("user_balances")
+}
+
+model Refund {
+  refundId    String   @id @default(uuid()) @db.Uuid @map("refund_id")
+  eventId     String   @map("event_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amountEtb   Decimal  @db.Decimal(10, 2) @map("amount_etb")
+  ticketCount Int      @map("ticket_count")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  // Relations
+  event       Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@index([eventId, userId])
+  @@map("refunds")
+}
+
+model TicketScan {
+  scanId          String        @id @default(uuid()) @db.Uuid @map("scan_id")
+  attendeeId      String        @unique @map("attendee_id") @db.Uuid
+  eventId         String        @map("event_id") @db.Uuid
+  scannedByUserId String        @map("scanned_by_user_id") @db.Uuid
+  scannedAt       DateTime      @default(now()) @map("scanned_at") @db.Timestamptz(6)
+
+  // Relations
+  attendee        EventAttendee @relation(fields: [attendeeId], references: [attendeeId], onDelete: Cascade)
+  event           Event         @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@index([attendeeId])
+  @@index([eventId, scannedAt])
+  @@map("ticket_scan")
 }

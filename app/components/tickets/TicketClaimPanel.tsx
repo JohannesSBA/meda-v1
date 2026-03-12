@@ -1,3 +1,9 @@
+/**
+ * TicketClaimPanel -- UI for claiming a shared ticket via token.
+ *
+ * Validates token and creates attendee record on claim.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,6 +11,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
+import { browserApi } from "@/lib/browserApi";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 type TicketClaimPanelProps = {
   token: string;
@@ -22,12 +30,6 @@ type ShareDetails = {
   };
 };
 
-function getErrorMessage(value: unknown) {
-  if (value instanceof Error) return value.message;
-  if (typeof value === "string") return value;
-  return "Something went wrong";
-}
-
 export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -42,13 +44,10 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/tickets/share/${encodeURIComponent(token)}`, {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data?.error || "Share link not found");
-        }
+        const data = await browserApi.get<ShareDetails>(
+          `/api/tickets/share/${encodeURIComponent(token)}`,
+          { cache: "no-store" },
+        );
         if (!cancelled) setDetails(data);
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err));
@@ -72,12 +71,10 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
   const handleClaim = async () => {
     setClaiming(true);
     try {
-      const res = await fetch(
+      const data = await browserApi.post<{ eventId: string }>(
         `/api/tickets/share/${encodeURIComponent(token)}/claim`,
-        { method: "POST" },
+        undefined,
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Unable to claim ticket");
       toast.success("Ticket claimed successfully");
       router.push(`/events/${data.eventId}`);
       router.refresh();

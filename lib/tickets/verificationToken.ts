@@ -1,3 +1,7 @@
+/**
+ * Ticket verification tokens -- HMAC-signed tokens for ticket verification.
+ */
+
 import { createHmac } from "crypto";
 
 const SECRET = (() => {
