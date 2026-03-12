@@ -34,7 +34,9 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
     if (!eventId || !txRef) return;
     setState({ kind: "loading" });
     try {
-      const data = await browserApi.post<{ quantity?: number }>("/api/payments/chapa/confirm", { txRef });
+      const data = await browserApi.post<{ quantity?: number }>("/api/payments/chapa/confirm", {
+        txRef,
+      });
       setState({ kind: "success", quantity: Number(data?.quantity) || 0 });
     } catch (error) {
       if (error instanceof BrowserApiError && error.status === 409) {
@@ -57,6 +59,7 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
     if (!eventId || !txRef) return;
     if (requestedRef.current === txRef) return;
     requestedRef.current = txRef;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void confirmPayment();
   }, [eventId, txRef, confirmPayment]);
 
@@ -104,10 +107,18 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
               Retry confirmation
             </button>
           ) : null}
-          <Link href={eventHref} className={cn(buttonVariants(state.kind === "error" ? "secondary" : "primary", "lg"), "rounded-full")}>
+          <Link
+            href={eventHref}
+            className={cn(
+              buttonVariants(state.kind === "error" ? "secondary" : "primary", "lg"),
+              "rounded-full",
+            )}
+          >
             Back to event
           </Link>
-          <Link href="/events" className={cn(buttonVariants("secondary", "lg"), "rounded-full")}>Browse events</Link>
+          <Link href="/events" className={cn(buttonVariants("secondary", "lg"), "rounded-full")}>
+            Browse events
+          </Link>
         </div>
       </div>
     </Card>
@@ -126,7 +137,15 @@ function StatusIcon({ state }: { state: StatusState }) {
   if (state.kind === "success") {
     return (
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(52,211,153,0.26)] bg-[rgba(52,211,153,0.12)] text-[var(--color-brand-alt)]">
-        <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          className="h-8 w-8"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M5 13l4 4L19 7" />
         </svg>
       </div>
@@ -136,7 +155,15 @@ function StatusIcon({ state }: { state: StatusState }) {
   if (state.kind === "requires_refund") {
     return (
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(251,191,36,0.26)] bg-[rgba(251,191,36,0.12)] text-[var(--color-warning)]">
-        <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          className="h-8 w-8"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M12 9v4" />
           <path d="M12 17h.01" />
           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
@@ -147,7 +174,15 @@ function StatusIcon({ state }: { state: StatusState }) {
 
   return (
     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[rgba(251,113,133,0.26)] bg-[rgba(251,113,133,0.12)] text-[var(--color-danger)]">
-      <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        className="h-8 w-8"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M6 18 18 6" />
         <path d="m6 6 12 12" />
       </svg>
