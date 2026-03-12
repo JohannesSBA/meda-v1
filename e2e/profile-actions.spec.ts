@@ -55,7 +55,7 @@ test("creates and copies a ticket sharing link from the profile dashboard", asyn
   await expect(page.getByText("Friday Night Match")).toBeVisible();
   await page.getByRole("button", { name: "Share ticket" }).click();
 
-  await expect(page.getByRole("button", { name: "Copied!" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
   await expect
     .poll(async () =>
       page.evaluate(
