@@ -5,7 +5,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/tickets/verificationToken";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 
@@ -19,12 +19,12 @@ async function verifyTicket(token: string) {
   });
   if (!attendee) return null;
 
-  const decoded = decodeEventLocation(attendee.event.eventLocation);
+  const location = resolveEventLocation(attendee.event);
   return {
     valid: true,
     eventName: attendee.event.eventName,
     eventDatetime: attendee.event.eventDatetime.toISOString(),
-    addressLabel: decoded.addressLabel,
+    addressLabel: location.addressLabel,
   };
 }
 

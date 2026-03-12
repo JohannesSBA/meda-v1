@@ -4,13 +4,21 @@
  * Fetches categories for the form.
  */
 
-import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth/server";
 import CreateEventForm from "../components/CreateEventForm";
 import { PageShell } from "../components/ui/page-shell";
 import { Category } from "../types/catagory";
+import { getCategories } from "@/lib/data/categories";
 
 export default async function CreateEventsPage() {
-  const categories = (await prisma.category.findMany()) as Category[];
+  const { data } = await auth.getSession();
+  const user = (data?.user as { id?: string } | null) ?? null;
+  if (!user?.id) {
+    redirect("/auth/sign-in?redirect=%2Fcreate-events");
+  }
+
+  const categories = (await getCategories()) as Category[];
 
   return (
     <PageShell containerClassName="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-10 sm:px-6 lg:px-8">

@@ -4,6 +4,7 @@
 
 "use client";
 
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Table } from "@/app/components/ui/table";
@@ -13,21 +14,25 @@ import type { AdminUserRow } from "./types";
 type AdminUsersTabProps = {
   adminUsers: AdminUserRow[];
   adminUsersLoading: boolean;
+  adminUsersError?: string | null;
   userSearch: string;
   setUserSearch: (v: string) => void;
   onSearch: () => void;
   onSetRole: (userId: string, role: "admin" | "user") => void;
   onBanToggle: (userId: string, banned: boolean) => void;
+  onRetry?: () => void;
 };
 
 export function AdminUsersTab({
   adminUsers,
   adminUsersLoading,
+  adminUsersError,
   userSearch,
   setUserSearch,
   onSearch,
   onSetRole,
   onBanToggle,
+  onRetry,
 }: AdminUsersTabProps) {
   return (
     <section
@@ -50,9 +55,15 @@ export function AdminUsersTab({
           </Button>
         </div>
       </div>
-      {adminUsersLoading ? (
-        <TableSkeleton rows={6} cols={4} />
-      ) : (
+      <AsyncPanelState
+        loading={adminUsersLoading}
+        error={adminUsersError}
+        isEmpty={adminUsers.length === 0}
+        loadingFallback={<TableSkeleton rows={6} cols={4} />}
+        emptyTitle="No users found"
+        emptyDescription="Adjust your search terms or try again."
+        onRetry={onRetry}
+      >
         <div className="overflow-x-auto">
           <Table className="table-shell">
             <thead className="text-[var(--color-brand)]">
@@ -99,7 +110,7 @@ export function AdminUsersTab({
             </tbody>
           </Table>
         </div>
-      )}
+      </AsyncPanelState>
     </section>
   );
 }

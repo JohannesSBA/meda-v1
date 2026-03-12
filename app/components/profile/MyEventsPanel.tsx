@@ -1,27 +1,19 @@
 /**
- * MyEventsPanel -- lists events the user is hosting or managing.
- *
- * Fetches from profile/events API; supports view and edit actions.
+ * MyEventsPanel -- lists events where the user currently holds tickets.
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
-import { EmptyState } from "@/app/components/ui/empty-state";
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { EventListItemSkeleton } from "@/app/components/ui/skeleton";
 import { cn } from "@/app/components/ui/cn";
-
-type RegisteredEventItem = {
-  eventId: string;
-  eventName: string;
-  eventDatetime: string;
-  ticketCount: number;
-  priceField?: number | null;
-  addressLabel?: string | null;
-};
+import { browserApi } from "@/lib/browserApi";
+import { getErrorMessage } from "@/lib/errorMessage";
+import type { RegisteredEventItem } from "./types";
 
 const tabs = [
   { key: "upcoming", label: "Upcoming" },
@@ -32,68 +24,59 @@ const tabs = [
 export default function MyEventsPanel() {
   const [status, setStatus] = useState<string>("upcoming");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<RegisteredEventItem[]>([]);
   const [copiedEventId, setCopiedEventId] = useState<string | null>(null);
 
-  const handleShareLink = async (eventId: string) => {
+  const handleShareLink = useCallback(async (eventId: string) => {
     try {
-      const res = await fetch("/api/tickets/share/create", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ eventId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Unable to create share link");
+      const data = await browserApi.post<{ shareUrl?: string }>(
+        "/api/tickets/share/create",
+        { eventId },
+      );
       const shareUrl = String(data?.shareUrl ?? "");
       if (!shareUrl) throw new Error("Share link was not returned");
       await navigator.clipboard.writeText(shareUrl);
       setCopiedEventId(eventId);
       window.setTimeout(() => setCopiedEventId(null), 1500);
       toast.success("Share link copied");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to create share link");
+    } catch (loadError) {
+      toast.error(getErrorMessage(loadError) || "Unable to create share link");
     }
-  };
+  }, []);
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await browserApi.get<{ items?: RegisteredEventItem[] }>(
+        `/api/profile/registered-events?status=${status}`,
+        { cache: "no-store" },
+      );
+      setItems(data.items ?? []);
+    } catch (loadError) {
+      const message = getErrorMessage(loadError) || "Failed to load events";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [status]);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/profile/registered-events?status=${status}`, {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to load events");
-        }
-        setItems(data.items ?? []);
-      } catch (error) {
-        if (!cancelled) {
-          toast.error(error instanceof Error ? error.message : "Failed to load events");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [status]);
+    void loadEvents();
+  }, [loadEvents]);
 
   return (
     <section className="space-y-4">
       <div>
         <p className="heading-kicker">Tickets</p>
-        <h1 className="text-2xl font-bold text-white">My events</h1>
+        <h1 className="text-2xl font-bold text-white">My tickets</h1>
       </div>
 
-      {/* Tab bar */}
       <div
         role="tablist"
-        aria-label="Event status"
+        aria-label="Ticket status"
         className="flex rounded-xl border border-(--color-border) bg-[#0c1d2e]/75 p-1"
       >
         {tabs.map((tab) => (
@@ -116,20 +99,23 @@ export default function MyEventsPanel() {
         ))}
       </div>
 
-      <div id="my-events-tabpanel" role="tabpanel" aria-label={`${status} events`}>
-        {loading ? (
-          <div className="grid gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <EventListItemSkeleton key={i} />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <EmptyState
-            title="No registered events"
-            description="When you buy or claim tickets, your events appear here."
-            action={{ label: "Browse events", href: "/events" }}
-          />
-        ) : (
+      <div id="my-events-tabpanel" role="tabpanel" aria-label={`${status} tickets`}>
+        <AsyncPanelState
+          loading={loading}
+          error={error}
+          isEmpty={items.length === 0}
+          loadingFallback={
+            <div className="grid gap-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <EventListItemSkeleton key={index} />
+              ))}
+            </div>
+          }
+          emptyTitle="No tickets yet"
+          emptyDescription="When you buy or claim tickets, your events appear here."
+          emptyAction={{ label: "Browse events", href: "/events" }}
+          onRetry={loadEvents}
+        >
           <div className="grid gap-3">
             {items.map((event) => (
               <Card
@@ -137,14 +123,12 @@ export default function MyEventsPanel() {
                 className="rounded-xl border border-(--color-border) bg-[#0a1927] p-4"
               >
                 <div className="flex gap-3">
-                  {/* Thumbnail placeholder */}
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[radial-gradient(circle_at_30%_30%,rgba(0,229,255,0.2),transparent_50%),linear-gradient(135deg,#0f2b3f,#0b1d2d)]">
                     <span className="text-2xl font-bold text-white/30">
                       {event.eventName.charAt(0)}
                     </span>
                   </div>
 
-                  {/* Details */}
                   <div className="flex flex-1 flex-col justify-center gap-0.5">
                     <h2 className="line-clamp-1 text-base font-semibold text-white">
                       {event.eventName}
@@ -166,7 +150,6 @@ export default function MyEventsPanel() {
                   </div>
                 </div>
 
-                {/* Action buttons - full width on mobile */}
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <Link
                     href={`/events/${event.eventId}`}
@@ -187,7 +170,7 @@ export default function MyEventsPanel() {
               </Card>
             ))}
           </div>
-        )}
+        </AsyncPanelState>
       </div>
     </section>
   );

@@ -3,6 +3,9 @@ import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
 import { createEvent } from "@/services/events";
+import { createEventFormSchema } from "@/lib/validations/events";
+import { parseFormData, validationErrorResponse } from "@/lib/validations/http";
+import { revalidateAdminStats, revalidateEventData } from "@/lib/revalidation";
 
 export async function POST(request: Request) {
   const rl = await checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
@@ -17,23 +20,29 @@ export async function POST(request: Request) {
   if (!session.user || session.response) return session.response!;
   const userId = session.user.id;
 
-  const form = await request.formData();
-  const eventName = form.get("eventName")?.toString() ?? "";
-  const categoryId = form.get("categoryId")?.toString() ?? "";
-  const description = form.get("description")?.toString() ?? null;
-  const startDate = form.get("startDate")?.toString() ?? "";
-  const endDate = form.get("endDate")?.toString() ?? "";
-  const location = form.get("location")?.toString() ?? "";
-  const latitude = form.get("latitude")?.toString() ?? "";
-  const longitude = form.get("longitude")?.toString() ?? "";
-  const capacityRaw = form.get("capacity")?.toString();
-  const priceRaw = form.get("price")?.toString();
-  const image = form.get("image") as File | null;
-  const recurrenceEnabled = form.get("recurrenceEnabled")?.toString() === "true";
-  const recurrenceFrequency = (form.get("recurrenceFrequency")?.toString() ?? "weekly") as "daily" | "weekly" | "custom";
-  const recurrenceIntervalRaw = form.get("recurrenceInterval")?.toString() ?? "1";
-  const recurrenceUntil = form.get("recurrenceUntil")?.toString() ?? "";
-  const recurrenceWeekdays = form.get("recurrenceWeekdays")?.toString() ?? "";
+  const parsed = await parseFormData(createEventFormSchema, request);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event payload");
+  }
+
+  const {
+    eventName,
+    categoryId,
+    description,
+    startDate,
+    endDate,
+    location,
+    latitude,
+    longitude,
+    capacity,
+    price,
+    image,
+    recurrenceEnabled,
+    recurrenceFrequency,
+    recurrenceInterval,
+    recurrenceUntil,
+    recurrenceWeekdays,
+  } = parsed.data;
 
   let imageData: { buffer: Buffer; mimeType: string; ext: string } | null = null;
   if (image && image.size > 0) {
@@ -42,11 +51,6 @@ export async function POST(request: Request) {
     const ext = image.type.split("/")[1] || "jpg";
     imageData = { buffer, mimeType: image.type, ext };
   }
-
-  const capacityParsed = capacityRaw ? parseInt(capacityRaw, 10) : null;
-  const priceParsed = priceRaw ? parseInt(priceRaw, 10) : null;
-  const capacity = capacityParsed != null && !Number.isNaN(capacityParsed) ? capacityParsed : null;
-  const price = priceParsed != null && !Number.isNaN(priceParsed) ? priceParsed : null;
 
   try {
     const result = await createEvent({
@@ -64,10 +68,13 @@ export async function POST(request: Request) {
       image: imageData,
       recurrenceEnabled,
       recurrenceFrequency,
-      recurrenceInterval: Math.max(1, parseInt(recurrenceIntervalRaw, 10) || 1),
+      recurrenceInterval,
       recurrenceUntil,
       recurrenceWeekdays,
     });
+
+    revalidateEventData(result.event.eventId, [userId]);
+    revalidateAdminStats();
 
     if (result.createdOccurrences != null) {
       return NextResponse.json(

@@ -7,7 +7,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import RegisterPanel from "@/app/components/RegisterPanel";
-import StaticEventMap from "@/app/components/StaticEventMap";
+import StaticEventMapClient from "@/app/components/StaticEventMapClient";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 import { buttonVariants } from "@/app/components/ui/button";
@@ -26,7 +26,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 type EventDetailContentProps = {
   event: EventDetailResponse;
   isSoldOut: boolean;
-  isAdmin: boolean;
+  canScan: boolean;
   priceLabel: string;
   startDate: Date;
   endDate: Date;
@@ -36,7 +36,7 @@ type EventDetailContentProps = {
 export function EventDetailContent({
   event,
   isSoldOut,
-  isAdmin,
+  canScan,
   priceLabel,
   startDate,
   endDate,
@@ -80,7 +80,7 @@ export function EventDetailContent({
       </div>
 
       <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 sm:gap-8 sm:px-0">
-        {isAdmin ? (
+        {canScan ? (
           <Link
             href={`/events/${event.eventId}/scan`}
             className={cn(
@@ -108,9 +108,7 @@ export function EventDetailContent({
 
         <div className="sm:hidden">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold leading-tight text-white">
-              {event.eventName}
-            </h1>
+            <h1 className="text-2xl font-bold leading-tight text-white">{event.eventName}</h1>
             <span className="shrink-0 rounded-xl bg-[var(--color-brand)]/15 px-3 py-1.5 text-sm font-bold text-[var(--color-brand)]">
               {priceLabel}
             </span>
@@ -160,9 +158,7 @@ export function EventDetailContent({
               </div>
               <div className="px-6 pb-6">
                 <div className="flex items-start justify-between gap-4">
-                  <h1 className="text-3xl font-bold text-white">
-                    {event.eventName}
-                  </h1>
+                  <h1 className="text-3xl font-bold text-white">{event.eventName}</h1>
                   <span className="shrink-0 rounded-xl bg-[var(--color-brand)]/15 px-4 py-2 text-lg font-bold text-[var(--color-brand)]">
                     {priceLabel}
                   </span>
@@ -178,9 +174,7 @@ export function EventDetailContent({
                     H
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-white">
-                      Event Organizer
-                    </p>
+                    <p className="text-sm font-medium text-white">Event Organizer</p>
                   </div>
                   <Link
                     href={`/hosts/${event.userId}`}
@@ -223,9 +217,19 @@ export function EventDetailContent({
                     Seats left
                   </p>
                   <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                    {event.capacity != null ? event.capacity : "Unlimited"}
+                    {event.spotsLeft != null ? event.spotsLeft : "Unlimited"}
                   </p>
                 </div>
+                {event.capacityTotal != null ? (
+                  <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-brand)]">
+                      Total capacity
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                      {event.capacityTotal}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-brand)]">
                     Booked
@@ -237,8 +241,7 @@ export function EventDetailContent({
               </div>
               {event.occurrences && event.occurrences.length > 1 ? (
                 <div className="rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3 text-sm text-[var(--color-text-muted)]">
-                  Recurring series with {event.occurrences.length} upcoming
-                  dates.
+                  Recurring series with {event.occurrences.length} upcoming dates.
                 </div>
               ) : null}
             </section>
@@ -248,7 +251,7 @@ export function EventDetailContent({
               <Card className="overflow-hidden rounded-2xl bg-[#0b1624]/90">
                 {event.latitude != null && event.longitude != null ? (
                   <div className="h-[200px] w-full overflow-hidden">
-                    <StaticEventMap
+                    <StaticEventMapClient
                       latitude={event.latitude}
                       longitude={event.longitude}
                     />
@@ -263,32 +266,23 @@ export function EventDetailContent({
                     {locationLabel}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {isAdmin ? (
+                    {canScan ? (
                       <Link
                         href={`/events/${event.eventId}/scan`}
-                        className={cn(
-                          buttonVariants("primary", "md"),
-                          "h-11 rounded-full",
-                        )}
+                        className={cn(buttonVariants("primary", "md"), "h-11 rounded-full")}
                       >
                         Scan QR codes
                       </Link>
                     ) : null}
                     <a
-                      className={cn(
-                        buttonVariants("secondary", "md"),
-                        "h-11 rounded-full",
-                      )}
+                      className={cn(buttonVariants("secondary", "md"), "h-11 rounded-full")}
                       href={`/api/events/${event.eventId}/ics`}
                       download
                     >
                       Add to calendar
                     </a>
                     <a
-                      className={cn(
-                        buttonVariants("secondary", "md"),
-                        "h-11 rounded-full",
-                      )}
+                      className={cn(buttonVariants("secondary", "md"), "h-11 rounded-full")}
                       href={directionsUrl}
                       target="_blank"
                       rel="noreferrer"
@@ -302,20 +296,12 @@ export function EventDetailContent({
           </div>
 
           <div className="hidden space-y-4 md:block">
-            <RegisterPanel
-              event={event}
-              isSoldOut={isSoldOut}
-              occurrences={event.occurrences}
-            />
+            <RegisterPanel event={event} isSoldOut={isSoldOut} occurrences={event.occurrences} />
           </div>
         </section>
 
         <div className="md:hidden">
-          <RegisterPanel
-            event={event}
-            isSoldOut={isSoldOut}
-            occurrences={event.occurrences}
-          />
+          <RegisterPanel event={event} isSoldOut={isSoldOut} occurrences={event.occurrences} />
         </div>
       </div>
 

@@ -5,7 +5,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
+import { getLockedAvailabilitySnapshot } from "@/lib/events/availability";
 import { sendTicketConfirmationEmail } from "@/services/email";
 import { logger } from "@/lib/logger";
 import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
@@ -29,49 +30,35 @@ export async function registerForEvent(
 ): Promise<RegisterForEventResult> {
   const { eventId, userId, quantity, userEmail, userName, baseUrl } = params;
 
-  const event = await prisma.event.findUnique({
-    where: { eventId },
-    select: {
-      eventId: true,
-      eventName: true,
-      eventDatetime: true,
-      eventEndtime: true,
-      eventLocation: true,
-      capacity: true,
-    },
-  });
-
-  if (!event) throw new Error("Event not found");
-  if (event.eventEndtime <= new Date()) throw new Error("Event has ended");
-  if (event.capacity != null && quantity > event.capacity) {
-    throw new Error("Not enough seats available");
-  }
-
-  const existingTickets = await prisma.eventAttendee.count({
-    where: { eventId, userId },
-  });
-  if (existingTickets + quantity > MAX_TICKETS_PER_USER_PER_EVENT) {
-    throw new Error(
-      `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
-    );
-  }
-
-  const rows = Array.from({ length: quantity }).map(() => ({
-    eventId,
-    userId,
-    status: "RSVPed" as const,
-  }));
-
-  await prisma.$transaction(async (tx) => {
-    if (event.capacity != null) {
-      const updated = await tx.event.updateMany({
-        where: { eventId, capacity: { gte: quantity } },
-        data: { capacity: { decrement: quantity } },
-      });
-      if (updated.count === 0) throw new Error("Not enough seats available");
+  const event = await prisma.$transaction(async (tx) => {
+    const snapshot = await getLockedAvailabilitySnapshot(eventId, tx);
+    if (!snapshot) throw new Error("Event not found");
+    if (snapshot.event.eventEndtime <= new Date()) {
+      throw new Error("Event has ended");
+    }
+    if (snapshot.spotsLeft != null && quantity > snapshot.spotsLeft) {
+      throw new Error("Not enough seats available");
     }
 
-    await tx.eventAttendee.createMany({ data: rows });
+    const existingTickets =
+      typeof tx.eventAttendee?.count === "function"
+        ? await tx.eventAttendee.count({ where: { eventId, userId } })
+        : await prisma.eventAttendee.count({ where: { eventId, userId } });
+    if (existingTickets + quantity > MAX_TICKETS_PER_USER_PER_EVENT) {
+      throw new Error(
+        `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
+      );
+    }
+
+    await tx.eventAttendee.createMany({
+      data: Array.from({ length: quantity }).map(() => ({
+        eventId,
+        userId,
+        status: "RSVPed" as const,
+      })),
+    });
+
+    return snapshot.event;
   });
 
   const attendeeCount = await prisma.eventAttendee.count({
@@ -79,7 +66,7 @@ export async function registerForEvent(
   });
 
   if (userEmail) {
-    const decodedLocation = decodeEventLocation(event.eventLocation);
+    const location = resolveEventLocation(event);
     const attendees = await prisma.eventAttendee.findMany({
       where: { eventId, userId },
       select: { attendeeId: true },
@@ -92,7 +79,7 @@ export async function registerForEvent(
         eventName: event.eventName,
         eventDateTime: event.eventDatetime,
         eventEndTime: event.eventEndtime,
-        locationLabel: decodedLocation.addressLabel,
+        locationLabel: location.addressLabel,
         quantity,
         eventId,
         attendeeIds: attendees.map((a) => a.attendeeId),

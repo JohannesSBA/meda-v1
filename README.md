@@ -11,7 +11,7 @@ Meda is a Next.js event platform where users can browse events, register/purchas
 - **Refund & cancellation** – Cancel tickets up to 24h before event; refunds credited to Meda balance
 - **Meda Balance** – Platform credit wallet funded by refunds, usable for future ticket purchases
 - **Save events** – Bookmark events from the list or event detail page
-- **My Events** – Dedicated page for events where the user has tickets
+- **My Tickets** – Dedicated page for events where the user has tickets
 - **Ticket sharing** – Share extra tickets via claim links
 - **QR codes for tickets** – Per-ticket QR codes for check-in at events
 
@@ -118,7 +118,7 @@ The following improvements were made as part of a comprehensive audit:
 - **robots.txt** — Machine-readable robots configuration via `app/robots.ts`
 - **Dynamic sitemap** — Auto-generated sitemap with static pages and upcoming events via `app/sitemap.ts`
 - **Canonical URLs** — Added `metadataBase` and `alternates.canonical` to root layout metadata
-- **CI pipeline** — GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, type-check, and tests on PRs
+- **CI pipeline** — GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, type-check, unit tests, integration tests, and E2E coverage on PRs
 
 ### Testing
 
@@ -153,6 +153,23 @@ The following improvements were made as part of a comprehensive audit:
    ```
 5. Open `http://localhost:3000`.
 
+## Test Commands
+
+- Unit and API tests:
+  ```bash
+  npm test
+  ```
+- Ephemeral Postgres integration and concurrency tests (requires Docker):
+  ```bash
+  npm run test:integration
+  npm run test:concurrency
+  ```
+- Playwright end-to-end coverage:
+  ```bash
+  npx playwright install chromium
+  npm run test:e2e
+  ```
+
 ## Migration Notes (Neon Branches and Data Safety)
 
 If your database has schema drift and `prisma migrate dev` suggests reset:
@@ -183,11 +200,11 @@ Ticket owners can share extra tickets from the same event using a claim link.
 - Claiming transfers one ticket from owner to claimant.
 - A claimant who already has a ticket for that event can still claim another (multi-ticket ownership is allowed).
 
-### My Events
+### My Tickets
 
 A dedicated page for events where the user has at least one ticket:
 
-- route: `/my-events`
+- routes: `/my-tickets` (primary) and `/my-events` (compat redirect)
 - included in header nav
 - supports `upcoming`, `past`, and `all` filters
 - shows event metadata and ticket counts

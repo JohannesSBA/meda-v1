@@ -40,6 +40,7 @@ export default function CreateEventForm(props: CreateEventFormProps) {
     handleSubmit,
     handleUseMyLocation,
     onRecurrenceChange,
+    confirmationDialog,
   } = useCreateEventForm(props);
 
   return (
@@ -265,6 +266,7 @@ export default function CreateEventForm(props: CreateEventFormProps) {
       </form>
 
       <EventFormPreview preview={preview} timezone={timezone} />
+      {confirmationDialog}
     </div>
   );
 }

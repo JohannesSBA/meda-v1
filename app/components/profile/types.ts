@@ -38,6 +38,9 @@ export type AdminEventItem = {
   capacity?: number | null;
   categoryId?: string;
   eventLocation?: string | null;
+  addressLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   pictureUrl?: string | null;
   description?: string | null;
 };

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { processRefund } from "@/services/refunds";
-import { refundSchema } from "@/lib/validations/events";
+import { eventIdParamSchema, refundSchema } from "@/lib/validations/events";
+import {
+  parseJsonBody,
+  parseParams,
+  validationErrorResponse,
+} from "@/lib/validations/http";
+import { revalidateEventData } from "@/lib/revalidation";
 
 export async function POST(
   request: Request,
@@ -23,17 +28,22 @@ export async function POST(
   const session = await requireSessionUser();
   if (!session.user || session.response) return session.response!;
 
-  const { id } = await params;
+  const paramParse = parseParams(eventIdParamSchema, await params);
+  if (!paramParse.success) {
+    return validationErrorResponse(paramParse.error, "Invalid event id");
+  }
+  const { id } = paramParse.data;
 
-  const body = await request.json().catch(() => ({}));
-  const parsed = refundSchema.safeParse(body);
-  const ticketCount = parsed.success ? parsed.data.ticketCount : undefined;
+  const parsed = await parseJsonBody(refundSchema, request);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid refund payload");
+  }
+  const ticketCount = parsed.data.ticketCount;
 
   try {
     const result = await processRefund(id, session.user.id, ticketCount);
 
-    revalidatePath(`/events/${id}`);
-    revalidatePath("/events");
+    revalidateEventData(id, [session.user.id]);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

@@ -8,7 +8,7 @@ import Image from "next/image";
 const productLinks = [
   { href: "/events", label: "Browse events" },
   { href: "/create-events", label: "Create an event" },
-  { href: "/my-events", label: "My tickets" },
+  { href: "/my-tickets", label: "My tickets" },
   { href: "/profile", label: "Profile" },
 ];
 

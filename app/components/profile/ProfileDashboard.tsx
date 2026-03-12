@@ -74,18 +74,22 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
               setRegisteredStatus={data.setRegisteredStatus}
               registeredEvents={data.registeredEvents}
               registeredLoading={data.registeredLoading}
+              registeredError={data.registeredError}
               savedIds={data.savedIds}
               copiedEventId={data.copiedEventId}
               refundingEventId={data.refundingEventId}
               onShareLink={data.handleShareLink}
               onToggleSaved={data.toggleSavedEvent}
               onRefund={data.handleRefundFromProfile}
+              onRetry={data.loadRegisteredEvents}
             />
           ) : (
             <SavedEventsTab
               savedEvents={data.savedEvents}
               savedLoading={data.savedLoading}
+              savedError={data.savedError}
               onToggleSaved={data.toggleSavedEvent}
+              onRetry={data.loadSavedEvents}
             />
           )}
         </>
@@ -120,11 +124,13 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
             <AdminUsersTab
               adminUsers={data.adminUsers}
               adminUsersLoading={data.adminUsersLoading}
+              adminUsersError={data.adminUsersError}
               userSearch={data.userSearch}
               setUserSearch={data.setUserSearch}
               onSearch={data.loadAdminUsers}
               onSetRole={data.handleSetRole}
               onBanToggle={data.handleBanToggle}
+              onRetry={data.loadAdminUsers}
             />
           ) : null}
 
@@ -132,6 +138,7 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
             <AdminEventsTab
               adminEvents={data.adminEvents}
               adminEventsLoading={data.adminEventsLoading}
+              adminEventsError={data.adminEventsError}
               eventSearch={data.eventSearch}
               setEventSearch={data.setEventSearch}
               onSearch={data.loadAdminEvents}
@@ -146,6 +153,7 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
               seriesCount={data.seriesCount}
               savingEvent={data.savingEvent}
               onSaveChanges={data.handleSaveEventChanges}
+              onRetry={data.loadAdminEvents}
             />
           ) : null}
 
@@ -153,10 +161,15 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
             <AdminStatsTab
               stats={data.stats}
               statsLoading={data.statsLoading}
+              statsError={data.statsError}
+              onRetry={data.loadStats}
             />
           ) : null}
         </>
       )}
+
+      {data.deleteEventDialog}
+      {data.applyToSeriesDialog}
     </section>
   );
 }

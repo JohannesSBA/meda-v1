@@ -5,22 +5,26 @@
 "use client";
 
 import Link from "next/link";
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
-import { EmptyState } from "@/app/components/ui/empty-state";
 import { EventListItemSkeleton } from "@/app/components/ui/skeleton";
 import type { SavedEventItem } from "./types";
 
 type SavedEventsTabProps = {
   savedEvents: SavedEventItem[];
   savedLoading: boolean;
+  savedError?: string | null;
   onToggleSaved: (eventId: string, isSaved: boolean) => void;
+  onRetry?: () => void;
 };
 
 export function SavedEventsTab({
   savedEvents,
   savedLoading,
+  savedError,
   onToggleSaved,
+  onRetry,
 }: SavedEventsTabProps) {
   return (
     <section
@@ -30,19 +34,22 @@ export function SavedEventsTab({
       className="space-y-4"
     >
       <h2 className="text-lg font-semibold text-white">Saved events</h2>
-      {savedLoading ? (
-        <div className="grid gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <EventListItemSkeleton key={i} />
-          ))}
-        </div>
-      ) : savedEvents.length === 0 ? (
-        <EmptyState
-          title="You haven't saved any events yet"
-          description="Save events you're interested in to find them here."
-          action={{ label: "Browse events", href: "/events" }}
-        />
-      ) : (
+      <AsyncPanelState
+        loading={savedLoading}
+        error={savedError}
+        isEmpty={savedEvents.length === 0}
+        loadingFallback={
+          <div className="grid gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <EventListItemSkeleton key={i} />
+            ))}
+          </div>
+        }
+        emptyTitle="You haven't saved any events yet"
+        emptyDescription="Save events you're interested in to find them here."
+        emptyAction={{ label: "Browse events", href: "/events" }}
+        onRetry={onRetry}
+      >
         <div className="grid gap-3">
           {savedEvents.map((event) => (
             <Card
@@ -86,7 +93,7 @@ export function SavedEventsTab({
             </Card>
           ))}
         </div>
-      )}
+      </AsyncPanelState>
     </section>
   );
 }

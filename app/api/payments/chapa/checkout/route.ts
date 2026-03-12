@@ -5,6 +5,7 @@ import { initializeChapaCheckout } from "@/services/payments";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { formatUnknownError } from "@/lib/apiResponse";
 import { logger } from "@/lib/logger";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
 
 export async function POST(request: Request) {
   const rl = await checkRateLimit(`checkout:${getClientId(request)}`, 5, 60_000);
@@ -20,20 +21,16 @@ export async function POST(request: Request) {
     return session.response!;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = checkoutPaymentSchema.safeParse(body);
+  const parsed = await parseJsonBody(checkoutPaymentSchema, request);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payment payload", issues: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return validationErrorResponse(parsed.error, "Invalid payment payload");
   }
 
   const baseUrl = new URL(request.url).origin;
   const callbackUrl =
     process.env.CHAPA_CALLBACK_URL ??
-    `${baseUrl}/api/payments/chapa/confirm`;
-  const returnUrlBase = `${baseUrl}/events/${parsed.data.eventId}?payment=chapa`;
+    `${baseUrl}/api/payments/chapa/callback`;
+  const returnUrlBase = `${baseUrl}/payments/chapa/status?eventId=${encodeURIComponent(parsed.data.eventId)}`;
 
   try {
     const result = await initializeChapaCheckout({

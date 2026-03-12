@@ -40,6 +40,11 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}));
+
 const TEST_USER_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const CATEGORY_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
@@ -115,7 +120,7 @@ describe("POST /api/events/create", () => {
     const res = await POST(makeRequest(form));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/missing required/i);
+    expect(body.error).toMatch(/invalid event payload/i);
   });
 
   it("returns 400 for invalid date range", async () => {

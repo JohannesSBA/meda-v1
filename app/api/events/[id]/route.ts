@@ -1,120 +1,71 @@
-import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { auth } from "@/lib/auth/server";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-import { MAX_SERIES_OCCURRENCES } from "@/lib/constants";
-import { eventRegistrationSchema } from "@/lib/validations/events";
+import {
+  eventIdParamSchema,
+  eventDetailQuerySchema,
+  eventRegistrationSchema,
+} from "@/lib/validations/events";
+import {
+  parseJsonBody,
+  parseParams,
+  parseSearchParams,
+  validationErrorResponse,
+} from "@/lib/validations/http";
 import { registerForEvent } from "@/services/registrations";
+import { revalidateEventData } from "@/lib/revalidation";
+import { getPublicEventDetail } from "@/services/publicEvents";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  const paramParse = parseParams(eventIdParamSchema, await params);
+  if (!paramParse.success) {
+    return validationErrorResponse(paramParse.error, "Invalid event id");
+  }
+
+  const { id } = paramParse.data;
   const url = new URL(request.url);
-  const userId = url.searchParams.get("userId");
+  const queryParse = parseSearchParams(eventDetailQuerySchema, url.searchParams);
+  if (!queryParse.success) {
+    return validationErrorResponse(queryParse.error, "Invalid event query");
+  }
+  const { userId } = queryParse.data;
 
-  const event = await prisma.event.findUnique({
-    where: { eventId: id },
-    include: {
-      category: true,
-      _count: { select: { attendees: true } },
-    },
-  });
-
-  if (!event)
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-
-  const decoded = decodeEventLocation(event.eventLocation);
-
-  // Only reveal ticket count for the currently authenticated user
-  let myTickets: number | null = null;
-  if (userId && /^[0-9a-fA-F-]{36}$/.test(userId)) {
+  let viewerUserId: string | null = null;
+  if (userId) {
     try {
       const { data: sessionData } = await auth.getSession();
       const sessionUserId = (sessionData?.user as { id?: string } | null)?.id;
-      if (sessionUserId && sessionUserId === userId) {
-        myTickets = await prisma.eventAttendee.count({
-          where: { eventId: id, userId },
-        });
+      if (sessionUserId === userId) {
+        viewerUserId = userId;
       }
     } catch {
-      // No session — myTickets stays null
+      viewerUserId = null;
     }
   }
 
-  let occurrences:
-    | Array<{
-        eventId: string;
-        eventDatetime: string;
-        eventEndtime: string;
-        attendeeCount: number;
-        capacity: number | null;
-        myTickets: number;
-        occurrenceIndex: number | null;
-      }>
-    | undefined;
-  if (event.seriesId) {
-    const seriesEvents = await prisma.event.findMany({
-      where: {
-        seriesId: event.seriesId,
-        eventEndtime: { gte: new Date() },
-      },
-      include: {
-        _count: { select: { attendees: true } },
-      },
-      orderBy: { eventDatetime: "asc" },
-      take: MAX_SERIES_OCCURRENCES,
-    });
-
-    const myTicketCounts = new Map<string, number>();
-    // myTickets in occurrences is only populated when userId matches the session user
-    if (
-      myTickets !== null &&
-      userId &&
-      /^[0-9a-fA-F-]{36}$/.test(userId) &&
-      seriesEvents.length > 0
-    ) {
-      const grouped = await prisma.eventAttendee.groupBy({
-        by: ["eventId"],
-        where: {
-          userId,
-          eventId: { in: seriesEvents.map((entry) => entry.eventId) },
-        },
-        _count: { _all: true },
-      });
-      grouped.forEach((entry) =>
-        myTicketCounts.set(entry.eventId, entry._count._all),
-      );
-    }
-
-    occurrences = seriesEvents.map((entry) => ({
-      eventId: entry.eventId,
-      eventDatetime: entry.eventDatetime.toISOString(),
-      eventEndtime: entry.eventEndtime.toISOString(),
-      attendeeCount: entry._count.attendees,
-      capacity: entry.capacity,
-      myTickets: myTicketCounts.get(entry.eventId) ?? 0,
-      occurrenceIndex: entry.occurrenceIndex,
-    }));
+  const event = await getPublicEventDetail(id, viewerUserId);
+  if (!event) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   return NextResponse.json(
+    { event },
     {
-      event: {
-        ...event,
-        attendeeCount: event._count.attendees,
-        addressLabel: decoded.addressLabel,
-        latitude: decoded.latitude,
-        longitude: decoded.longitude,
-        myTickets,
-        occurrences,
-      },
+      status: 200,
+      headers:
+        viewerUserId == null
+          ? {
+              "Cache-Control":
+                "public, s-maxage=60, stale-while-revalidate=300",
+            }
+          : {
+              "Cache-Control": "private, no-store",
+            },
     },
-    { status: 200 },
   );
 }
 
@@ -136,14 +87,15 @@ export async function POST(
   const session = await requireSessionUser();
   if (!session.user || session.response) return session.response!;
 
-  const { id } = await params;
-  const body = await request.json().catch(() => null);
-  const parsed = eventRegistrationSchema.safeParse(body);
+  const paramParse = parseParams(eventIdParamSchema, await params);
+  if (!paramParse.success) {
+    return validationErrorResponse(paramParse.error, "Invalid event id");
+  }
+
+  const { id } = paramParse.data;
+  const parsed = await parseJsonBody(eventRegistrationSchema, request);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid request body", issues: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationErrorResponse(parsed.error, "Invalid request body");
   }
   const { quantity: qty, userId } = parsed.data;
 
@@ -161,8 +113,7 @@ export async function POST(
       baseUrl: new URL(request.url).origin,
     });
 
-    revalidatePath(`/events/${id}`);
-    revalidatePath("/events");
+    revalidateEventData(id, [userId]);
 
     return NextResponse.json(
       { ok: result.ok, attendeeCount: result.attendeeCount },
@@ -190,15 +141,19 @@ export async function DELETE(
   const session = await requireSessionUser();
   if (!session.user || session.response) return session.response!;
 
-  const { id } = await params;
+  const paramParse = parseParams(eventIdParamSchema, await params);
+  if (!paramParse.success) {
+    return validationErrorResponse(paramParse.error, "Invalid event id");
+  }
+
+  const { id } = paramParse.data;
 
   const { processRefund } = await import("@/services/refunds");
 
   try {
     const result = await processRefund(id, session.user.id);
 
-    revalidatePath(`/events/${id}`);
-    revalidatePath("/events");
+    revalidateEventData(id, [session.user.id]);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

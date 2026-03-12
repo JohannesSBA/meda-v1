@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Card } from "../ui/card";
 import { cn } from "../ui/cn";
+import { browserApi } from "@/lib/browserApi";
 
 type Props = {
   eventId: string;
@@ -30,11 +31,13 @@ export default function TicketQRPanel({
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch(`/api/events/${eventId}/my-attendees`, {
+        const data = await browserApi.get<{ attendeeIds?: string[] }>(
+          `/api/events/${eventId}/my-attendees`,
+          {
           cache: "no-store",
-        });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
+          },
+        );
+        if (cancelled) return;
         setAttendeeIds(data.attendeeIds ?? []);
       } catch {
         if (!cancelled) setAttendeeIds([]);

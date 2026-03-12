@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSessionUser } from "@/lib/auth/guards";
+import {
+  computeSpotsLeft,
+  getActiveReservationCountForEvent,
+} from "@/lib/events/availability";
+import { eventIdParamSchema } from "@/lib/validations/events";
+import { parseParams, validationErrorResponse } from "@/lib/validations/http";
 
 export async function GET(
   _request: Request,
@@ -10,7 +16,11 @@ export async function GET(
   if (sessionCheck.response) return sessionCheck.response;
   const user = sessionCheck.user!;
 
-  const { id: eventId } = await params;
+  const parsed = parseParams(eventIdParamSchema, await params);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event id");
+  }
+  const { id: eventId } = parsed.data;
 
   const entry = await prisma.eventWaitlist.findUnique({
     where: {
@@ -29,15 +39,23 @@ export async function POST(
   if (sessionCheck.response) return sessionCheck.response;
   const user = sessionCheck.user!;
 
-  const { id: eventId } = await params;
+  const parsed = parseParams(eventIdParamSchema, await params);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event id");
+  }
+  const { id: eventId } = parsed.data;
 
   const event = await prisma.event.findUnique({ where: { eventId } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const capacity = event.capacity;
-  if (capacity == null || capacity > 0) {
+  const [attendeeCount, reservedCount] = await Promise.all([
+    prisma.eventAttendee.count({ where: { eventId } }),
+    getActiveReservationCountForEvent(eventId),
+  ]);
+  const spotsLeft = computeSpotsLeft(event.capacity, attendeeCount, reservedCount);
+  if (spotsLeft == null || spotsLeft > 0) {
     return NextResponse.json(
       { error: "Event is not sold out. You can register directly." },
       { status: 400 },
@@ -73,7 +91,11 @@ export async function DELETE(
   if (sessionCheck.response) return sessionCheck.response;
   const user = sessionCheck.user!;
 
-  const { id: eventId } = await params;
+  const parsed = parseParams(eventIdParamSchema, await params);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event id");
+  }
+  const { id: eventId } = parsed.data;
 
   await prisma.eventWaitlist.deleteMany({
     where: { eventId, userId: user.id },

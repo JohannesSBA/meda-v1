@@ -4,14 +4,22 @@
 
 "use client";
 
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { StatsCardsSkeleton } from "@/app/components/ui/skeleton";
 
 type AdminStatsTabProps = {
   stats: Record<string, unknown> | null;
   statsLoading: boolean;
+  statsError?: string | null;
+  onRetry?: () => void;
 };
 
-export function AdminStatsTab({ stats, statsLoading }: AdminStatsTabProps) {
+export function AdminStatsTab({
+  stats,
+  statsLoading,
+  statsError,
+  onRetry,
+}: AdminStatsTabProps) {
   return (
     <section
       id="admin-tabpanel-stats"
@@ -20,11 +28,17 @@ export function AdminStatsTab({ stats, statsLoading }: AdminStatsTabProps) {
       className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5"
     >
       <h2 className="text-lg font-semibold text-white">Platform statistics</h2>
-      {statsLoading ? (
-        <StatsCardsSkeleton count={4} />
-      ) : stats ? (
+      <AsyncPanelState
+        loading={statsLoading}
+        error={statsError}
+        isEmpty={!stats}
+        loadingFallback={<StatsCardsSkeleton count={4} />}
+        emptyTitle="No statistics available"
+        emptyDescription="Stats will appear here once the admin dashboard has data to report."
+        onRetry={onRetry}
+      >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Object.entries((stats.cards as Record<string, unknown>) ?? {}).map(
+          {Object.entries((stats!.cards as Record<string, unknown>) ?? {}).map(
             ([label, value]) => (
               <div
                 key={label}
@@ -38,11 +52,7 @@ export function AdminStatsTab({ stats, statsLoading }: AdminStatsTabProps) {
             ),
           )}
         </div>
-      ) : (
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          No statistics available.
-        </p>
-      )}
+      </AsyncPanelState>
     </section>
   );
 }

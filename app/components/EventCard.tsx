@@ -13,7 +13,7 @@ type EventCardProps = {
   href: string;
   isSaved?: boolean;
   onSaveToggle?: (eventId: string, isSaved: boolean) => void | Promise<void>;
-} & ComponentPropsWithoutRef<"a">;
+} & ComponentPropsWithoutRef<"article">;
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -26,6 +26,35 @@ function formatShortDate(event: EventResponse) {
   const start = new Date(event.eventDatetime);
   if (Number.isNaN(start.getTime())) return null;
   return shortDateFormatter.format(start);
+}
+
+function SaveButton({
+  eventId,
+  isSaved,
+  onSaveToggle,
+  className,
+}: {
+  eventId: string;
+  isSaved: boolean;
+  onSaveToggle: (eventId: string, isSaved: boolean) => void | Promise<void>;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void onSaveToggle(eventId, isSaved);
+      }}
+      className={className}
+      aria-label={isSaved ? "Remove from saved" : "Save event"}
+    >
+      {isSaved ? (
+        <FaBookmark className="h-4 w-4 text-[var(--color-brand)] sm:h-5 sm:w-5" />
+      ) : (
+        <FaRegBookmark className="h-4 w-4 sm:h-5 sm:w-5" />
+      )}
+    </button>
+  );
 }
 
 export function EventCard({
@@ -49,14 +78,21 @@ export function EventCard({
     event.categoryName ??
     (event.categoryId ? "Featured" : "Community");
 
+  const spotsLabel =
+    event.spotsLeft ?? event.capacity ?? null;
+
   return (
-    <Link
-      href={href}
-      className={`group block h-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-lg shadow-black/30 transition will-change-transform active:scale-[0.98] sm:hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] ${className}`}
+    <article
+      className={`group relative h-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-lg shadow-black/30 transition will-change-transform active:scale-[0.98] sm:hover:-translate-y-1 focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--color-ring)] ${className}`}
       {...rest}
     >
-      {/* Mobile: compact horizontal layout */}
-      <article className="flex items-stretch sm:hidden">
+      <Link
+        href={href}
+        aria-label={`View ${event.eventName}`}
+        className="absolute inset-0 z-10 rounded-2xl"
+      />
+
+      <div className="relative z-0 flex items-stretch sm:hidden">
         <div className="relative h-28 w-28 shrink-0 overflow-hidden">
           {event.pictureUrl ? (
             <Image
@@ -86,35 +122,16 @@ export function EventCard({
           </p>
           <div className="mt-auto flex items-center justify-between pt-1">
             <span className="text-sm font-bold text-white">{priceLabel}</span>
-            {event.capacity != null && event.capacity > 0 ? (
+            {spotsLabel != null && spotsLabel > 0 ? (
               <span className="rounded-full bg-[var(--color-brand-alt)]/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-[var(--color-brand-alt)]">
-                {event.capacity} left
+                {spotsLabel} left
               </span>
             ) : null}
           </div>
         </div>
-        {onSaveToggle ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void onSaveToggle(event.eventId, isSaved);
-            }}
-            className="flex w-11 shrink-0 items-center justify-center border-l border-[var(--color-border)] text-white transition active:scale-90"
-            aria-label={isSaved ? "Remove from saved" : "Save event"}
-          >
-            {isSaved ? (
-              <FaBookmark className="h-4 w-4 text-[var(--color-brand)]" />
-            ) : (
-              <FaRegBookmark className="h-4 w-4" />
-            )}
-          </button>
-        ) : null}
-      </article>
+      </div>
 
-      {/* Desktop / tablet: vertical card layout */}
-      <article className="hidden h-full flex-col sm:flex">
+      <div className="relative z-0 hidden h-full flex-col sm:flex">
         <div className="relative aspect-video w-full overflow-hidden">
           {event.pictureUrl ? (
             <Image
@@ -132,25 +149,6 @@ export function EventCard({
           <span className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
             {categoryLabel}
           </span>
-
-          {onSaveToggle ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void onSaveToggle(event.eventId, isSaved);
-              }}
-              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition active:scale-90 sm:hover:bg-black/70 sm:hover:text-[var(--color-brand-alt)]"
-              aria-label={isSaved ? "Remove from saved" : "Save event"}
-            >
-              {isSaved ? (
-                <FaBookmark className="h-5 w-5 text-[var(--color-brand)]" />
-              ) : (
-                <FaRegBookmark className="h-5 w-5" />
-              )}
-            </button>
-          ) : null}
         </div>
 
         <div className="flex flex-1 flex-col gap-2 p-4">
@@ -173,14 +171,31 @@ export function EventCard({
             <span className="text-base font-bold text-white">
               {priceLabel}
             </span>
-            {event.capacity != null && event.capacity > 0 ? (
+            {spotsLabel != null && spotsLabel > 0 ? (
               <span className="rounded-full bg-[var(--color-brand-alt)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--color-brand-alt)]">
-                {event.capacity} left
+                {spotsLabel} left
               </span>
             ) : null}
           </div>
         </div>
-      </article>
-    </Link>
+      </div>
+
+      {onSaveToggle ? (
+        <>
+          <SaveButton
+            eventId={event.eventId}
+            isSaved={isSaved}
+            onSaveToggle={onSaveToggle}
+            className="absolute bottom-0 right-0 z-20 flex h-full w-11 items-center justify-center border-l border-[var(--color-border)] text-white transition active:scale-90 sm:hidden"
+          />
+          <SaveButton
+            eventId={event.eventId}
+            isSaved={isSaved}
+            onSaveToggle={onSaveToggle}
+            className="absolute right-3 top-3 z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition active:scale-90 sm:flex sm:hover:bg-black/70 sm:hover:text-[var(--color-brand-alt)]"
+          />
+        </>
+      ) : null}
+    </article>
   );
 }

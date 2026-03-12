@@ -9,7 +9,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
-import { DEFAULT_MAP_CENTER } from "@/lib/constants";
+import { browserApi } from "@/lib/browserApi";
+import { getErrorMessage } from "@/lib/errorMessage";
 import type { EventListResponse, EventResponse } from "@/app/types/eventTypes";
 
 const PAGE_SIZE = 8;
@@ -48,9 +49,10 @@ export function useEventSearch() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/categories/get", { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
+        const data = await browserApi.get<{
+          categories?: Array<{ categoryId: string; categoryName: string }>;
+        }>("/api/categories/get");
+        if (cancelled) return;
         setCategories(data.categories ?? []);
       } catch {
         if (!cancelled) setCategories([]);
@@ -71,21 +73,19 @@ export function useEventSearch() {
           if (!cancelled) setSavedEventIds(new Set());
           return;
         }
-        const res = await fetch("/api/profile/saved-events", {
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          if (!cancelled) setSavedEventIds(new Set());
-          return;
-        }
-        const data = await res.json();
+        const data = await browserApi.get<{ items?: Array<{ eventId?: string }> }>(
+          "/api/profile/saved-events",
+          {
+            cache: "no-store",
+          },
+        );
         const items = Array.isArray(data?.items) ? data.items : [];
         if (!cancelled) {
           setSavedEventIds(
             new Set(
               items
                 .map((item: { eventId?: string }) => item.eventId)
-                .filter(Boolean),
+                .filter((eventId): eventId is string => Boolean(eventId)),
             ),
           );
         }
@@ -158,22 +158,19 @@ export function useEventSearch() {
         if (nearLat && nearLng) {
           params.set("nearLat", nearLat);
           params.set("nearLng", nearLng);
-        } else {
-          params.set("nearLat", String(DEFAULT_MAP_CENTER.lat));
-          params.set("nearLng", String(DEFAULT_MAP_CENTER.lng));
         }
-        const res = await fetch(`/api/events/list?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error("Failed to fetch events");
-        const data: EventListResponse = await res.json();
+        const data = await browserApi.get<EventListResponse>(
+          `/api/events/list?${params.toString()}`,
+          {
+            signal: controller.signal,
+          },
+        );
         setEvents(data.items);
         setMapItems(data.mapItems ?? data.items);
         setTotal(data.total);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        const message =
-          err instanceof Error ? err.message : "Failed to load events";
+        const message = getErrorMessage(err) || "Failed to load events";
         setError(message);
       } finally {
         setLoading(false);
@@ -277,21 +274,9 @@ export function useEventSearch() {
         return;
       }
       try {
-        const res = await fetch("/api/profile/saved-events", {
-          method: isSaved ? "DELETE" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ eventId }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          if (res.status === 401) {
-            router.push(
-              `/auth/sign-in?redirect=${encodeURIComponent("/events" + (searchParams.toString() ? `?${searchParams.toString()}` : ""))}`,
-            );
-            return;
-          }
-          throw new Error(data?.error || "Save action failed");
-        }
+        await (isSaved
+          ? browserApi.delete("/api/profile/saved-events", { eventId })
+          : browserApi.post("/api/profile/saved-events", { eventId }));
         setSavedEventIds((prev) => {
           const next = new Set(prev);
           if (isSaved) next.delete(eventId);
@@ -303,7 +288,14 @@ export function useEventSearch() {
           { id: `save-${eventId}` },
         );
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save action failed");
+        const message = getErrorMessage(err) || "Save action failed";
+        if (message === "Unauthenticated") {
+          router.push(
+            `/auth/sign-in?redirect=${encodeURIComponent("/events" + (searchParams.toString() ? `?${searchParams.toString()}` : ""))}`,
+          );
+          return;
+        }
+        toast.error(message);
       }
     },
     [router, searchParams],

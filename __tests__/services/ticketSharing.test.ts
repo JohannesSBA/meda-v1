@@ -20,7 +20,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/app/helpers/locationCodec", () => ({
+vi.mock("@/lib/location", () => ({
   decodeEventLocation: vi.fn().mockReturnValue({ addressLabel: "Test Venue" }),
 }));
 

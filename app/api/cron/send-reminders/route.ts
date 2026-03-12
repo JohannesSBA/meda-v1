@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
 import { sendEventReminderEmail } from "@/services/email";
 import { logger } from "@/lib/logger";
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const baseUrl = getAppBaseUrl();
   let sent = 0;
   let errors = 0;
 
@@ -85,23 +86,31 @@ export async function GET(request: Request) {
     const alreadySent = await getAlreadySent(eventIds, allUserIds, label);
 
     const BATCH_SIZE = 10;
-    const tasks: Array<{ event: typeof events[number]; userId: string; decoded: ReturnType<typeof decodeEventLocation> }> = [];
+    const tasks: Array<{
+      event: typeof events[number];
+      userId: string;
+      locationLabel: string | null;
+    }> = [];
 
     for (const event of events) {
-      const decoded = decodeEventLocation(event.eventLocation);
+      const location = resolveEventLocation(event);
       for (const attendee of event.attendees) {
         const key = `${event.eventId}:${attendee.userId}`;
         if (alreadySent.has(key)) continue;
         const authUser = userMap.get(attendee.userId);
         if (!authUser?.email) continue;
-        tasks.push({ event, userId: attendee.userId, decoded });
+        tasks.push({
+          event,
+          userId: attendee.userId,
+          locationLabel: location.addressLabel,
+        });
       }
     }
 
     for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
       const batch = tasks.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map(async ({ event, userId, decoded }) => {
+        batch.map(async ({ event, userId, locationLabel }) => {
           const authUser = userMap.get(userId)!;
           const eventUrl = `${baseUrl}/events/${event.eventId}`;
           await sendEventReminderEmail({
@@ -110,7 +119,7 @@ export async function GET(request: Request) {
             eventName: event.eventName,
             eventDateTime: event.eventDatetime,
             eventEndTime: event.eventEndtime,
-            locationLabel: decoded.addressLabel,
+            locationLabel,
             hoursUntil: hours,
             eventUrl,
           });

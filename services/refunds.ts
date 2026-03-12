@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
 import {
   sendRefundConfirmationEmail,
   sendWaitlistSpotAvailableEmail,
@@ -35,6 +35,9 @@ export async function processRefund(
       eventDatetime: true,
       eventEndtime: true,
       eventLocation: true,
+      addressLabel: true,
+      latitude: true,
+      longitude: true,
       capacity: true,
       priceField: true,
     },
@@ -92,13 +95,6 @@ export async function processRefund(
     await tx.eventAttendee.deleteMany({
       where: { attendeeId: { in: attendeeIdsToDelete } },
     });
-
-    if (event.capacity != null) {
-      await tx.event.update({
-        where: { eventId },
-        data: { capacity: { increment: ticketCount } },
-      });
-    }
 
     if (refundAmount > 0) {
       const existing = await tx.userBalance.findUnique({
@@ -165,7 +161,7 @@ export async function processRefund(
   if (waitlistEntries.length > 0) {
     const waitlistUserIds = waitlistEntries.map((w) => w.userId);
     const waitlistUserMap = await getAuthUserEmails(waitlistUserIds);
-    const decoded = decodeEventLocation(event.eventLocation);
+    const location = resolveEventLocation(event);
 
     for (const entry of waitlistEntries) {
       const user = waitlistUserMap.get(entry.userId);
@@ -176,7 +172,7 @@ export async function processRefund(
             userName: user.name,
             eventName: event.eventName,
             eventDateTime: event.eventDatetime,
-            locationLabel: decoded.addressLabel,
+            locationLabel: location.addressLabel,
             eventId,
           });
         } catch (err) {

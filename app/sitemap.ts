@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+import { getAppBaseUrl } from "@/lib/env";
+
+const BASE_URL = getAppBaseUrl();
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
@@ -17,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let eventPages: MetadataRoute.Sitemap = [];
   try {
     const events = await prisma.event.findMany({
-      where: { eventDatetime: { gte: new Date() } },
+      where: { eventEndtime: { gte: new Date() } },
       select: { eventId: true, updatedAt: true },
       orderBy: { eventDatetime: "asc" },
       take: 1000,

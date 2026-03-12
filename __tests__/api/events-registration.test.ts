@@ -39,8 +39,11 @@ vi.mock("@/services/email", () => ({
   sendTicketConfirmationEmail: vi.fn(),
 }));
 
-vi.mock("@/app/helpers/locationCodec", () => ({
+vi.mock("@/lib/location", () => ({
   decodeEventLocation: vi.fn().mockReturnValue({ addressLabel: "Test Venue" }),
+  resolveEventLocation: vi
+    .fn()
+    .mockReturnValue({ addressLabel: "Test Venue", latitude: 9, longitude: 38 }),
 }));
 
 vi.mock("@/lib/ratelimit", () => ({
@@ -48,7 +51,11 @@ vi.mock("@/lib/ratelimit", () => ({
   getClientId: vi.fn().mockReturnValue("test-client"),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: vi.fn((fn: unknown) => fn),
+}));
 
 // ---- helpers ----
 
@@ -65,7 +72,7 @@ function makeEvent(overrides: Partial<{
   eventEndtime: Date;
 }> = {}) {
   return {
-    eventId: "event-uuid-1",
+    eventId: "550e8400-e29b-41d4-a716-446655440000",
     eventName: "Test Event",
     eventDatetime: new Date(Date.now() + 86400_000),
     eventEndtime: overrides.eventEndtime ?? new Date(Date.now() + 2 * 86400_000),
@@ -77,7 +84,7 @@ function makeEvent(overrides: Partial<{
 }
 
 function makeRequest(body: object, ip = "1.2.3.4") {
-  return new Request("http://localhost/api/events/event-uuid-1", {
+  return new Request("http://localhost/api/events/550e8400-e29b-41d4-a716-446655440000", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -121,7 +128,7 @@ describe("POST /api/events/[id] — registration", () => {
 
     const POST = await importHandler();
     const res = await POST(makeRequest({ quantity: 1, userId: TEST_USER_ID }), {
-      params: Promise.resolve({ id: "event-uuid-1" }),
+      params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }),
     });
     expect(res.status).toBe(401);
   });
@@ -131,7 +138,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 1, userId: OTHER_USER_ID }),
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(403);
   });
@@ -141,7 +148,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 21, userId: TEST_USER_ID }),
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -155,7 +162,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 1, userId: TEST_USER_ID }),
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -167,7 +174,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 5, userId: TEST_USER_ID }),
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -180,7 +187,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 5, userId: TEST_USER_ID }), // 18 + 5 > 20
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -195,7 +202,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 1, userId: TEST_USER_ID }),
-      { params: Promise.resolve({ id: "event-uuid-1" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000" }) },
     );
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -207,7 +214,7 @@ describe("POST /api/events/[id] — registration", () => {
     const POST = await importHandler();
     const res = await POST(
       makeRequest({ quantity: 1, userId: TEST_USER_ID }),
-      { params: Promise.resolve({ id: "nonexistent" }) },
+      { params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440001" }) },
     );
     expect(res.status).toBe(404);
   });

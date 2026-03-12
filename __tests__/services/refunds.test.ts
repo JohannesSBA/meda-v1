@@ -25,8 +25,11 @@ vi.mock("@/services/email", () => ({
   sendWaitlistSpotAvailableEmail: mockSendWaitlistSpotAvailableEmail,
 }));
 
-vi.mock("@/app/helpers/locationCodec", () => ({
+vi.mock("@/lib/location", () => ({
   decodeEventLocation: vi.fn().mockReturnValue({ addressLabel: "Test Venue" }),
+  resolveEventLocation: vi
+    .fn()
+    .mockReturnValue({ addressLabel: "Test Venue", latitude: 9, longitude: 38 }),
 }));
 
 // ---- helpers ----

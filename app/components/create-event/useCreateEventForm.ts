@@ -6,20 +6,19 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth/client";
 import type { User } from "@neondatabase/auth/types";
+import { useConfirmDialog } from "@/app/components/ui/confirm-dialog";
+import { browserApi } from "@/lib/browserApi";
 import {
   combineLocalDateAndTime,
   toDateInput,
   toTimeInput,
   toLocalDateTime,
-  type InitialEventData,
   type CreateEventFormProps,
 } from "./types";
-import type { Category } from "@/app/types/catagory";
 
 export type CreateEventFormState = {
   eventName: string;
@@ -76,6 +75,7 @@ export function useCreateEventForm({
     "idle" | "locating" | "error" | "done"
   >("idle");
   const [user, setUser] = useState<User | null>(null);
+  const applyToSeriesDialog = useConfirmDialog();
 
   const router = useRouter();
 
@@ -187,9 +187,11 @@ export function useCreateEventForm({
     }
     setSubmitting(true);
     if (mode === "edit" && applyToSeries && (initialEvent?.seriesCount ?? 1) > 1) {
-      const confirmed = window.confirm(
-        `This will update ${initialEvent?.seriesCount} occurrences in this recurring series. Continue?`
-      );
+      const confirmed = await applyToSeriesDialog.confirm({
+        title: "Update recurring series?",
+        description: `This will update ${initialEvent?.seriesCount} occurrences in this recurring series. Continue only if every occurrence should change.`,
+        confirmLabel: "Update series",
+      });
       if (!confirmed) {
         setSubmitting(false);
         return;
@@ -227,27 +229,21 @@ export function useCreateEventForm({
 
     try {
       if (mode === "create") {
-        const res = await axios.post(
-          `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/events/create`,
+        const res = await browserApi.post<{ event: { eventId: string } }>(
+          "/api/events/create",
           fd,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
         );
         toast.success("Event created successfully");
-        router.push(`/events/${res.data.event.eventId}`);
+        router.push(`/events/${res.event.eventId}`);
       } else {
         fd.append("applyToSeries", applyToSeries ? "true" : "false");
-        const res = await axios.patch(
-          `${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/admin/events/${initialEvent?.eventId}`,
+        const res = await browserApi.patch<{ bulkUpdated?: boolean; updatedCount?: number }>(
+          `/api/admin/events/${initialEvent?.eventId}`,
           fd,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
         );
-        const count = Number(res.data?.updatedCount) || 1;
+        const count = Number(res.updatedCount) || 1;
         toast.success(
-          res.data?.bulkUpdated
+          res.bulkUpdated
             ? `Updated ${count} occurrences`
             : "Event updated successfully",
         );
@@ -346,5 +342,6 @@ export function useCreateEventForm({
     handleSubmit,
     handleUseMyLocation,
     onRecurrenceChange,
+    confirmationDialog: applyToSeriesDialog.dialog,
   };
 }

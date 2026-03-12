@@ -19,12 +19,15 @@ vi.mock("@/lib/ratelimit", () => ({
   getClientId: vi.fn().mockReturnValue("test-client"),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}));
 
 // ---- helpers ----
 
 const TEST_USER_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-const EVENT_ID = "event-uuid-1";
+const EVENT_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 function makeSessionUser(id = TEST_USER_ID) {
   return { user: { id, email: "user@test.com", name: "Test User" }, response: null };
@@ -142,7 +145,7 @@ describe("POST /api/events/[id]/refund", () => {
     const res = await POST(req, {
       params: Promise.resolve({ id: EVENT_ID }),
     });
-    expect(res.status).toBe(200);
-    expect(mockProcessRefund).toHaveBeenCalledWith(EVENT_ID, TEST_USER_ID, undefined);
+    expect(res.status).toBe(400);
+    expect(mockProcessRefund).not.toHaveBeenCalled();
   });
 });

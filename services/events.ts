@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { uploadEventImageUnified } from "@/lib/uploadEventImage";
 import { logger } from "@/lib/logger";
+import { prepareEventLocationFields } from "@/lib/location";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB per supabase guidance
 const MAX_RECURRING_OCCURRENCES = 180;
@@ -174,7 +175,11 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
     });
   }
 
-  const eventLocation = `${location}!longitude=${longitude}&latitude=${latitude}`;
+  const locationFields = prepareEventLocationFields({
+    addressLabel: location,
+    latitude,
+    longitude,
+  });
 
   if (!recurrenceEnabled) {
     const event = await prisma.event.create({
@@ -185,7 +190,10 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
         description,
         eventDatetime: startAt,
         eventEndtime: endAt,
-        eventLocation,
+        eventLocation: locationFields.eventLocation,
+        addressLabel: locationFields.addressLabel,
+        latitude: locationFields.latitude,
+        longitude: locationFields.longitude,
         pictureUrl,
         capacity: capacityNum,
         priceField: priceNum,
@@ -238,7 +246,10 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
     description,
     eventDatetime: window.start,
     eventEndtime: window.end,
-    eventLocation,
+    eventLocation: locationFields.eventLocation,
+    addressLabel: locationFields.addressLabel,
+    latitude: locationFields.latitude,
+    longitude: locationFields.longitude,
     pictureUrl,
     capacity: capacityNum,
     priceField: priceNum,

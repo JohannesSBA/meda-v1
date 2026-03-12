@@ -24,7 +24,7 @@ const groups: LinkGroup[] = [
       { label: "Home", href: "/" },
       { label: "Events", href: "/events", note: "Browse upcoming matches" },
       { label: "Create event", href: "/create-events", note: "For hosts and admins" },
-      { label: "My events & tickets", href: "/my-events", note: "Manage the matches you joined" },
+      { label: "My events & tickets", href: "/my-tickets", note: "Manage the matches you joined" },
       { label: "Profile", href: "/profile", note: "Update details and see balances" },
     ],
   },

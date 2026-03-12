@@ -6,11 +6,12 @@
  */
 
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { checkoutPaymentSchema } from "@/lib/validations/payments";
+import { parseJsonBody } from "@/lib/validations/http";
 import { payWithBalance, InsufficientBalanceError } from "@/services/payments";
+import { revalidateEventData } from "@/lib/revalidation";
 
 export async function POST(request: Request) {
   const rl = await checkRateLimit(`balance-pay:${getClientId(request)}`, 5, 60_000);
@@ -25,17 +26,13 @@ export async function POST(request: Request) {
   if (!session.user || session.response) return session.response!;
   const userId = session.user.id;
 
-  const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
-  const parsed = checkoutPaymentSchema.safeParse(body);
+  const parsed = await parseJsonBody(checkoutPaymentSchema, request);
   if (!parsed.success) {
     const issues = parsed.error.flatten();
     const eventIdErr = issues.fieldErrors.eventId?.[0];
     const quantityErr = issues.fieldErrors.quantity?.[0];
     const error = eventIdErr
-      ? (body.eventId === undefined ? "eventId is required" : eventIdErr)
+      ? (/undefined/i.test(eventIdErr) ? "eventId is required" : eventIdErr)
       : quantityErr ?? "Invalid request body";
     return NextResponse.json({ error }, { status: 400 });
   }
@@ -52,8 +49,7 @@ export async function POST(request: Request) {
       baseUrl: new URL(request.url).origin,
     });
 
-    revalidatePath(`/events/${eventId}`);
-    revalidatePath("/events");
+    revalidateEventData(eventId, [userId]);
 
     return NextResponse.json(
       {
@@ -83,6 +79,7 @@ export async function POST(request: Request) {
         : message.includes("ended") ||
             message.includes("does not require payment") ||
             message.includes("seats") ||
+            message.includes("hold at most") ||
             message.includes("Insufficient balance")
           ? 400
           : 400;

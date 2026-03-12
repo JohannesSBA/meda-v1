@@ -1,17 +1,15 @@
 /**
  * Root layout -- wraps all pages with fonts, AuthProviders, and HeaderNav/Footer.
- *
- * Fetches session server-side and passes to client components.
  */
 
-import { auth } from "@/lib/auth/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getAppBaseUrl } from "@/lib/env";
 import "./globals.css";
 import AuthProviders from "./components/AuthProviders";
 import Footer from "./components/Footer";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+const BASE_URL = getAppBaseUrl();
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,28 +50,17 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = "force-dynamic";
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  let initialSession: unknown | null = null;
-  try {
-    const { data } = await auth.getSession();
-    initialSession = data ?? null;
-  } catch (error) {
-    // Fail-open: auth issues should not take down the entire app shell.
-    console.error("Failed to load auth session in layout", error);
-  }
-
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased `}
       >
-        <AuthProviders initialSession={initialSession}>
+        <AuthProviders>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1 min-w-0">{children}</div>
             <Footer />

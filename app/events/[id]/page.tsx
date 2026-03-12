@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getAppBaseUrl } from "@/lib/env";
 import { auth } from "@/lib/auth/server";
 import { getEvent } from "./data";
 import { EventDetailContent } from "./EventDetailContent";
@@ -19,7 +20,7 @@ export async function generateMetadata({
   const event = await getEvent(id);
   if (!event) return { title: "Event not found" };
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const baseUrl = getAppBaseUrl();
   const eventUrl = `${baseUrl}/events/${id}`;
   const description =
     event.description?.slice(0, 160)?.trim() ||
@@ -61,9 +62,11 @@ export default async function EventDetailPage({
   ]);
   if (!event) return notFound();
 
-  const isSoldOut = event.capacity != null && event.capacity <= 0;
-  const isAdmin =
-    (session?.data?.user as { role?: string } | undefined)?.role === "admin";
+  const sessionUser = (session?.data?.user as { id?: string; role?: string } | undefined) ?? null;
+  const isSoldOut = event.spotsLeft != null && event.spotsLeft <= 0;
+  const canScan =
+    sessionUser?.role === "admin" ||
+    (sessionUser?.id != null && sessionUser.id === event.userId);
 
   const priceLabel =
     event.priceField == null || event.priceField === 0
@@ -78,7 +81,7 @@ export default async function EventDetailPage({
     <EventDetailContent
       event={event}
       isSoldOut={isSoldOut}
-      isAdmin={isAdmin}
+      canScan={canScan}
       priceLabel={priceLabel}
       startDate={startDate}
       endDate={endDate}

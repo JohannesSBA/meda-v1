@@ -58,7 +58,7 @@ export function EventFormPreview({ preview, timezone }: EventFormPreviewProps) {
         <ul className="space-y-2 list-disc pl-4">
           <li>Lead with format and level so players self-select.</li>
           <li>
-            Add exact pin; we'll surface it on the map for nearby players.
+            Add exact pin; we&apos;ll surface it on the map for nearby players.
           </li>
           <li>Images load best at 1200x630, under 6MB.</li>
         </ul>

@@ -14,6 +14,7 @@ import Image from "next/image";
 import { authClient } from "@/lib/auth/client";
 import { buttonVariants } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/cn";
+import { browserApi } from "@/lib/browserApi";
 
 type SessionPayload = ReturnType<typeof authClient.useSession>["data"];
 
@@ -23,9 +24,9 @@ type HeaderNavProps = {
 
 const desktopNavItems = [
   { href: "/events", label: "Events", requiresAdmin: false, public: true },
-  { href: "/my-events", label: "My Events", requiresAdmin: false, public: false },
-  { href: "/create-events", label: "Create Event", requiresAdmin: true, public: false },
-  { href: "/profile", label: "Profile", requiresAdmin: false, public: false },
+  { href: "/my-tickets", label: "My Tickets", requiresAdmin: false, requiresAuth: true, public: false },
+  { href: "/create-events", label: "Create Event", requiresAdmin: false, requiresAuth: true, public: false },
+  { href: "/profile", label: "Profile", requiresAdmin: false, requiresAuth: true, public: false },
 ];
 
 type BottomTab = {
@@ -40,7 +41,7 @@ const bottomTabs: BottomTab[] = [
   { href: "/", label: "Home", icon: HomeIcon },
   { href: "/events", label: "Events", icon: SearchIcon },
   { href: "/create-events", label: "Create", icon: PlusIcon, requiresAdmin: true },
-  { href: "/my-events", label: "My Events", icon: TicketIcon, requiresAuth: true },
+  { href: "/my-tickets", label: "My Tickets", icon: TicketIcon, requiresAuth: true },
   { href: "/profile", label: "Profile", icon: UserIcon, requiresAuth: true },
 ];
 
@@ -58,9 +59,10 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
     if (!isLoggedIn) return;
     const load = async () => {
       try {
-        const res = await fetch("/api/profile/balance", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await browserApi.get<{ balanceEtb?: number }>(
+          "/api/profile/balance",
+          { cache: "no-store" },
+        );
         const bal = Number(data.balanceEtb) || 0;
         setBalance(bal > 0 ? bal : null);
       } catch {
@@ -74,7 +76,7 @@ export default function HeaderNav({ initialSession = null }: HeaderNavProps) {
     () =>
       desktopNavItems.filter((item) => {
         if (item.public) return true;
-        if (!isLoggedIn) return false;
+        if (item.requiresAuth && !isLoggedIn) return false;
         if (item.requiresAdmin && !isAdmin) return false;
         return true;
       }),

@@ -5,7 +5,7 @@
  */
 
 import { InvitationStatus } from "@/generated/prisma/client";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
 import { prisma } from "@/lib/prisma";
 import { generateShareToken, hashShareToken } from "@/lib/tickets/shareTokens";
 
@@ -124,6 +124,9 @@ export async function getShareLinkDetails(token: string) {
           eventDatetime: true,
           eventEndtime: true,
           eventLocation: true,
+          addressLabel: true,
+          latitude: true,
+          longitude: true,
           pictureUrl: true,
           priceField: true,
         },
@@ -143,7 +146,7 @@ export async function getShareLinkDetails(token: string) {
   }
   const status = isTimeExpired ? InvitationStatus.Expired : invitation.status;
   const remainingClaims = Math.max(0, invitation.maxClaims - invitation.claimedCount);
-  const decoded = decodeEventLocation(invitation.event.eventLocation);
+  const location = resolveEventLocation(invitation.event);
 
   return {
     invitationId: invitation.invitationId,
@@ -158,7 +161,7 @@ export async function getShareLinkDetails(token: string) {
       eventEndtime: invitation.event.eventEndtime.toISOString(),
       pictureUrl: invitation.event.pictureUrl,
       priceField: invitation.event.priceField,
-      addressLabel: decoded.addressLabel,
+      addressLabel: location.addressLabel,
     },
   };
 }

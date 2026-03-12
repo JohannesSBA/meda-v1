@@ -5,6 +5,7 @@
 "use client";
 
 import { type Dispatch, type SetStateAction } from "react";
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
@@ -15,6 +16,7 @@ import type { AdminEventItem, CategoryItem } from "./types";
 type AdminEventsTabProps = {
   adminEvents: AdminEventItem[];
   adminEventsLoading: boolean;
+  adminEventsError?: string | null;
   eventSearch: string;
   setEventSearch: (v: string) => void;
   onSearch: () => void;
@@ -29,11 +31,13 @@ type AdminEventsTabProps = {
   seriesCount: number;
   savingEvent: boolean;
   onSaveChanges: () => void;
+  onRetry?: () => void;
 };
 
 export function AdminEventsTab({
   adminEvents,
   adminEventsLoading,
+  adminEventsError,
   eventSearch,
   setEventSearch,
   onSearch,
@@ -48,6 +52,7 @@ export function AdminEventsTab({
   seriesCount,
   savingEvent,
   onSaveChanges,
+  onRetry,
 }: AdminEventsTabProps) {
   return (
     <section
@@ -70,9 +75,15 @@ export function AdminEventsTab({
           </Button>
         </div>
       </div>
-      {adminEventsLoading ? (
-        <TableSkeleton rows={6} cols={5} />
-      ) : (
+      <AsyncPanelState
+        loading={adminEventsLoading}
+        error={adminEventsError}
+        isEmpty={adminEvents.length === 0}
+        loadingFallback={<TableSkeleton rows={6} cols={5} />}
+        emptyTitle="No events found"
+        emptyDescription="Adjust your filters or create a new event."
+        onRetry={onRetry}
+      >
         <div className="overflow-x-auto">
           <Table className="table-shell">
             <thead className="text-[var(--color-brand)]">
@@ -120,7 +131,7 @@ export function AdminEventsTab({
             </tbody>
           </Table>
         </div>
-      )}
+      </AsyncPanelState>
 
       {editingEvent ? (
         <div

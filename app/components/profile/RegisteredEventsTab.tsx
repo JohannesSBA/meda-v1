@@ -6,11 +6,13 @@
 
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
+import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
+import { useConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { Select } from "@/app/components/ui/select";
-import { EmptyState } from "@/app/components/ui/empty-state";
 import { EventListItemSkeleton } from "@/app/components/ui/skeleton";
 import type { RegisteredEventItem } from "./types";
 
@@ -19,12 +21,14 @@ type RegisteredEventsTabProps = {
   setRegisteredStatus: (v: string) => void;
   registeredEvents: RegisteredEventItem[];
   registeredLoading: boolean;
+  registeredError?: string | null;
   savedIds: Set<string>;
   copiedEventId: string | null;
   refundingEventId: string | null;
   onShareLink: (eventId: string) => void;
   onToggleSaved: (eventId: string, isSaved: boolean) => void;
   onRefund: (eventId: string) => void;
+  onRetry?: () => void;
 };
 
 export function RegisteredEventsTab({
@@ -32,13 +36,18 @@ export function RegisteredEventsTab({
   setRegisteredStatus,
   registeredEvents,
   registeredLoading,
+  registeredError,
   savedIds,
   copiedEventId,
   refundingEventId,
   onShareLink,
   onToggleSaved,
   onRefund,
+  onRetry,
 }: RegisteredEventsTabProps) {
+  const [nowTimestamp] = useState(() => Date.now());
+  const refundDialog = useConfirmDialog();
+
   return (
     <section
       id="profile-tabpanel-registered"
@@ -58,23 +67,26 @@ export function RegisteredEventsTab({
           <option value="all">All</option>
         </Select>
       </div>
-      {registeredLoading ? (
-        <div className="grid gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <EventListItemSkeleton key={i} />
-          ))}
-        </div>
-      ) : registeredEvents.length === 0 ? (
-        <EmptyState
-          title="No registered events"
-          description="Browse events and register for your first match."
-          action={{ label: "Browse events", href: "/events" }}
-        />
-      ) : (
+      <AsyncPanelState
+        loading={registeredLoading}
+        error={registeredError}
+        isEmpty={registeredEvents.length === 0}
+        loadingFallback={
+          <div className="grid gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <EventListItemSkeleton key={i} />
+            ))}
+          </div>
+        }
+        emptyTitle="No tickets yet"
+        emptyDescription="Browse events and register for your first match."
+        emptyAction={{ label: "Browse events", href: "/events" }}
+        onRetry={onRetry}
+      >
         <div className="grid gap-3">
           {registeredEvents.map((event) => {
             const hoursUntil =
-              (new Date(event.eventDatetime).getTime() - Date.now()) /
+              (new Date(event.eventDatetime).getTime() - nowTimestamp) /
               (1000 * 60 * 60);
             const canRefund =
               registeredStatus !== "past" && hoursUntil >= 24;
@@ -142,15 +154,21 @@ export function RegisteredEventsTab({
                       variant="danger"
                       className="h-11 flex-1 rounded-lg"
                       disabled={refundingEventId === event.eventId}
-                      onClick={() => {
-                        if (
-                          !confirm(
+                      onClick={async () => {
+                        const confirmed = await refundDialog.confirm({
+                          title:
+                            (event.priceField ?? 0) > 0
+                              ? "Refund tickets?"
+                              : "Cancel tickets?",
+                          description:
                             (event.priceField ?? 0) > 0
                               ? `Cancel all tickets and refund ETB ${(event.priceField ?? 0) * event.ticketCount} to your Meda balance?`
-                              : `Cancel all ${event.ticketCount} ticket${event.ticketCount === 1 ? "" : "s"}?`,
-                          )
-                        )
-                          return;
+                              : `Cancel all ${event.ticketCount} ticket${event.ticketCount === 1 ? "" : "s"} for this event?`,
+                          confirmLabel:
+                            (event.priceField ?? 0) > 0 ? "Refund tickets" : "Cancel tickets",
+                          tone: "danger",
+                        });
+                        if (!confirmed) return;
                         void onRefund(event.eventId);
                       }}
                     >
@@ -166,7 +184,8 @@ export function RegisteredEventsTab({
             );
           })}
         </div>
-      )}
+      </AsyncPanelState>
+      {refundDialog.dialog}
     </section>
   );
 }
