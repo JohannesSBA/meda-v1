@@ -49,14 +49,37 @@ export type AdminEventItem = {
 export type CategoryItem = { categoryId: string; categoryName: string };
 
 export type UserTab = "registered" | "saved";
-export type AdminTab = "users" | "events" | "stats";
+export type AdminTab = "users" | "events" | "stats" | "billing";
 
 export type AdminUserRow = {
   id: string;
   name: string;
   email: string;
   role: string;
+  authRole?: string;
   banned: boolean;
+};
+
+export type EventCreationFeeItem = {
+  id: string;
+  amountEtb: number;
+  effectiveFrom: string;
+  effectiveTo?: string | null;
+};
+
+export type PromoCodeItem = {
+  id: string;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  pitchOwnerUserId?: string | null;
+  pitchOwnerName?: string | null;
+  pitchOwnerEmail?: string | null;
+  maxUses?: number | null;
+  usedCount: number;
+  expiresAt: string;
+  isActive: boolean;
+  createdAt: string;
 };
 
 export function readUser(user: unknown): AdminUserRow {
@@ -66,6 +89,7 @@ export function readUser(user: unknown): AdminUserRow {
     name: String(row.name ?? row.displayName ?? "Unknown"),
     email: String(row.email ?? ""),
     role: String(row.role ?? "user"),
+    authRole: row.authRole == null ? undefined : String(row.authRole),
     banned: Boolean(row.banned ?? row.isBanned ?? false),
   };
 }

@@ -15,6 +15,11 @@ import { SavedEventsTab } from "./SavedEventsTab";
 import { AdminUsersTab } from "./AdminUsersTab";
 import { AdminEventsTab } from "./AdminEventsTab";
 import { AdminStatsTab } from "./AdminStatsTab";
+import { AdminBillingTab } from "./AdminBillingTab";
+import { FacilitatorEventsTab } from "./FacilitatorEventsTab";
+import { FacilitatorsTab } from "./FacilitatorsTab";
+import { PitchOwnerEventsTab } from "./PitchOwnerEventsTab";
+import { PayoutSettingsTab } from "./PayoutSettingsTab";
 import type { ProfileUser } from "./types";
 
 type ProfileDashboardProps = {
@@ -23,6 +28,8 @@ type ProfileDashboardProps = {
 
 export default function ProfileDashboard({ user }: ProfileDashboardProps) {
   const data = useProfileData(user);
+  const isPitchOwner = user.role === "pitch_owner";
+  const isFacilitator = user.role === "facilitator";
 
   const avatarUrl = useMemo(
     () =>
@@ -37,6 +44,11 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
 
       {!data.isAdmin ? (
         <>
+          {isPitchOwner ? <PitchOwnerEventsTab /> : null}
+          {isPitchOwner ? <PayoutSettingsTab /> : null}
+          {isPitchOwner ? <FacilitatorsTab /> : null}
+          {isFacilitator ? <FacilitatorEventsTab /> : null}
+
           <Card className="p-2">
             <div role="tablist" aria-label="Profile sections" className="grid grid-cols-2 gap-2">
               {(["registered", "saved"] as const).map((tab) => (
@@ -88,8 +100,8 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
       ) : (
         <>
           <Card className="p-2">
-            <div role="tablist" aria-label="Admin sections" className="grid grid-cols-3 gap-2">
-              {(["users", "events", "stats"] as const).map((tab) => (
+            <div role="tablist" aria-label="Admin sections" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              {(["users", "events", "billing", "stats"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -104,7 +116,13 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
                       : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]",
                   )}
                 >
-                  {tab === "users" ? "Users" : tab === "events" ? "Events" : "Stats"}
+                  {tab === "users"
+                    ? "Users"
+                    : tab === "events"
+                      ? "Events"
+                      : tab === "billing"
+                        ? "Billing"
+                        : "Stats"}
                 </button>
               ))}
             </div>
@@ -120,6 +138,7 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
               onSearch={data.loadAdminUsers}
               onSetRole={data.handleSetRole}
               onBanToggle={data.handleBanToggle}
+              onPromoteToPitchOwner={data.handlePromoteToPitchOwner}
               onRetry={data.loadAdminUsers}
             />
           ) : null}
@@ -153,6 +172,28 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
               statsLoading={data.statsLoading}
               statsError={data.statsError}
               onRetry={data.loadStats}
+            />
+          ) : null}
+
+          {data.adminTab === "billing" ? (
+            <AdminBillingTab
+              fee={data.fee}
+              feeLoading={data.feeLoading}
+              feeError={data.feeError}
+              feeAmountDraft={data.feeAmountDraft}
+              setFeeAmountDraft={data.setFeeAmountDraft}
+              savingFee={data.savingFee}
+              onSaveFee={data.handleSaveEventCreationFee}
+              promoCodes={data.promoCodes}
+              promoCodesLoading={data.promoCodesLoading}
+              promoCodesError={data.promoCodesError}
+              promoForm={data.promoForm}
+              onPromoFieldChange={data.handlePromoFieldChange}
+              creatingPromo={data.creatingPromo}
+              onCreatePromo={data.handleCreatePromoCode}
+              onTogglePromo={data.handleTogglePromoCode}
+              pitchOwners={data.pitchOwners}
+              onRetry={data.loadPromoCodes}
             />
           ) : null}
         </>

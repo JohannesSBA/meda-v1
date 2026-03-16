@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { confirmChapaPayment } from "@/services/payments";
+import { confirmChapaEventCreationPayment } from "@/services/eventCreationFee";
 import { logger } from "@/lib/logger";
 import {
   chapaCallbackPayloadSchema,
@@ -32,6 +33,19 @@ function extractTxRefFromPayload(payload: unknown) {
 }
 
 async function reconcile(txRef: string) {
+  if (txRef.startsWith("MEDAFEE")) {
+    const result = await confirmChapaEventCreationPayment({ txRef });
+    if (result.ok) {
+      revalidateEventData(result.eventId);
+    } else {
+      logger.warn("Chapa callback failed to finalize event creation payment", {
+        txRef,
+        message: result.message,
+      });
+    }
+    return result;
+  }
+
   const result = await confirmChapaPayment({ txRef });
   revalidateEventData(result.eventId);
   if (!result.ok) {
@@ -67,7 +81,11 @@ export async function GET(request: Request) {
   try {
     const result = await reconcile(txRef);
     return NextResponse.json(
-      { ok: result.ok, status: result.status, eventId: result.eventId },
+      {
+        ok: result.ok,
+        status: result.status,
+        eventId: "eventId" in result ? result.eventId : null,
+      },
       { status: 200 },
     );
   } catch (error) {
@@ -97,7 +115,11 @@ export async function POST(request: Request) {
   try {
     const result = await reconcile(txRef);
     return NextResponse.json(
-      { ok: result.ok, status: result.status, eventId: result.eventId },
+      {
+        ok: result.ok,
+        status: result.status,
+        eventId: "eventId" in result ? result.eventId : null,
+      },
       { status: 200 },
     );
   } catch (error) {

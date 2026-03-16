@@ -19,7 +19,11 @@ import {
 async function getScanSession() {
   try {
     const { data } = await auth.getSession();
-    return (data?.user ?? null) as { id?: string; role?: string } | null;
+    return (data?.user ?? null) as {
+      id?: string;
+      role?: string;
+      parentPitchOwnerUserId?: string | null;
+    } | null;
   } catch {
     return null;
   }

@@ -42,6 +42,7 @@ export type CreateEventFormProps = {
   categories: Category[];
   mode?: "create" | "edit";
   initialEvent?: InitialEventData;
+  creatorRole?: string | null;
 };
 
 export function combineLocalDateAndTime(date: string, time: string) {

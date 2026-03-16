@@ -7,8 +7,10 @@ import { getErrorMessage } from "@/lib/errorMessage";
 import type {
   AdminEventItem,
   AdminTab,
+  EventCreationFeeItem,
   AdminUserRow,
   CategoryItem,
+  PromoCodeItem,
 } from "./types";
 import { readUser } from "./types";
 
@@ -28,6 +30,25 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
+  const [fee, setFee] = useState<EventCreationFeeItem | null>(null);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
+  const [feeAmountDraft, setFeeAmountDraft] = useState("");
+  const [savingFee, setSavingFee] = useState(false);
+
+  const [promoCodes, setPromoCodes] = useState<PromoCodeItem[]>([]);
+  const [promoCodesLoading, setPromoCodesLoading] = useState(false);
+  const [promoCodesError, setPromoCodesError] = useState<string | null>(null);
+  const [creatingPromo, setCreatingPromo] = useState(false);
+  const [promoForm, setPromoForm] = useState({
+    code: "",
+    discountType: "full" as const,
+    discountValue: "100",
+    pitchOwnerUserId: "",
+    maxUses: "",
+    expiresAt: "",
+  });
+
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [editingEvent, setEditingEvent] = useState<AdminEventItem | null>(null);
   const [applyToSeries, setApplyToSeries] = useState(false);
@@ -39,6 +60,10 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
 
   const adminUserNameById = useMemo(
     () => new Map(adminUsers.map((entry) => [entry.id, entry.name])),
+    [adminUsers],
+  );
+  const pitchOwners = useMemo(
+    () => adminUsers.filter((entry) => entry.role === "pitch_owner"),
     [adminUsers],
   );
 
@@ -101,6 +126,46 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     }
   }, [isAdmin]);
 
+  const loadEventCreationFee = useCallback(async () => {
+    if (!isAdmin) return;
+    setFeeLoading(true);
+    setFeeError(null);
+    try {
+      const data = await browserApi.get<{ fee?: EventCreationFeeItem | null }>(
+        "/api/admin/event-creation-fee",
+        { cache: "no-store" },
+      );
+      const nextFee = data.fee ?? null;
+      setFee(nextFee);
+      setFeeAmountDraft(nextFee ? String(nextFee.amountEtb) : "0");
+    } catch (error) {
+      const message = getErrorMessage(error) || "Failed to load event creation fee";
+      setFeeError(message);
+      toast.error(message);
+    } finally {
+      setFeeLoading(false);
+    }
+  }, [isAdmin]);
+
+  const loadPromoCodes = useCallback(async () => {
+    if (!isAdmin) return;
+    setPromoCodesLoading(true);
+    setPromoCodesError(null);
+    try {
+      const data = await browserApi.get<{ promoCodes?: PromoCodeItem[] }>(
+        "/api/admin/promo-codes",
+        { cache: "no-store" },
+      );
+      setPromoCodes(data.promoCodes ?? []);
+    } catch (error) {
+      const message = getErrorMessage(error) || "Failed to load promo codes";
+      setPromoCodesError(message);
+      toast.error(message);
+    } finally {
+      setPromoCodesLoading(false);
+    }
+  }, [isAdmin]);
+
   const loadCategories = useCallback(async () => {
     if (!isAdmin) return;
     try {
@@ -137,6 +202,21 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
         await loadAdminUsers();
       } catch (error) {
         toast.error(getErrorMessage(error) || "Ban update failed");
+      }
+    },
+    [loadAdminUsers],
+  );
+
+  const handlePromoteToPitchOwner = useCallback(
+    async (targetUserId: string) => {
+      try {
+        await browserApi.post("/api/admin/pitch-owners", {
+          userId: targetUserId,
+        });
+        toast.success("User promoted to pitch owner");
+        await loadAdminUsers();
+      } catch (error) {
+        toast.error(getErrorMessage(error) || "Pitch owner promotion failed");
       }
     },
     [loadAdminUsers],
@@ -224,6 +304,95 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     loadAdminEvents,
   ]);
 
+  const handleSaveEventCreationFee = useCallback(async () => {
+    setSavingFee(true);
+    try {
+      const data = await browserApi.patch<{ fee?: EventCreationFeeItem }>(
+        "/api/admin/event-creation-fee",
+        {
+          amountEtb: Number(feeAmountDraft || "0"),
+        },
+      );
+      if (data.fee) {
+        setFee(data.fee);
+        setFeeAmountDraft(String(data.fee.amountEtb));
+      }
+      toast.success("Event creation fee updated");
+    } catch (error) {
+      toast.error(getErrorMessage(error) || "Failed to update event creation fee");
+    } finally {
+      setSavingFee(false);
+    }
+  }, [feeAmountDraft]);
+
+  const handlePromoFieldChange = useCallback(
+    (
+      field:
+        | "code"
+        | "discountType"
+        | "discountValue"
+        | "pitchOwnerUserId"
+        | "maxUses"
+        | "expiresAt",
+      value: string,
+    ) => {
+      setPromoForm((current) => ({
+        ...current,
+        [field]: field === "discountType" ? (value as "full" | "partial") : value,
+        ...(field === "discountType" && value === "full"
+          ? { discountValue: "100" }
+          : {}),
+      }));
+    },
+    [],
+  );
+
+  const handleCreatePromoCode = useCallback(async () => {
+    setCreatingPromo(true);
+    try {
+      await browserApi.post("/api/admin/promo-codes", {
+        code: promoForm.code,
+        discountType: promoForm.discountType,
+        discountValue:
+          promoForm.discountType === "full"
+            ? 100
+            : Number(promoForm.discountValue || "0"),
+        pitchOwnerUserId: promoForm.pitchOwnerUserId || null,
+        maxUses: promoForm.maxUses ? Number(promoForm.maxUses) : null,
+        expiresAt: promoForm.expiresAt,
+      });
+      toast.success("Promo code created");
+      setPromoForm({
+        code: "",
+        discountType: "full",
+        discountValue: "100",
+        pitchOwnerUserId: "",
+        maxUses: "",
+        expiresAt: "",
+      });
+      await loadPromoCodes();
+    } catch (error) {
+      toast.error(getErrorMessage(error) || "Failed to create promo code");
+    } finally {
+      setCreatingPromo(false);
+    }
+  }, [loadPromoCodes, promoForm]);
+
+  const handleTogglePromoCode = useCallback(
+    async (promoId: string, isActive: boolean) => {
+      try {
+        await browserApi.patch(`/api/admin/promo-codes/${promoId}`, {
+          isActive,
+        });
+        toast.success(isActive ? "Promo code activated" : "Promo code deactivated");
+        await loadPromoCodes();
+      } catch (error) {
+        toast.error(getErrorMessage(error) || "Failed to update promo code");
+      }
+    },
+    [loadPromoCodes],
+  );
+
   useEffect(() => {
     if (!isAdmin) return;
     if (adminTab === "users") {
@@ -236,6 +405,14 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     }
     if (adminTab === "stats") {
       void loadStats();
+      return;
+    }
+    if (adminTab === "billing") {
+      void Promise.all([
+        loadEventCreationFee(),
+        loadPromoCodes(),
+        loadAdminUsers(),
+      ]);
     }
   }, [
     adminTab,
@@ -243,6 +420,8 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     loadAdminEvents,
     loadAdminUsers,
     loadCategories,
+    loadEventCreationFee,
+    loadPromoCodes,
     loadStats,
   ]);
 
@@ -263,6 +442,20 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     statsLoading,
     statsError,
     loadStats,
+    fee,
+    feeLoading,
+    feeError,
+    feeAmountDraft,
+    setFeeAmountDraft,
+    savingFee,
+    loadEventCreationFee,
+    promoCodes,
+    promoCodesLoading,
+    promoCodesError,
+    loadPromoCodes,
+    promoForm,
+    creatingPromo,
+    pitchOwners,
     categories,
     editingEvent,
     setEditingEvent,
@@ -274,9 +467,14 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     adminUserNameById,
     handleSetRole,
     handleBanToggle,
+    handlePromoteToPitchOwner,
     handleDeleteEvent,
     startEditEvent,
     handleSaveEventChanges,
+    handleSaveEventCreationFee,
+    handlePromoFieldChange,
+    handleCreatePromoCode,
+    handleTogglePromoCode,
     deleteEventDialog: deleteEventDialog.dialog,
     applyToSeriesDialog: applyToSeriesDialog.dialog,
   };

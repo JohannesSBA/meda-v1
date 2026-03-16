@@ -23,6 +23,7 @@ export default function CreateEventForm(props: CreateEventFormProps) {
   const {
     form,
     setForm,
+    creatorRole,
     submitting,
     applyToSeries,
     setApplyToSeries,
@@ -95,6 +96,20 @@ export default function CreateEventForm(props: CreateEventFormProps) {
                 onChange={handleChange}
               />
             </label>
+
+            {mode === "create" && creatorRole === "pitch_owner" ? (
+              <label>
+                <span className="field-label">Promo code</span>
+                <Input
+                  type="text"
+                  id="promoCode"
+                  name="promoCode"
+                  placeholder="Optional"
+                  value={form.promoCode}
+                  onChange={handleChange}
+                />
+              </label>
+            ) : null}
 
             <div className="md:col-span-2">
               <ScheduleSection

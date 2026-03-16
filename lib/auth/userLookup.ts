@@ -39,3 +39,31 @@ export async function getAuthUserEmails(
   }
   return map;
 }
+
+export async function getAuthUserByEmail(
+  email: string,
+): Promise<AuthUser | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const schema =
+    process.env.AUTH_SCHEMA && ALLOWED_SCHEMAS.includes(process.env.AUTH_SCHEMA)
+      ? process.env.AUTH_SCHEMA
+      : "neon_auth";
+  const table =
+    process.env.AUTH_USER_TABLE && ALLOWED_TABLES.includes(process.env.AUTH_USER_TABLE)
+      ? process.env.AUTH_USER_TABLE
+      : "user";
+
+  try {
+    const qualifiedTable = `"${schema}"."${table}"`;
+    const rows = await prisma.$queryRawUnsafe<AuthUser[]>(
+      `SELECT id, email, name FROM ${qualifiedTable} WHERE lower(email) = $1 LIMIT 1`,
+      normalizedEmail,
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    logger.error("Failed to fetch auth user by email", err);
+    return null;
+  }
+}

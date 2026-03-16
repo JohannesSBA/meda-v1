@@ -9,7 +9,7 @@ import { PageShell } from "../components/ui/page-shell";
 export const metadata: Metadata = {
   title: "Terms & Conditions | Meda",
   description:
-    "Understand the rules for using Meda to join or host pickup football matches, including tickets, payments, refunds, and conduct.",
+    "Understand the rules for using Meda as an attendee, pitch owner, facilitator, or admin, including tickets, payouts, event-creation fees, refunds, and conduct.",
 };
 
 type Section = {
@@ -27,18 +27,36 @@ const sections: Section[] = [
     ],
   },
   {
+    title: "Marketplace roles",
+    bullets: [
+      "Meda operates as a marketplace and infrastructure provider for events offered on the platform.",
+      "Admins manage the platform, pitch owners operate their own events, facilitators may scan tickets for a linked pitch owner, and attendees purchase or claim tickets.",
+      "Pitch owners and facilitators are responsible for activity taken through their accounts and for keeping their assigned access accurate.",
+    ],
+  },
+  {
     title: "Tickets, payments, and fees",
     bullets: [
       "Prices are shown in ETB unless stated otherwise. Payment processing is handled by trusted partners (e.g., Chapa).",
       "A ticket is confirmed only after payment succeeds and you receive a Meda confirmation/QR code.",
       "Platform or processing fees may apply; any fees are shown before you confirm payment.",
+      "Pitch owners may be charged an event-creation fee before an event is published. Promo codes may waive or reduce that fee when valid.",
+    ],
+  },
+  {
+    title: "Pitch owner payouts and split payments",
+    bullets: [
+      "Pitch owners must complete payout setup with accurate bank details before creating paid events or receiving split settlements.",
+      "Payout setup may require Meda to create a Chapa subaccount on the pitch owner's behalf using the details provided.",
+      "For eligible pitch-owner ticket sales, Meda may apply a platform commission and route the remaining share through Chapa split settlement or Meda balance credit according to the active platform rules.",
+      "Payout timing, settlement timing, and bank availability can depend on Chapa and banking partners and are not fully controlled by Meda.",
     ],
   },
   {
     title: "Cancellations and refunds",
     bullets: [
       "Self-service refunds are available while the host's refund window is open (typically until 24 hours before kickoff).",
-      "If a host cancels, attendees will be notified and refunds will be processed to the original payment method where possible.",
+      "If a host cancels, attendees will be notified and refunds will be processed to the original payment method where possible or to Meda balance where that is the applicable flow.",
       "Processing times can depend on your bank or payment provider; we share reference IDs so you can track status.",
     ],
   },
@@ -53,9 +71,10 @@ const sections: Section[] = [
   {
     title: "Hosts' responsibilities",
     bullets: [
-      "Publish accurate details (time, location, surface, pricing, capacity) and honor the roster shown in Meda.",
-      "Communicate changes or cancellations promptly through Meda so players receive reliable notifications.",
-      "Respect local regulations and venue rules; you are responsible for permits and on-site safety.",
+      "Publish accurate details such as time, location, pricing, capacity, recurrence, and any relevant venue restrictions, and honor the roster shown in Meda.",
+      "Communicate changes or cancellations promptly through Meda so attendees receive reliable notifications.",
+      "Respect local regulations and venue rules; you are responsible for permits, venue compliance, staffing, and on-site safety.",
+      "Manage facilitators responsibly and ensure facilitators only use their access for legitimate check-in operations.",
     ],
   },
   {
@@ -71,7 +90,15 @@ const sections: Section[] = [
     bullets: [
       "Fraud, harassment, hate speech, or any behavior that risks player safety is prohibited.",
       "Reverse engineering, scraping, or abusing rate limits is not allowed.",
-      "Misrepresenting identity or reselling tickets without host approval may result in suspension.",
+      "Misrepresenting identity, misusing payout information, abusing promo codes, or reselling tickets without approval may result in suspension.",
+    ],
+  },
+  {
+    title: "Facilitator access and scanning",
+    bullets: [
+      "Facilitators may use scan tools only for events that belong to the pitch owner who added them.",
+      "Ticket scans are logged to prevent duplicate entry and investigate disputes or misuse.",
+      "Meda may suspend facilitator access if it is used outside the assigned scope or in a way that risks attendee safety or payment integrity.",
     ],
   },
   {
@@ -85,6 +112,7 @@ const sections: Section[] = [
     title: "Liability",
     bullets: [
       "Football is a physical activity. Participate at your own risk and follow safety guidance from hosts and venues.",
+      "Pitch owners are responsible for the events they operate, including venue operations, staffing, and compliance with applicable local rules.",
       "To the extent allowed by law, Meda is not liable for indirect or incidental damages arising from the use of the platform.",
       "Some jurisdictions do not allow certain limitations; your local consumer protections still apply.",
     ],
@@ -98,9 +126,9 @@ export default function TermsPage() {
         <p className="heading-kicker">Terms &amp; Conditions</p>
         <h1 className="text-3xl font-bold text-white sm:text-4xl">The rules for playing and hosting with Meda</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-[var(--color-text-secondary)] sm:text-base">
-          These terms help keep matches fair and reliable for everyone. Please read them before you buy a ticket or publish an event.
+          These terms help keep Meda fair and reliable for attendees, pitch owners, facilitators, and admins. Please read them before you buy a ticket, publish an event, or configure payouts.
         </p>
-        <p className="text-xs text-[var(--color-text-muted)]">Last updated: March 10, 2026</p>
+        <p className="text-xs text-[var(--color-text-muted)]">Last updated: March 15, 2026</p>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">

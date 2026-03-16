@@ -29,6 +29,12 @@ const recurrenceFrequencySchema = z.enum(["daily", "weekly", "custom"]);
 export const createEventFormSchema = z.object({
   eventName: z.string().trim().min(1, "Event name is required"),
   categoryId: uuidSchema,
+  promoCode: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => {
+      const normalized = typeof value === "string" ? value.trim().toUpperCase() : "";
+      return normalized || null;
+    }),
   description: z
     .union([z.string(), z.null(), z.undefined()])
     .transform((value) => {

@@ -3,6 +3,12 @@
  */
 
 import { formatUnknownError } from "@/lib/apiResponse";
+import {
+  banAdminUserInStore,
+  listAdminUsersFromStore,
+  setAdminUserRoleInStore,
+  unbanAdminUserInStore,
+} from "./adminUserStore";
 import { auth } from "./server";
 
 type NeonAdminResult<T = unknown> = {
@@ -60,9 +66,6 @@ type NeonAdminApi = {
   }): Promise<NeonAdminResponse>;
 };
 
-const ADMIN_UNAVAILABLE_MESSAGE =
-  "User management is temporarily unavailable. The admin API may not be enabled for this environment.";
-
 function getNeonAdmin(): NeonAdminApi | null {
   return (auth as unknown as { admin?: NeonAdminApi }).admin ?? null;
 }
@@ -93,6 +96,115 @@ function toFailure<T = never>(error: unknown): NeonAdminResult<T> {
   };
 }
 
+function normalizeListUsersPayload(raw: unknown) {
+  const body = (raw ?? null) as
+    | {
+        users?: unknown[];
+        total?: number;
+        data?: { users?: unknown[]; total?: number };
+      }
+    | null;
+  const users = body?.users ?? body?.data?.users ?? [];
+  const total =
+    body?.total ?? body?.data?.total ?? (Array.isArray(users) ? users.length : 0);
+
+  return {
+    users: Array.isArray(users) ? users : [],
+    total: Number(total) || 0,
+  };
+}
+
+async function fallbackListUsers<T = unknown>(
+  query?: AdminListUsersQuery,
+): Promise<NeonAdminResult<T>> {
+  try {
+    const data = await listAdminUsersFromStore(query ?? {});
+    return {
+      data: data as T,
+      error: null,
+      status: 200,
+    };
+  } catch (error) {
+    return toFailure(error);
+  }
+}
+
+async function fallbackAdminPost<T = unknown>(
+  path: "admin/set-role" | "admin/ban-user" | "admin/unban-user",
+  payload: AdminSetRolePayload | AdminBanPayload | AdminUnbanPayload,
+): Promise<NeonAdminResult<T>> {
+  try {
+    if (path === "admin/set-role") {
+      const user = await setAdminUserRoleInStore(
+        (payload as AdminSetRolePayload).userId,
+        (payload as AdminSetRolePayload).role,
+      );
+
+      if (!user) {
+        return {
+          data: null,
+          error: "User not found",
+          status: 404,
+        };
+      }
+
+      return {
+        data: { user } as T,
+        error: null,
+        status: 200,
+      };
+    }
+
+    if (path === "admin/ban-user") {
+      const session = await auth.getSession();
+      const actingUserId = (session.data?.user as { id?: string } | null)?.id ?? null;
+      const banPayload = payload as AdminBanPayload;
+
+      if (actingUserId === banPayload.userId) {
+        return {
+          data: null,
+          error: "You cannot ban yourself",
+          status: 400,
+        };
+      }
+
+      const user = await banAdminUserInStore(banPayload);
+      if (!user) {
+        return {
+          data: null,
+          error: "User not found",
+          status: 404,
+        };
+      }
+
+      return {
+        data: { user } as T,
+        error: null,
+        status: 200,
+      };
+    }
+
+    const user = await unbanAdminUserInStore(
+      (payload as AdminUnbanPayload).userId,
+    );
+    if (!user) {
+      return {
+        data: null,
+        error: "User not found",
+        status: 404,
+      };
+    }
+
+    return {
+      data: { user } as T,
+      error: null,
+      status: 200,
+    };
+  } catch (error) {
+    return toFailure(error);
+  }
+}
+
 export async function callNeonAdminGet<T = unknown>(
   request: Request,
   path: "admin/list-users",
@@ -100,11 +212,7 @@ export async function callNeonAdminGet<T = unknown>(
 ): Promise<NeonAdminResult<T>> {
   const admin = getNeonAdmin();
   if (!admin) {
-    return {
-      data: null,
-      error: ADMIN_UNAVAILABLE_MESSAGE,
-      status: 503,
-    };
+    return fallbackListUsers(query);
   }
   try {
     const result = await admin.listUsers({
@@ -113,12 +221,24 @@ export async function callNeonAdminGet<T = unknown>(
       returnStatus: true,
     });
 
+    const normalized = normalizeListUsersPayload(result.response);
+    if (normalized.total === 0) {
+      const fallback = await fallbackListUsers<T>(query);
+      if (!fallback.error) {
+        return fallback;
+      }
+    }
+
     return {
       data: result.response as T,
       error: null,
       status: result.status,
     };
   } catch (error) {
+    const fallback = await fallbackListUsers<T>(query);
+    if (!fallback.error) {
+      return fallback;
+    }
     return toFailure(error);
   }
 }
@@ -130,11 +250,7 @@ export async function callNeonAdminPost<T = unknown>(
 ): Promise<NeonAdminResult<T>> {
   const admin = getNeonAdmin();
   if (!admin) {
-    return {
-      data: null,
-      error: ADMIN_UNAVAILABLE_MESSAGE,
-      status: 503,
-    };
+    return fallbackAdminPost(path, payload);
   }
   try {
     if (path === "admin/set-role") {
@@ -174,6 +290,10 @@ export async function callNeonAdminPost<T = unknown>(
       status: result.status,
     };
   } catch (error) {
+    const fallback = await fallbackAdminPost<T>(path, payload);
+    if (!fallback.error) {
+      return fallback;
+    }
     return toFailure(error);
   }
 }

@@ -4,9 +4,11 @@
  */
 
 import { randomUUID } from "crypto";
-import axios from "axios";
-import { Chapa } from "chapa-nodejs";
-import { getRequiredEnv } from "@/lib/env";
+import {
+  getChapaClient,
+  initializeChapaTransaction,
+  verifyChapaTransactionWithRetry,
+} from "@/lib/chapa";
 import { resolveEventLocation } from "@/lib/location";
 import { acquireTransactionLock } from "@/lib/dbLocks";
 import { CHAPA_HOLD_WINDOW_MS, getLockedAvailabilitySnapshot } from "@/lib/events/availability";
@@ -18,6 +20,9 @@ import {
   PaymentStatus,
 } from "@/generated/prisma/client";
 import { sendTicketConfirmationEmail } from "@/services/email";
+import {
+  PLATFORM_COMMISSION_PERCENT,
+} from "@/services/pitchOwner";
 
 type CheckoutPayload = {
   eventId: string;
@@ -33,17 +38,6 @@ type CheckoutPayload = {
 type ConfirmPayload = {
   txRef: string;
   userId?: string | null;
-};
-
-type ChapaVerification = {
-  status?: string;
-  message?: unknown;
-  data?: {
-    status?: string;
-    tx_ref?: string;
-    amount?: string | number;
-    currency?: string;
-  };
 };
 
 export type PayWithBalanceParams = {
@@ -89,14 +83,6 @@ export class InsufficientBalanceError extends Error {
   }
 }
 
-function getChapaClient() {
-  return new Chapa({ secretKey: getRequiredEnv("CHAPA_SECRET_KEY") });
-}
-
-function getChapaSecretKey() {
-  return getRequiredEnv("CHAPA_SECRET_KEY");
-}
-
 function toErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -109,49 +95,6 @@ function toErrorMessage(error: unknown) {
 
 function isPaymentPending(status: PaymentStatus) {
   return status === PaymentStatus.created || status === PaymentStatus.processing;
-}
-
-async function verifyChapaTransaction(txRef: string) {
-  const secretKey = getChapaSecretKey();
-  let verification: ChapaVerification | undefined;
-  try {
-    const httpResponse = await axios.get(
-      `https://api.chapa.co/v1/transaction/verify/${encodeURIComponent(txRef)}`,
-      {
-        headers: { Authorization: `Bearer ${secretKey}` },
-        timeout: 15000,
-      },
-    );
-    verification = httpResponse.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      throw new Error(
-        `Chapa verify failed: ${toErrorMessage(error.response?.data ?? error.message)}`,
-      );
-    }
-    throw new Error(`Chapa verify failed: ${toErrorMessage(error)}`);
-  }
-  if (!verification) throw new Error("Chapa verify failed: empty response");
-  return verification;
-}
-
-const CHAPA_VERIFY_RETRY_DELAYS_MS = [0, 2000, 4000, 6000];
-const CHAPA_VERIFY_MAX_ATTEMPTS = 4;
-
-async function verifyChapaTransactionWithRetry(txRef: string) {
-  let lastVerification: ChapaVerification | null = null;
-  for (let attempt = 0; attempt < CHAPA_VERIFY_MAX_ATTEMPTS; attempt++) {
-    if (attempt > 0) {
-      const delayMs = CHAPA_VERIFY_RETRY_DELAYS_MS[attempt] ?? 6000;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-    const verification = await verifyChapaTransaction(txRef);
-    lastVerification = verification;
-    const paidStatus = verification.data?.status?.toLowerCase();
-    if (paidStatus === "success") return verification;
-    if (paidStatus === "failed") break;
-  }
-  return lastVerification!;
 }
 
 async function markPaymentRequiresRefund(
@@ -167,6 +110,18 @@ async function markPaymentRequiresRefund(
       reservationExpiresAt: null,
     },
   });
+}
+
+function normalizeSplitValue(value: number | string | null | undefined) {
+  const parsed = Number(value ?? PLATFORM_COMMISSION_PERCENT);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return PLATFORM_COMMISSION_PERCENT;
+  }
+  return parsed;
+}
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 export async function payWithBalance(
@@ -231,6 +186,26 @@ export async function payWithBalance(
     }
 
     const totalCost = event.priceField * quantity;
+    const eventOwnerUserId =
+      typeof event.userId === "string" && event.userId.trim()
+        ? event.userId
+        : null;
+    const pitchOwnerProfile =
+      eventOwnerUserId &&
+      typeof tx.pitchOwnerProfile?.findUnique === "function"
+        ? await tx.pitchOwnerProfile.findUnique({
+            where: { userId: eventOwnerUserId },
+            select: {
+              userId: true,
+              chapaSubaccountId: true,
+              payoutSetupVerifiedAt: true,
+            },
+          })
+        : null;
+    if (pitchOwnerProfile && (!pitchOwnerProfile.chapaSubaccountId || !pitchOwnerProfile.payoutSetupVerifiedAt)) {
+      throw new Error("This event is not accepting payments yet");
+    }
+
     const balance = await tx.userBalance.findUnique({
       where: { userId },
     });
@@ -247,6 +222,22 @@ export async function payWithBalance(
       where: { userId },
       data: { balanceEtb: { decrement: totalCost } },
     });
+
+    if (pitchOwnerProfile?.chapaSubaccountId && eventOwnerUserId) {
+      const ownerShare = roundCurrency(
+        totalCost * (1 - PLATFORM_COMMISSION_PERCENT),
+      );
+      await tx.userBalance.upsert({
+        where: { userId: eventOwnerUserId },
+        update: {
+          balanceEtb: { increment: ownerShare },
+        },
+        create: {
+          userId: eventOwnerUserId,
+          balanceEtb: ownerShare,
+        },
+      });
+    }
 
     await tx.eventAttendee.createMany({
       data: Array.from({ length: quantity }).map(() => ({
@@ -266,6 +257,7 @@ export async function payWithBalance(
         currency: "ETB",
         provider: PaymentProvider.balance,
         status: PaymentStatus.succeeded,
+        chapaSubaccountId: pitchOwnerProfile?.chapaSubaccountId ?? null,
         providerReference: `BALANCE-${randomUUID()}`,
         verifiedAt: new Date(),
         fulfilledAt: new Date(),
@@ -364,6 +356,34 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
     }
 
     const totalAmount = event.priceField * payload.quantity;
+    const eventOwnerUserId =
+      typeof event.userId === "string" && event.userId.trim()
+        ? event.userId
+        : null;
+    const pitchOwnerProfile =
+      eventOwnerUserId &&
+      typeof tx.pitchOwnerProfile?.findUnique === "function"
+        ? await tx.pitchOwnerProfile.findUnique({
+            where: { userId: eventOwnerUserId },
+            select: {
+              chapaSubaccountId: true,
+              splitType: true,
+              splitValue: true,
+              payoutSetupVerifiedAt: true,
+            },
+          })
+        : null;
+    if (pitchOwnerProfile && (!pitchOwnerProfile.chapaSubaccountId || !pitchOwnerProfile.payoutSetupVerifiedAt)) {
+      throw new Error("This event is not accepting payments yet");
+    }
+
+    const splitConfig = pitchOwnerProfile?.chapaSubaccountId
+      ? {
+          id: pitchOwnerProfile.chapaSubaccountId,
+          split_type: pitchOwnerProfile.splitType ?? "percentage",
+          split_value: normalizeSplitValue(pitchOwnerProfile.splitValue?.toString()),
+        }
+      : null;
     const payment = await tx.payment.create({
       data: {
         eventId: payload.eventId,
@@ -374,6 +394,7 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
         currency: "ETB",
         provider: PaymentProvider.chapa,
         status: PaymentStatus.created,
+        chapaSubaccountId: splitConfig?.id ?? null,
         providerReference: txRef,
         reservationExpiresAt,
       },
@@ -384,45 +405,40 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
       paymentId: payment.paymentId,
       eventName: event.eventName,
       amount: totalAmount.toFixed(2),
+      splitConfig,
     };
   });
 
-  const secretKey = getChapaSecretKey();
   const returnUrl = `${payload.returnUrlBase}${payload.returnUrlBase.includes("?") ? "&" : "?"}tx_ref=${encodeURIComponent(txRef)}`;
   const customizationTitle =
     (intent.eventName || "Meda Event").trim().slice(0, 16) || "Meda Event";
 
   try {
-    const httpResponse = await axios.post(
-      "https://api.chapa.co/v1/transaction/initialize",
-      {
-        first_name: payload.firstName?.trim() || "Meda",
-        last_name: payload.lastName?.trim() || "User",
-        email: payload.email,
-        currency: "ETB",
-        amount: intent.amount,
-        tx_ref: txRef,
-        callback_url: payload.callbackUrl,
-        return_url: returnUrl,
-        customization: {
-          title: customizationTitle,
-          description: `Ticket purchase for ${intent.eventName}`,
-        },
+    const chapaPayload = {
+      first_name: payload.firstName?.trim() || "Meda",
+      last_name: payload.lastName?.trim() || "User",
+      email: payload.email,
+      currency: "ETB",
+      amount: intent.amount,
+      tx_ref: txRef,
+      callback_url: payload.callbackUrl,
+      return_url: returnUrl,
+      customization: {
+        title: customizationTitle,
+        description: `Ticket purchase for ${intent.eventName}`,
       },
-      {
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      },
-    );
-
-    const response = httpResponse.data as {
-      status?: string;
-      message?: unknown;
-      data?: { checkout_url?: string };
+      ...(intent.splitConfig ? { subaccounts: intent.splitConfig } : {}),
     };
+
+    if (process.env.NODE_ENV !== "production") {
+      logger.info("[chapa] Initialize payload", {
+        hasSubaccounts: Boolean(intent.splitConfig),
+        subaccounts: intent.splitConfig,
+        amount: intent.amount,
+      });
+    }
+
+    const response = await initializeChapaTransaction(chapaPayload);
 
     if (response.status !== "success" || !response.data?.checkout_url) {
       throw new Error(

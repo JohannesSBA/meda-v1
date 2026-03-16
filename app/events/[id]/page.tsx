@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { canScanEvent } from "@/lib/auth/roles";
 import { getAppBaseUrl } from "@/lib/env";
 import { auth } from "@/lib/auth/server";
 import { getEvent } from "./data";
@@ -62,11 +63,13 @@ export default async function EventDetailPage({
   ]);
   if (!event) return notFound();
 
-  const sessionUser = (session?.data?.user as { id?: string; role?: string } | undefined) ?? null;
+  const sessionUser = (session?.data?.user as {
+    id?: string;
+    role?: string;
+    parentPitchOwnerUserId?: string | null;
+  } | undefined) ?? null;
   const isSoldOut = event.spotsLeft != null && event.spotsLeft <= 0;
-  const canScan =
-    sessionUser?.role === "admin" ||
-    (sessionUser?.id != null && sessionUser.id === event.userId);
+  const canScan = canScanEvent(sessionUser, event.userId);
 
   const priceLabel =
     event.priceField == null || event.priceField === 0

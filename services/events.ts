@@ -36,6 +36,7 @@ export type CreateEventParams = {
   capacity: number | null;
   price: number | null;
   image?: { buffer: Buffer; mimeType: string; ext: string } | null;
+  pictureUrl?: string | null;
   recurrenceEnabled: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
   recurrenceInterval?: number;
@@ -46,6 +47,8 @@ export type CreateEventParams = {
 export type CreateEventResult =
   | { event: { eventId: string; [key: string]: unknown }; createdOccurrences?: never; seriesId?: never }
   | { event: { eventId: string; [key: string]: unknown }; createdOccurrences: number; seriesId: string };
+
+type EventWriter = Pick<typeof prisma, "event">;
 
 function toDate(value: string): Date | null {
   const parsed = new Date(value);
@@ -115,7 +118,10 @@ function buildRecurringWindows(params: {
   return windows;
 }
 
-export async function createEvent(params: CreateEventParams): Promise<CreateEventResult> {
+export async function createEventWithClient(
+  db: EventWriter,
+  params: CreateEventParams,
+): Promise<CreateEventResult> {
   const {
     userId,
     eventName,
@@ -129,6 +135,7 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
     capacity,
     price,
     image,
+    pictureUrl: initialPictureUrl,
     recurrenceEnabled,
     recurrenceFrequency = "weekly",
     recurrenceInterval = 1,
@@ -158,7 +165,7 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
     throw new Error("Price must be a non-negative integer");
   }
 
-  let pictureUrl: string | null = null;
+  let pictureUrl: string | null = initialPictureUrl ?? null;
   const eventId = randomUUID();
 
   if (image) {
@@ -182,7 +189,7 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
   });
 
   if (!recurrenceEnabled) {
-    const event = await prisma.event.create({
+    const event = await db.event.create({
       data: {
         eventId,
         eventName,
@@ -264,15 +271,17 @@ export async function createEvent(params: CreateEventParams): Promise<CreateEven
     isSeriesMaster: index === 0,
   }));
 
-  await prisma.$transaction(async (tx) => {
-    await tx.event.createMany({ data: rows });
-  });
+  await db.event.createMany({ data: rows });
 
-  const event = await prisma.event.findUnique({ where: { eventId: masterEventId } });
+  const event = await db.event.findUnique({ where: { eventId: masterEventId } });
   if (!event) {
     logger.error("Create event: master event not found after createMany");
     throw new Error("Failed to create event");
   }
 
   return { event, createdOccurrences: rows.length, seriesId };
+}
+
+export async function createEvent(params: CreateEventParams): Promise<CreateEventResult> {
+  return createEventWithClient(prisma, params);
 }

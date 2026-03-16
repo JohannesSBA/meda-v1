@@ -20,6 +20,7 @@ type LockedEventInventoryRow = {
   longitude: number | null;
   capacity: number | null;
   priceField: number | null;
+  userId: string;
 };
 
 const ACTIVE_RESERVATION_STATUSES = [
@@ -129,6 +130,7 @@ export async function lockEventInventory(
         longitude: true,
         capacity: true,
         priceField: true,
+        userId: true,
       },
     });
 
@@ -151,7 +153,8 @@ export async function lockEventInventory(
       latitude AS "latitude",
       longitude AS "longitude",
       capacity AS "capacity",
-      price_field AS "priceField"
+      price_field AS "priceField",
+      user_id AS "userId"
     FROM events
     WHERE event_id = ${eventId}::uuid
     FOR UPDATE

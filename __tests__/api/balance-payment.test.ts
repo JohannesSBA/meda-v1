@@ -68,6 +68,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
     eventLocation: "Venue!longitude=38.7&latitude=9.0",
     capacity: 10,
     priceField: 100,
+    userId: "event-owner-id",
     ...overrides,
   };
 }
@@ -106,6 +107,9 @@ describe("POST /api/payments/balance", () => {
         },
         eventAttendee: {
           createMany: vi.fn(),
+        },
+        pitchOwnerProfile: {
+          findUnique: vi.fn().mockResolvedValue(null),
         },
         payment: {
           create: vi.fn(),

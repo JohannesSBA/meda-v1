@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { resolveEventLocation } from "@/lib/location";
+import { canScanEvent } from "@/lib/auth/roles";
 import { verifyToken } from "@/lib/tickets/verificationToken";
 
 type AuthUser = { id: string; name: string | null; email: string | null };
@@ -7,6 +8,7 @@ type AuthUser = { id: string; name: string | null; email: string | null };
 export type ScannerUser = {
   id?: string | null;
   role?: string | null;
+  parentPitchOwnerUserId?: string | null;
 } | null;
 
 const ALLOWED_SCHEMAS = ["neon_auth", "public"];
@@ -55,10 +57,7 @@ export async function resolveVerifiedTicket(
   }
 
   const scannerUserId = scannerUser?.id ?? null;
-  const isAdmin = scannerUser?.role === "admin";
-  const isEventOwner =
-    scannerUserId != null && attendee.event.userId === scannerUserId;
-  const canScan = isAdmin || isEventOwner;
+  const canScan = canScanEvent(scannerUser, attendee.event.userId);
 
   if (canScan && expectedEventId && attendee.event.eventId !== expectedEventId) {
     throw new Error("Ticket is for a different event");

@@ -13,7 +13,9 @@ test("confirms checkout status on the payment return screen", async ({
     });
   });
 
-  await page.goto(`/payments/chapa/status?eventId=${EVENT_ID}&tx_ref=MEDA-TX-123`);
+  await page.goto(`/payments/chapa/status?eventId=${EVENT_ID}&tx_ref=MEDA-TX-123`, {
+    waitUntil: "domcontentloaded",
+  });
 
   await expect(
     page.getByRole("heading", { name: "Payment confirmed" }),

@@ -23,11 +23,46 @@ export const adminBanUpdateSchema = z.object({
   banExpiresIn: z.coerce.number().int().positive().optional(),
 });
 
+export const adminEventCreationFeeSchema = z.object({
+  amountEtb: z.coerce.number().min(0).max(100_000),
+});
+
+export const adminPromoCodeCreateSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(4)
+    .max(32)
+    .transform((value) => value.toUpperCase()),
+  discountType: z.enum(["full", "partial"]),
+  discountValue: z.coerce.number().min(0).max(100_000),
+  pitchOwnerUserId: z
+    .union([uuidSchema, z.literal(""), z.null(), z.undefined()])
+    .transform((value) => (typeof value === "string" && value.trim() ? value : null)),
+  maxUses: z
+    .union([z.coerce.number().int().positive(), z.literal(""), z.null(), z.undefined()])
+    .transform((value) => (typeof value === "number" ? value : null)),
+  expiresAt: z.string().trim().min(1),
+});
+
+export const adminPromoCodePatchSchema = z.object({
+  isActive: z.coerce.boolean().optional(),
+  maxUses: z
+    .union([z.coerce.number().int().positive(), z.literal(""), z.null(), z.undefined()])
+    .transform((value) => (typeof value === "number" ? value : null))
+    .optional(),
+  expiresAt: z.string().trim().optional(),
+});
+
 export const adminUserIdParamSchema = z.object({
   userId: uuidSchema,
 });
 
 export const adminEventIdParamSchema = z.object({
+  id: uuidSchema,
+});
+
+export const adminPromoCodeIdParamSchema = z.object({
   id: uuidSchema,
 });
 

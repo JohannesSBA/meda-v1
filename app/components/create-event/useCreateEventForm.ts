@@ -23,6 +23,7 @@ import {
 export type CreateEventFormState = {
   eventName: string;
   categoryId: string;
+  promoCode: string;
   description: string;
   image: File | null;
   imagePreview: string;
@@ -44,12 +45,14 @@ export type CreateEventFormState = {
 
 export function useCreateEventForm({
   categories,
+  creatorRole,
   mode = "create",
   initialEvent,
 }: CreateEventFormProps) {
   const [form, setForm] = useState<CreateEventFormState>({
     eventName: "",
     categoryId: categories[0]?.categoryId ?? "",
+    promoCode: "",
     description: "",
     image: null,
     imagePreview: "",
@@ -200,6 +203,7 @@ export function useCreateEventForm({
     const fd = new FormData();
     fd.append("eventName", form.eventName);
     fd.append("categoryId", form.categoryId);
+    if (form.promoCode.trim()) fd.append("promoCode", form.promoCode.trim());
     if (form.description) fd.append("description", form.description);
     fd.append("startDate", startDateTime);
     fd.append("endDate", endDateTime);
@@ -229,10 +233,20 @@ export function useCreateEventForm({
 
     try {
       if (mode === "create") {
-        const res = await browserApi.post<{ event: { eventId: string } }>(
+        const res = await browserApi.post<{
+          event?: { eventId: string };
+          checkoutUrl?: string;
+        }>(
           "/api/events/create",
           fd,
         );
+        if (res.checkoutUrl) {
+          window.location.assign(res.checkoutUrl);
+          return;
+        }
+        if (!res.event?.eventId) {
+          throw new Error("Create event response did not include an event ID");
+        }
         toast.success("Event created successfully");
         router.push(`/events/${res.event.eventId}`);
       } else {
@@ -326,6 +340,7 @@ export function useCreateEventForm({
   return {
     form,
     setForm,
+    creatorRole,
     submitting,
     applyToSeries,
     setApplyToSeries,

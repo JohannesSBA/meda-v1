@@ -50,7 +50,7 @@ test("creates and copies a ticket sharing link from the profile dashboard", asyn
     });
   });
 
-  await page.goto("/profile");
+  await page.goto("/profile", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Friday Night Match")).toBeVisible();
   await page.getByRole("button", { name: "Share ticket" }).click();
@@ -101,7 +101,7 @@ test("refunds tickets from the profile dashboard and refreshes the list", async 
     });
   });
 
-  await page.goto("/profile");
+  await page.goto("/profile", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Friday Night Match")).toBeVisible();
   await page.getByRole("button", { name: "Refund" }).click();

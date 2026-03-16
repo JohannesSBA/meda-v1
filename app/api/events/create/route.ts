@@ -1,11 +1,18 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { requireSessionUser } from "@/lib/auth/guards";
+import { requireAdminOrPitchOwnerUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 import { createEvent } from "@/services/events";
+import {
+  initializeEventCreationCheckout,
+  recordWaivedEventCreation,
+} from "@/services/eventCreationFee";
 import { createEventFormSchema } from "@/lib/validations/events";
 import { parseFormData, validationErrorResponse } from "@/lib/validations/http";
 import { revalidateAdminStats, revalidateEventData } from "@/lib/revalidation";
+import { uploadEventImageUnified } from "@/lib/uploadEventImage";
 
 export async function POST(request: Request) {
   const rl = await checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
@@ -16,9 +23,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await requireSessionUser();
+  const session = await requireAdminOrPitchOwnerUser();
   if (!session.user || session.response) return session.response!;
   const userId = session.user.id;
+
+  if (session.user.role === "pitch_owner") {
+    const payoutProfile = await prisma.pitchOwnerProfile.findUnique({
+      where: { userId },
+      select: {
+        chapaSubaccountId: true,
+        payoutSetupVerifiedAt: true,
+      },
+    });
+
+    if (!payoutProfile?.chapaSubaccountId || !payoutProfile.payoutSetupVerifiedAt) {
+      return NextResponse.json(
+        { error: "Complete payout setup before creating events." },
+        { status: 403 },
+      );
+    }
+  }
 
   const parsed = await parseFormData(createEventFormSchema, request);
   if (!parsed.success) {
@@ -28,6 +52,7 @@ export async function POST(request: Request) {
   const {
     eventName,
     categoryId,
+    promoCode,
     description,
     startDate,
     endDate,
@@ -52,25 +77,89 @@ export async function POST(request: Request) {
     imageData = { buffer, mimeType: image.type, ext };
   }
 
+  let pictureUrl: string | null = null;
+  if (imageData) {
+    pictureUrl = await uploadEventImageUnified(randomUUID(), imageData);
+  }
+
+  const eventPayload = {
+    userId,
+    eventName,
+    categoryId,
+    description,
+    startDate,
+    endDate,
+    location,
+    latitude,
+    longitude,
+    capacity,
+    price,
+    pictureUrl,
+    recurrenceEnabled,
+    recurrenceFrequency,
+    recurrenceInterval,
+    recurrenceUntil,
+    recurrenceWeekdays,
+  };
+
   try {
+    if (session.user.role === "pitch_owner") {
+      const baseUrl = new URL(request.url).origin;
+      const callbackUrl =
+        process.env.CHAPA_CALLBACK_URL ??
+        `${baseUrl}/api/payments/chapa/callback`;
+      const result = await initializeEventCreationCheckout({
+        pitchOwnerUserId: userId,
+        email: session.user.email ?? `user-${session.user.id}@meda.app`,
+        firstName: session.user.name?.split(" ").at(0),
+        lastName: session.user.name?.split(" ").slice(1).join(" ") || undefined,
+        callbackUrl,
+        returnUrlBase: `${baseUrl}/create-events/status`,
+        promoCode,
+        eventPayload,
+      });
+
+      if (result.kind === "checkout") {
+        return NextResponse.json(
+          {
+            checkoutUrl: result.checkoutUrl,
+            txRef: result.txRef,
+            quote: result.quote,
+          },
+          { status: 202 },
+        );
+      }
+
+      const createdEvent = await createEvent({
+        ...eventPayload,
+        image: null,
+      });
+      await recordWaivedEventCreation({
+        pitchOwnerUserId: userId,
+        eventId: createdEvent.event.eventId,
+        quote: result.quote,
+      });
+
+      revalidateEventData(createdEvent.event.eventId, [userId]);
+      revalidateAdminStats();
+
+      if (createdEvent.createdOccurrences != null) {
+        return NextResponse.json(
+          {
+            event: createdEvent.event,
+            createdOccurrences: createdEvent.createdOccurrences,
+            seriesId: createdEvent.seriesId,
+          },
+          { status: 201 },
+        );
+      }
+
+      return NextResponse.json({ event: createdEvent.event }, { status: 201 });
+    }
+
     const result = await createEvent({
-      userId,
-      eventName,
-      categoryId,
-      description,
-      startDate,
-      endDate,
-      location,
-      latitude,
-      longitude,
-      capacity,
-      price,
-      image: imageData,
-      recurrenceEnabled,
-      recurrenceFrequency,
-      recurrenceInterval,
-      recurrenceUntil,
-      recurrenceWeekdays,
+      ...eventPayload,
+      image: null,
     });
 
     revalidateEventData(result.event.eventId, [userId]);

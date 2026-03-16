@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { confirmChapaPayment } from "@/services/payments";
+import { confirmChapaEventCreationPayment } from "@/services/eventCreationFee";
 import { revalidateEventData } from "@/lib/revalidation";
 import { chapaCallbackPayloadSchema } from "@/lib/validations/payments";
 import {
@@ -77,6 +78,26 @@ export async function POST(request: Request) {
       );
     }
 
+    if (txRef.startsWith("MEDAFEE")) {
+      const result = await confirmChapaEventCreationPayment({ txRef });
+      if (result.ok) {
+        revalidateEventData(result.eventId);
+      } else {
+        logger.warn("Chapa webhook failed to finalize event creation payment", {
+          txRef,
+          message: result.message,
+        });
+      }
+      return NextResponse.json(
+        {
+          ok: result.ok,
+          status: result.status,
+          eventId: result.ok ? result.eventId : null,
+        },
+        { status: 200 },
+      );
+    }
+
     const result = await confirmChapaPayment({ txRef });
     revalidateEventData(result.eventId);
     if (!result.ok) {
@@ -87,7 +108,11 @@ export async function POST(request: Request) {
       });
     }
     return NextResponse.json(
-      { ok: result.ok, status: result.status, eventId: result.eventId },
+      {
+        ok: result.ok,
+        status: result.status,
+        eventId: result.eventId,
+      },
       { status: 200 },
     );
   } catch (error) {

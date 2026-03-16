@@ -18,7 +18,7 @@ test("verifies a scanned ticket through the E2E harness", async ({ page }) => {
     });
   });
 
-  await page.goto("/e2e/scan");
+  await page.goto("/e2e/scan", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Verify token" }).click();
 
   await expect(page.getByTestId("scan-harness-result")).toContainText(

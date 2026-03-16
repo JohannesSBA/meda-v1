@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextResponse } from "next/server";
 
-const mockRequireSessionUser = vi.fn();
+const mockRequireAdminOrPitchOwnerUser = vi.fn();
 const mockPrismaEventCreate = vi.fn();
 const mockPrismaEventCreateMany = vi.fn();
 const mockPrismaEventFindUnique = vi.fn();
 const mockTransaction = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
-  requireSessionUser: mockRequireSessionUser,
+  requireAdminOrPitchOwnerUser: mockRequireAdminOrPitchOwnerUser,
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -50,7 +50,7 @@ const CATEGORY_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
 function makeSessionUser(id = TEST_USER_ID) {
   return {
-    user: { id, email: "user@test.com", name: "Test User" },
+    user: { id, email: "user@test.com", name: "Test User", role: "admin" },
     response: null,
   };
 }
@@ -89,7 +89,7 @@ async function importHandler() {
 describe("POST /api/events/create", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireSessionUser.mockResolvedValue(makeSessionUser());
+    mockRequireAdminOrPitchOwnerUser.mockResolvedValue(makeSessionUser());
     mockPrismaEventCreate.mockResolvedValue({ eventId: "new-event-id" });
     mockPrismaEventFindUnique.mockResolvedValue({ eventId: "new-event-id" });
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
@@ -102,7 +102,7 @@ describe("POST /api/events/create", () => {
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockRequireSessionUser.mockResolvedValue({
+    mockRequireAdminOrPitchOwnerUser.mockResolvedValue({
       user: null,
       response: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }),
     });

@@ -6,6 +6,7 @@ const e2eUserSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.string().min(1).optional(),
   image: z.string().url().optional(),
+  parentPitchOwnerUserId: z.string().uuid().optional(),
 });
 
 export function getRequiredEnv(name: string) {

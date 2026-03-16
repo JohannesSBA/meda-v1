@@ -21,6 +21,9 @@ type ProfileHeaderProps = {
 };
 
 export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHeaderProps) {
+  const isPitchOwner = user.role === "pitch_owner";
+  const isFacilitator = user.role === "facilitator";
+
   return (
     <Card className="overflow-hidden p-6 sm:p-8">
       <div className="grid gap-6 lg:grid-cols-[auto_1fr_auto] lg:items-center">
@@ -34,7 +37,15 @@ export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHead
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <p className="heading-kicker">{isAdmin ? "Admin workspace" : "Player profile"}</p>
+            <p className="heading-kicker">
+              {isAdmin
+                ? "Admin workspace"
+                : isPitchOwner
+                  ? "Pitch owner workspace"
+                  : isFacilitator
+                    ? "Facilitator workspace"
+                    : "Player profile"}
+            </p>
             <div className="space-y-1">
               <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[var(--color-text-primary)] sm:text-4xl">
                 {user.name}
@@ -44,8 +55,16 @@ export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHead
           </div>
 
           <Cluster gap="sm">
-            {isAdmin ? <Badge variant="accent">Admin access</Badge> : <Badge variant="default">Community member</Badge>}
-            {!isAdmin ? (
+            {isAdmin ? (
+              <Badge variant="accent">Admin access</Badge>
+            ) : isPitchOwner ? (
+              <Badge variant="accent">Pitch owner</Badge>
+            ) : isFacilitator ? (
+              <Badge variant="default">Facilitator</Badge>
+            ) : (
+              <Badge variant="default">Community member</Badge>
+            )}
+            {!isAdmin && !isFacilitator ? (
               <Badge variant={balance > 0 ? "accent" : "default"}>
                 Balance: ETB {balance.toFixed(2)}
               </Badge>
