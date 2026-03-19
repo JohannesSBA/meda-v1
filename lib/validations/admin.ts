@@ -14,7 +14,7 @@ export const adminEventListQuerySchema = z.object({
 });
 
 export const adminRoleUpdateSchema = z.object({
-  role: z.enum(["admin", "user"]),
+  role: z.enum(["admin", "user", "pitch_owner"]),
 });
 
 export const adminBanUpdateSchema = z.object({

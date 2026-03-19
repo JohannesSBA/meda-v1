@@ -6,12 +6,19 @@ import { NextResponse } from "next/server";
 import { auth } from "./server";
 import {
   canCreateEvent,
+  normalizeAppUserRole,
   type SessionUser,
 } from "./roles";
 
 export async function requireSessionUser() {
   const { data } = await auth.getSession();
-  const user = (data?.user ?? null) as SessionUser | null;
+  const rawUser = (data?.user ?? null) as SessionUser | null;
+  const user = rawUser
+    ? {
+        ...rawUser,
+        role: normalizeAppUserRole(rawUser.role),
+      }
+    : null;
   if (!user) {
     return {
       user: null,

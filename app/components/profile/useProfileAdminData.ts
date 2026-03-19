@@ -179,7 +179,10 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
   }, [isAdmin]);
 
   const handleSetRole = useCallback(
-    async (targetUserId: string, role: "admin" | "user") => {
+    async (
+      targetUserId: string,
+      role: "admin" | "user" | "pitch_owner",
+    ) => {
       try {
         await browserApi.patch(`/api/admin/users/${targetUserId}/role`, { role });
         toast.success(`Role updated to ${role}`);
@@ -202,21 +205,6 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
         await loadAdminUsers();
       } catch (error) {
         toast.error(getErrorMessage(error) || "Ban update failed");
-      }
-    },
-    [loadAdminUsers],
-  );
-
-  const handlePromoteToPitchOwner = useCallback(
-    async (targetUserId: string) => {
-      try {
-        await browserApi.post("/api/admin/pitch-owners", {
-          userId: targetUserId,
-        });
-        toast.success("User promoted to pitch owner");
-        await loadAdminUsers();
-      } catch (error) {
-        toast.error(getErrorMessage(error) || "Pitch owner promotion failed");
       }
     },
     [loadAdminUsers],
@@ -467,7 +455,6 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     adminUserNameById,
     handleSetRole,
     handleBanToggle,
-    handlePromoteToPitchOwner,
     handleDeleteEvent,
     startEditEvent,
     handleSaveEventChanges,

@@ -18,9 +18,11 @@ type AdminUsersTabProps = {
   userSearch: string;
   setUserSearch: (v: string) => void;
   onSearch: () => void;
-  onSetRole: (userId: string, role: "admin" | "user") => void;
+  onSetRole: (
+    userId: string,
+    role: "admin" | "user" | "pitch_owner",
+  ) => void;
   onBanToggle: (userId: string, banned: boolean) => void;
-  onPromoteToPitchOwner: (userId: string) => void;
   onRetry?: () => void;
 };
 
@@ -33,7 +35,6 @@ export function AdminUsersTab({
   onSearch,
   onSetRole,
   onBanToggle,
-  onPromoteToPitchOwner,
   onRetry,
 }: AdminUsersTabProps) {
   return (
@@ -105,7 +106,7 @@ export function AdminUsersTab({
                           type="button"
                           size="sm"
                           variant="secondary"
-                          onClick={() => void onPromoteToPitchOwner(row.id)}
+                          onClick={() => void onSetRole(row.id, "pitch_owner")}
                         >
                           Make pitch owner
                         </Button>

@@ -138,7 +138,6 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
               onSearch={data.loadAdminUsers}
               onSetRole={data.handleSetRole}
               onBanToggle={data.handleBanToggle}
-              onPromoteToPitchOwner={data.handlePromoteToPitchOwner}
               onRetry={data.loadAdminUsers}
             />
           ) : null}

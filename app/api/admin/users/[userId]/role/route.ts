@@ -7,6 +7,7 @@ import {
   validationErrorResponse,
 } from "@/lib/validations/http";
 import { adminRoleUpdateSchema, adminUserIdParamSchema } from "@/lib/validations/admin";
+import { ensurePitchOwnerProfile } from "@/services/pitchOwner";
 
 export async function PATCH(
   request: Request,
@@ -23,6 +24,20 @@ export async function PATCH(
   const bodyParse = await parseJsonBody(adminRoleUpdateSchema, request);
   if (!bodyParse.success) {
     return validationErrorResponse(bodyParse.error, "Invalid role payload");
+  }
+
+
+  if (bodyParse.data.role === "pitch_owner") {
+    try {
+      await ensurePitchOwnerProfile({ userId: paramParse.data.userId });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to prepare pitch owner profile";
+      return NextResponse.json(
+        { error: message },
+        { status: message === "User not found" ? 404 : 400 },
+      );
+    }
   }
 
   const result = await callNeonAdminPost(request, "admin/set-role", {

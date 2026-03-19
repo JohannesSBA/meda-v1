@@ -6,6 +6,24 @@ export type AppUserRole =
   | "facilitator"
   | "user";
 
+export const APP_USER_ROLES: readonly AppUserRole[] = [
+  "admin",
+  "pitch_owner",
+  "facilitator",
+  "user",
+];
+
+export function isAppUserRole(value: unknown): value is AppUserRole {
+  return (
+    typeof value === "string" &&
+    (APP_USER_ROLES as readonly string[]).includes(value)
+  );
+}
+
+export function normalizeAppUserRole(role: unknown): AppUserRole {
+  return isAppUserRole(role) ? role : "user";
+}
+
 export type SessionUser = {
   id: string;
   role?: string | null;

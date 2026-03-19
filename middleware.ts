@@ -1,5 +1,5 @@
 /**
- * Middleware -- protects /account/* routes; redirects unauthenticated users to sign-in.
+ * Middleware -- protects authenticated page routes; redirects unauthenticated users to sign-in.
  */
 
 import { createNeonAuth } from "@neondatabase/auth/next/server";
@@ -13,13 +13,18 @@ const auth = createNeonAuth({
 });
 
 export default auth.middleware({
-  // Redirects unauthenticated users to sign-in page
+  // Redirect unauthenticated users to sign-in page
   loginUrl: "/auth/sign-in",
 });
 
 export const config = {
   matcher: [
-    // Protected routes requiring authentication
     "/account/:path*",
+    "/profile",
+    "/profile/:path*",
+    "/create-events",
+    "/create-events/:path*",
+    "/admin",
+    "/admin/:path*",
   ],
 };

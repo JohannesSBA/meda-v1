@@ -1,13 +1,11 @@
 /**
- * Rate limiter with Upstash Redis support and in-memory fallback.
+ * Rate limiter with optional Upstash REST support and in-memory fallback.
  *
- * When UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set,
- * rate limiting is backed by Upstash Redis for multi-instance deployments.
- * Otherwise, falls back to a per-process in-memory sliding window.
+ * If UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are available,
+ * the implementation attempts a lightweight REST-based increment/expiry flow.
+ * When unavailable (or if requests fail), it falls back to in-memory limits.
  */
 
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { logger } from "./logger";
 
 // ---------------------------------------------------------------------------
@@ -54,30 +52,86 @@ function checkInMemory(
 }
 
 // ---------------------------------------------------------------------------
-// Upstash Redis-backed rate limiter
+// Optional Upstash REST-backed limiter
 // ---------------------------------------------------------------------------
 
-let upstashLimiter: Ratelimit | null = null;
+type UpstashClient = {
+  url: string;
+  token: string;
+};
 
-function getUpstashLimiter(): Ratelimit | null {
-  if (upstashLimiter) return upstashLimiter;
+let upstashClient: UpstashClient | null = null;
+
+function getUpstashClient(): UpstashClient | null {
+  if (upstashClient) return upstashClient;
 
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
 
-  try {
-    const redis = new Redis({ url, token });
-    upstashLimiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(10, "60 s"),
-      prefix: "meda-rl",
-    });
-    return upstashLimiter;
-  } catch (err) {
-    logger.warn("Failed to initialize Upstash rate limiter, falling back to in-memory", err);
-    return null;
+  upstashClient = { url, token };
+  return upstashClient;
+}
+
+async function checkViaUpstashRest(
+  client: UpstashClient,
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const safeWindowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  const namespacedKey = `meda-rl:${key}`;
+  const body = {
+    // INCR key
+    // EXPIRE key window_seconds NX
+    // TTL key
+    // Return [count, ttl]
+    command: [
+      "EVAL",
+      "local count = redis.call('INCR', KEYS[1]); redis.call('EXPIRE', KEYS[1], ARGV[1], 'NX'); local ttl = redis.call('TTL', KEYS[1]); return {count, ttl}",
+      "1",
+      namespacedKey,
+      String(safeWindowSeconds),
+    ],
+  };
+
+  const response = await fetch(`${client.url}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${client.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([body]),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Upstash rate limit request failed (${response.status})`);
   }
+
+  const payload = (await response.json()) as unknown;
+  const first = Array.isArray(payload) ? payload[0] : null;
+  const result =
+    first && typeof first === "object" && "result" in first
+      ? (first as { result?: unknown }).result
+      : null;
+
+  const count = Array.isArray(result) ? Number(result[0]) : Number.NaN;
+  const ttlSeconds = Array.isArray(result) ? Number(result[1]) : Number.NaN;
+
+  if (!Number.isFinite(count) || count <= 0) {
+    throw new Error("Unexpected Upstash rate limit response");
+  }
+
+  if (count > maxRequests) {
+    const retryAfterMs =
+      Number.isFinite(ttlSeconds) && ttlSeconds > 0
+        ? Math.max(1, ttlSeconds * 1000)
+        : windowMs;
+    return { limited: true, retryAfterMs };
+  }
+
+  return { limited: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -86,21 +140,17 @@ function getUpstashLimiter(): Ratelimit | null {
 
 /**
  * Check whether `key` has exceeded `maxRequests` within `windowMs`.
- * Uses Upstash Redis when configured, otherwise falls back to in-memory.
+ * Uses Upstash REST when configured, otherwise falls back to in-memory.
  */
 export async function checkRateLimit(
   key: string,
   maxRequests: number,
   windowMs: number,
 ): Promise<RateLimitResult> {
-  const limiter = getUpstashLimiter();
-  if (limiter) {
+  const client = getUpstashClient();
+  if (client) {
     try {
-      const result = await limiter.limit(key);
-      if (!result.success) {
-        return { limited: true, retryAfterMs: result.reset - Date.now() };
-      }
-      return { limited: false };
+      return await checkViaUpstashRest(client, key, maxRequests, windowMs);
     } catch (err) {
       logger.warn("Upstash rate limit check failed, falling back to in-memory", err);
     }
