@@ -31,7 +31,7 @@ export function useProfileUserData(isAdmin: boolean) {
     setRegisteredError(null);
     try {
       const data = await browserApi.get<{ items?: RegisteredEventItem[] }>(
-        `/api/profile/registered-events?status=${registeredStatus}`,
+        `/api/profile/registered-events?status=${registeredStatus}&scope=related`,
         { cache: "no-store" },
       );
       setRegisteredEvents(data.items ?? []);
@@ -140,6 +140,16 @@ export function useProfileUserData(isAdmin: boolean) {
     if (isAdmin) return;
     void loadBalance();
   }, [isAdmin, loadBalance]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    void loadRegisteredEvents();
+  }, [isAdmin, loadRegisteredEvents]);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    void loadSavedEvents();
+  }, [isAdmin, loadSavedEvents]);
 
   return {
     registeredStatus,

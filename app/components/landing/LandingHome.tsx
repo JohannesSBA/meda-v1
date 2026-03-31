@@ -67,8 +67,8 @@ export default function HeroSection({
               description="Join reliable hosts, split pitch costs transparently, and fill lineups faster with a calmer event experience built for Ethiopia."
               actions={
                 <>
-                  <Link href="/events" className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}>Explore matches</Link>
-                  <Link href="/create-events" className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}>Host a match</Link>
+                  <Link href="/play" className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}>Play</Link>
+                  <Link href="/host" className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}>Host</Link>
                 </>
               }
               meta={
@@ -83,8 +83,8 @@ export default function HeroSection({
             <div>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <h2 className="section-title">Upcoming matches</h2>
-                <Link href="/events" className="text-sm font-semibold text-(--color-brand) transition hover:text-(--color-text-primary)">
-                  See all events
+                <Link href="/play?mode=events" className="text-sm font-semibold text-(--color-brand) transition hover:text-(--color-text-primary)">
+                  See all matches
                 </Link>
               </div>
               {featuredEvents.length > 0 ? (
@@ -96,7 +96,7 @@ export default function HeroSection({
               ) : (
                 <Card className="p-6 text-center">
                   <p className="text-sm text-(--color-text-secondary)">No upcoming matches yet. Check back soon or create one.</p>
-                  <Link href="/create-events" className="mt-3 inline-block text-sm font-semibold text-(--color-brand)">Host a match</Link>
+                  <Link href="/host" className="mt-3 inline-block text-sm font-semibold text-(--color-brand)">Open Host</Link>
                 </Card>
               )}
             </div>
@@ -115,7 +115,7 @@ export default function HeroSection({
                   {topCategories.map((category) => (
                     <Link
                       key={category.name}
-                      href={`/events?search=${encodeURIComponent(category.name)}`}
+                      href={`/play?mode=events&search=${encodeURIComponent(category.name)}`}
                       className="rounded-full border border-(--color-border-strong) bg-(--color-control-bg) px-4 py-2 text-sm font-medium text-(--color-text-secondary) transition hover:border-[rgba(125,211,252,0.3)] hover:text-(--color-text-primary)"
                     >
                       {category.name} ({category.upcomingCount})
@@ -134,7 +134,7 @@ export default function HeroSection({
                   {topCities.map((city) => (
                     <Link
                       key={city.name}
-                      href={`/events?search=${encodeURIComponent(city.name)}`}
+                      href={`/play?mode=events&search=${encodeURIComponent(city.name)}`}
                       className="rounded-full border border-(--color-border-strong) bg-(--color-control-bg) px-4 py-2 text-sm font-medium text-(--color-text-secondary) transition hover:border-[rgba(125,211,252,0.3)] hover:text-(--color-text-primary)"
                     >
                       {city.name} ({city.upcomingCount})
@@ -160,8 +160,8 @@ export default function HeroSection({
               </p>
             </div>
             <Cluster gap="sm" className="lg:justify-end">
-              <Link href="/events" className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}>Browse events</Link>
-              <Link href="/create-events" className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}>Create an event</Link>
+              <Link href="/play" className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}>Play</Link>
+              <Link href="/host" className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}>Host</Link>
             </Cluster>
           </div>
         </SurfacePanel>

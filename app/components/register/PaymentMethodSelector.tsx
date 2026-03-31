@@ -9,8 +9,7 @@ type PaymentMethodSelectorProps = {
   userBalance: number;
   paymentMethod: "chapa" | "balance";
   setPaymentMethod: (m: "chapa" | "balance") => void;
-  pricePerTicket: number;
-  qty: number;
+  totalDue: number;
 };
 
 export function PaymentMethodSelector({
@@ -18,13 +17,11 @@ export function PaymentMethodSelector({
   userBalance,
   paymentMethod,
   setPaymentMethod,
-  pricePerTicket,
-  qty,
+  totalDue,
 }: PaymentMethodSelectorProps) {
   if (!isPaid || userBalance <= 0) return null;
 
-  const total = pricePerTicket * qty;
-  const insufficientBalance = paymentMethod === "balance" && userBalance < total;
+  const insufficientBalance = paymentMethod === "balance" && userBalance < totalDue;
 
   return (
     <div className="space-y-2">
@@ -61,7 +58,7 @@ export function PaymentMethodSelector({
       </div>
       {insufficientBalance ? (
         <p className="text-xs text-red-400">
-          Insufficient balance. You need ETB {total.toFixed(2)} but have ETB{" "}
+          Insufficient balance. You need ETB {totalDue.toFixed(2)} but have ETB{" "}
           {userBalance.toFixed(2)}.
         </p>
       ) : null}

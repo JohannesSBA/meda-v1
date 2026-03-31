@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { isBookingTicketShareToken } from "@/lib/tickets/bookingShareToken";
 import { getShareLinkDetails } from "@/services/ticketSharing";
+import { getBookingTicketShareDetails } from "@/services/bookingTicketSharing";
 import { parseParams, validationErrorResponse } from "@/lib/validations/http";
 import { shareTokenParamSchema } from "@/lib/validations/ticketSharing";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
@@ -35,7 +37,9 @@ export async function GET(
   }
   const { token } = parsed.data;
   try {
-    const result = await getShareLinkDetails(token);
+    const result = isBookingTicketShareToken(token)
+      ? await getBookingTicketShareDetails(token)
+      : await getShareLinkDetails(token);
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     return NextResponse.json(

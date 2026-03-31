@@ -3,15 +3,62 @@
  */
 
 import { notFound } from "next/navigation";
+import { BookingStatus, TicketStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/tickets/verificationToken";
+import { parseVerificationToken } from "@/lib/tickets/verificationToken";
 import { resolveEventLocation } from "@/lib/location";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Card } from "@/app/components/ui/card";
 
 async function verifyTicket(token: string) {
-  const attendeeId = verifyToken(token);
-  if (!attendeeId) return null;
+  const payload = parseVerificationToken(token);
+  if (!payload) return null;
+
+  if (payload.kind === "booking_ticket") {
+    const bookingTicket = await prisma.bookingTicket.findUnique({
+      where: { id: payload.id },
+      include: {
+        booking: {
+          include: {
+            slot: {
+              include: {
+                pitch: {
+                  select: {
+                    name: true,
+                    addressLabel: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!bookingTicket) return null;
+    if (
+      bookingTicket.booking.status !== BookingStatus.CONFIRMED &&
+      bookingTicket.booking.status !== BookingStatus.COMPLETED
+    ) {
+      return null;
+    }
+    if (
+      bookingTicket.status !== TicketStatus.ASSIGNED &&
+      bookingTicket.status !== TicketStatus.VALID &&
+      bookingTicket.status !== TicketStatus.CHECKED_IN
+    ) {
+      return null;
+    }
+
+    return {
+      valid: true,
+      eventName: bookingTicket.booking.slot.pitch.name,
+      eventDatetime: bookingTicket.booking.slot.startsAt.toISOString(),
+      addressLabel: bookingTicket.booking.slot.pitch.addressLabel ?? null,
+    };
+  }
+
+  const attendeeId = payload.id;
 
   const attendee = await prisma.eventAttendee.findUnique({
     where: { attendeeId },

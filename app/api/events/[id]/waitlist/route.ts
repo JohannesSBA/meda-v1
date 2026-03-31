@@ -49,6 +49,12 @@ export async function POST(
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
+  if (event.eventDatetime <= new Date()) {
+    return NextResponse.json(
+      { error: "This event has already started." },
+      { status: 400 },
+    );
+  }
 
   const [attendeeCount, reservedCount] = await Promise.all([
     prisma.eventAttendee.count({ where: { eventId } }),

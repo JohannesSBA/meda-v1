@@ -62,6 +62,30 @@ export type ChapaInitializeResponse = {
   };
 };
 
+export type ChapaTransferPayload = {
+  account_name: string;
+  account_number: string;
+  amount: string;
+  currency: string;
+  beneficiary_name: string;
+  reference: string;
+  bank_code: string;
+  callback_url: string;
+};
+
+export type ChapaTransferResponse = {
+  status?: string;
+  message?: unknown;
+  data?: {
+    id?: string;
+    transfer_id?: string;
+    reference?: string;
+    status?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
 export type ChapaVerification = {
   status?: string;
   message?: unknown;
@@ -151,6 +175,19 @@ export async function initializeChapaTransaction(
 ) {
   const response = await axios.post<ChapaInitializeResponse>(
     `${CHAPA_API_BASE_URL}/transaction/initialize`,
+    payload,
+    {
+      headers: getChapaHeaders(),
+      timeout: 15000,
+    },
+  );
+
+  return response.data;
+}
+
+export async function createChapaTransfer(payload: ChapaTransferPayload) {
+  const response = await axios.post<ChapaTransferResponse>(
+    `${CHAPA_API_BASE_URL}/transfers`,
     payload,
     {
       headers: getChapaHeaders(),

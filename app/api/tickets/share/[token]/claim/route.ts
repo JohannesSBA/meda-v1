@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { isBookingTicketShareToken } from "@/lib/tickets/bookingShareToken";
 import { claimShareLink } from "@/services/ticketSharing";
+import { claimBookingTicketShareLink } from "@/services/bookingTicketSharing";
 import { parseParams, validationErrorResponse } from "@/lib/validations/http";
 import { shareTokenParamSchema } from "@/lib/validations/ticketSharing";
 import { revalidateEventData } from "@/lib/revalidation";
@@ -41,6 +43,17 @@ export async function POST(
   }
   const { token } = parsed.data;
   try {
+    if (isBookingTicketShareToken(token)) {
+      const result = await claimBookingTicketShareLink({
+        token,
+        claimantUserId: session.user.id,
+      });
+      revalidatePath("/tickets");
+      revalidatePath("/play");
+      revalidatePath("/host");
+      return NextResponse.json(result, { status: 200 });
+    }
+
     const result = await claimShareLink({
       token,
       claimantUserId: session.user.id,

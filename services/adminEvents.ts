@@ -176,6 +176,7 @@ export async function updateAdminEvent(
   }
 
   const locationFields = resolvePatchedLocation(payload, existing);
+  const nextPriceField = payload.priceField ?? existing.priceField;
   const updateData = {
     eventName: payload.eventName ?? existing.eventName,
     description: payload.description ?? existing.description,
@@ -187,7 +188,7 @@ export async function updateAdminEvent(
     latitude: locationFields.latitude,
     longitude: locationFields.longitude,
     capacity: payload.capacity ?? existing.capacity,
-    priceField: payload.priceField ?? existing.priceField,
+    priceField: nextPriceField,
     categoryId: payload.categoryId ?? existing.categoryId,
     updatedAt: new Date(),
   };
@@ -203,7 +204,7 @@ export async function updateAdminEvent(
       throw new Error("Event not found after update");
     }
 
-    if (payload.capacity != null && payload.capacity > 0) {
+    if (payload.capacity != null && payload.capacity > 0 && (nextPriceField ?? 0) <= 0) {
       const seriesEvents = await prisma.event.findMany({
         where: { seriesId: existing.seriesId },
         select: { eventId: true },
@@ -231,7 +232,7 @@ export async function updateAdminEvent(
     data: updateData,
   });
 
-  if (payload.capacity != null && payload.capacity > 0) {
+  if (payload.capacity != null && payload.capacity > 0 && (nextPriceField ?? 0) <= 0) {
     void promoteWaitlistForEvent(eventId);
   }
 

@@ -76,10 +76,10 @@
   --radius-xl: 32px;
   --radius-pill: 999px;
 
-  --container-inline: clamp(16px, 3vw, 32px);
+  --container-inline: clamp(14px, 3.6vw, 36px);
   --container-max: 1240px;
-  --header-height: 72px;
-  --bottom-nav-height: 78px;
+  --header-height: 68px;
+  --bottom-nav-height: 74px;
 }
 
 @theme inline {
@@ -92,6 +92,7 @@
 html {
   min-height: 100%;
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -99,8 +100,10 @@ body {
   background: var(--body-bg);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 
 * {
@@ -152,11 +155,11 @@ img {
 }
 
 .page-container {
-  padding-block: clamp(var(--space-3), 1.75vw, var(--space-6));
+  padding-block: clamp(var(--space-4), 1.8vw, var(--space-6));
 }
 
 .page-section {
-  padding-block: clamp(var(--space-6), 3vw, var(--space-12));
+  padding-block: clamp(var(--space-6), 3.2vw, var(--space-12));
 }
 
 .section-stack > * + * {
@@ -167,7 +170,9 @@ img {
 .glass-card {
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-strong);
-  background: var(--card-bg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    var(--card-bg);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(18px);
 }
@@ -300,6 +305,16 @@ img {
   padding: 10px;
 }
 
+.mobile-sheet {
+  border-radius: 28px 28px 0 0;
+  border: 1px solid var(--color-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--card-bg);
+  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(24px);
+}
+
 @media (min-width: 768px) {
   .bottom-action-bar {
     display: none;
@@ -313,5 +328,27 @@ img {
 @media (min-width: 768px) {
   .has-bottom-nav {
     padding-bottom: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --header-height: 64px;
+    --bottom-nav-height: 72px;
+    --radius-lg: 22px;
+    --radius-xl: 26px;
+  }
+
+  .page-container {
+    padding-block: var(--space-4);
+  }
+
+  .section-stack > * + * {
+    margin-top: var(--space-4);
+  }
+
+  .surface-card,
+  .glass-card {
+    box-shadow: 0 16px 38px rgba(2, 6, 23, 0.28);
   }
 }

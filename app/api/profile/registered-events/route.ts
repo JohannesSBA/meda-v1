@@ -5,6 +5,7 @@ import { getActiveReservationCountMap } from "@/lib/events/availability";
 import { serializePublicEvent } from "@/lib/events/serializers";
 import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
 import { profileStatusQuerySchema } from "@/lib/validations/profile";
+import { getUserEventTicketSummaryMap } from "@/services/ticketSummaries";
 
 export async function GET(request: Request) {
   const sessionCheck = await requireSessionUser();
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
   }
 
   const status = parsed.data.status;
+  const scope = parsed.data.scope ?? "related";
   const now = new Date();
   const dateFilter =
     status === "past"
@@ -26,13 +28,25 @@ export async function GET(request: Request) {
         ? undefined
         : { gte: now };
 
-  const grouped = await prisma.eventAttendee.groupBy({
-    by: ["eventId"],
-    where: { userId: user.id },
-    _count: { _all: true },
-  });
+  const [heldGrouped, refundableGrouped] = await Promise.all([
+    prisma.eventAttendee.groupBy({
+      by: ["eventId"],
+      where: { userId: user.id },
+      _count: { _all: true },
+    }),
+    scope === "related"
+      ? prisma.eventAttendee.groupBy({
+          by: ["eventId"],
+          where: { purchaserUserId: user.id },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
-  const eventIds = grouped.map((row) => row.eventId);
+  const eventIds =
+    scope === "held"
+      ? heldGrouped.map((row) => row.eventId)
+      : [...new Set([...heldGrouped, ...refundableGrouped].map((row) => row.eventId))];
   if (eventIds.length === 0) {
     return NextResponse.json({ items: [] }, { status: 200 });
   }
@@ -46,8 +60,11 @@ export async function GET(request: Request) {
     orderBy: { eventDatetime: status === "past" ? "desc" : "asc" },
   });
 
-  const ticketMap = new Map(grouped.map((row) => [row.eventId, row._count._all]));
   const reservationCounts = await getActiveReservationCountMap(eventIds);
+  const ticketSummaryMap = await getUserEventTicketSummaryMap(
+    user.id,
+    events.map((event) => event.eventId),
+  );
 
   return NextResponse.json(
     {
@@ -56,7 +73,13 @@ export async function GET(request: Request) {
           attendeeCount: event._count.attendees,
           reservedCount: reservationCounts.get(event.eventId) ?? 0,
         }),
-        ticketCount: ticketMap.get(event.eventId) ?? 0,
+        ticketCount: ticketSummaryMap.get(event.eventId)?.heldTicketCount ?? 0,
+        heldTicketCount:
+          ticketSummaryMap.get(event.eventId)?.heldTicketCount ?? 0,
+        refundableTicketCount:
+          ticketSummaryMap.get(event.eventId)?.refundableTicketCount ?? 0,
+        refundableAmountEtb:
+          ticketSummaryMap.get(event.eventId)?.refundableAmountEtb ?? 0,
       })),
     },
     { status: 200 },

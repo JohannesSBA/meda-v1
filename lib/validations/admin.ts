@@ -27,6 +27,11 @@ export const adminEventCreationFeeSchema = z.object({
   amountEtb: z.coerce.number().min(0).max(100_000),
 });
 
+export const adminCreatePayoutSchema = z.object({
+  ownerId: uuidSchema,
+  amountEtb: z.coerce.number().positive().max(10_000_000).optional(),
+});
+
 export const adminPromoCodeCreateSchema = z.object({
   code: z
     .string()

@@ -202,7 +202,7 @@ describe("POST /api/payments/balance", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/insufficient balance/i);
-    expect(body.shortfall).toBe(400);
+    expect(body.shortfall).toBe(415);
   });
 
   it("returns 200 on successful balance payment", async () => {
@@ -218,7 +218,7 @@ describe("POST /api/payments/balance", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.quantity).toBe(1);
-    expect(body.amountPaid).toBe(100);
+    expect(body.amountPaid).toBe(115);
   });
 
   it("executes transaction on valid payment", async () => {

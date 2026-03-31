@@ -13,6 +13,9 @@ const registeredItem = {
   eventEndtime: "2026-04-12T20:00:00.000Z",
   addressLabel: "Megenagna Turf",
   ticketCount: 2,
+  heldTicketCount: 2,
+  refundableTicketCount: 2,
+  refundableAmountEtb: 200,
   priceField: 100,
 };
 

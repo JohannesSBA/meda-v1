@@ -15,14 +15,12 @@ import { CHAPA_HOLD_WINDOW_MS, getLockedAvailabilitySnapshot } from "@/lib/event
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
+import { computeTicketChargeBreakdown } from "@/lib/ticketPricing";
 import {
   PaymentProvider,
   PaymentStatus,
 } from "@/generated/prisma/client";
 import { sendTicketConfirmationEmail } from "@/services/email";
-import {
-  PLATFORM_COMMISSION_PERCENT,
-} from "@/services/pitchOwner";
 
 type CheckoutPayload = {
   eventId: string;
@@ -66,7 +64,7 @@ export type ChapaConfirmationResult =
     }
   | {
       ok: false;
-      status: "requires_refund";
+      status: "processing" | "requires_refund";
       quantity: 0;
       eventId: string;
       failureReason: string;
@@ -112,18 +110,6 @@ async function markPaymentRequiresRefund(
   });
 }
 
-function normalizeSplitValue(value: number | string | null | undefined) {
-  const parsed = Number(value ?? PLATFORM_COMMISSION_PERCENT);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return PLATFORM_COMMISSION_PERCENT;
-  }
-  return parsed;
-}
-
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
 export async function payWithBalance(
   params: PayWithBalanceParams,
 ): Promise<PayWithBalanceResult> {
@@ -147,7 +133,10 @@ export async function payWithBalance(
     throw new Error("Not enough seats available");
   }
 
-  const preflightCost = preflightEvent.priceField * quantity;
+  const preflightCost = computeTicketChargeBreakdown({
+    unitPriceEtb: preflightEvent.priceField,
+    quantity,
+  }).totalAmountEtb;
   const preflightBalance = await prisma.userBalance.findUnique({
     where: { userId },
   });
@@ -185,7 +174,11 @@ export async function payWithBalance(
       throw new Error("Not enough seats available");
     }
 
-    const totalCost = event.priceField * quantity;
+    const chargeBreakdown = computeTicketChargeBreakdown({
+      unitPriceEtb: event.priceField,
+      quantity,
+    });
+    const totalCost = chargeBreakdown.totalAmountEtb;
     const eventOwnerUserId =
       typeof event.userId === "string" && event.userId.trim()
         ? event.userId
@@ -223,36 +216,27 @@ export async function payWithBalance(
       data: { balanceEtb: { decrement: totalCost } },
     });
 
-    if (pitchOwnerProfile?.chapaSubaccountId && eventOwnerUserId) {
-      const ownerShare = roundCurrency(
-        totalCost * (1 - PLATFORM_COMMISSION_PERCENT),
-      );
+    if (pitchOwnerProfile?.chapaSubaccountId && eventOwnerUserId && chargeBreakdown.ownerRevenueEtb > 0) {
       await tx.userBalance.upsert({
         where: { userId: eventOwnerUserId },
         update: {
-          balanceEtb: { increment: ownerShare },
+          balanceEtb: { increment: chargeBreakdown.ownerRevenueEtb },
         },
         create: {
           userId: eventOwnerUserId,
-          balanceEtb: ownerShare,
+          balanceEtb: chargeBreakdown.ownerRevenueEtb,
         },
       });
     }
 
-    await tx.eventAttendee.createMany({
-      data: Array.from({ length: quantity }).map(() => ({
-        eventId,
-        userId,
-        status: "RSVPed" as const,
-      })),
-    });
-
-    await tx.payment.create({
+    const payment = await tx.payment.create({
       data: {
         eventId,
         userId,
         quantity,
         unitPriceEtb: event.priceField,
+        surchargeEtb: chargeBreakdown.surchargeTotalEtb,
+        ownerRevenueEtb: chargeBreakdown.ownerRevenueEtb,
         amountEtb: totalCost,
         currency: "ETB",
         provider: PaymentProvider.balance,
@@ -262,6 +246,18 @@ export async function payWithBalance(
         verifiedAt: new Date(),
         fulfilledAt: new Date(),
       },
+      select: { paymentId: true },
+    });
+    const paymentId = payment?.paymentId ?? null;
+
+    await tx.eventAttendee.createMany({
+      data: Array.from({ length: quantity }).map(() => ({
+        eventId,
+        userId,
+        purchaserUserId: userId,
+        paymentId,
+        status: "RSVPed" as const,
+      })),
     });
 
     return { event, totalCost };
@@ -355,7 +351,11 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
       throw new Error("Not enough seats available");
     }
 
-    const totalAmount = event.priceField * payload.quantity;
+    const chargeBreakdown = computeTicketChargeBreakdown({
+      unitPriceEtb: event.priceField,
+      quantity: payload.quantity,
+    });
+    const totalAmount = chargeBreakdown.totalAmountEtb;
     const eventOwnerUserId =
       typeof event.userId === "string" && event.userId.trim()
         ? event.userId
@@ -366,35 +366,27 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
         ? await tx.pitchOwnerProfile.findUnique({
             where: { userId: eventOwnerUserId },
             select: {
-              chapaSubaccountId: true,
-              splitType: true,
-              splitValue: true,
               payoutSetupVerifiedAt: true,
             },
           })
         : null;
-    if (pitchOwnerProfile && (!pitchOwnerProfile.chapaSubaccountId || !pitchOwnerProfile.payoutSetupVerifiedAt)) {
+    if (pitchOwnerProfile && !pitchOwnerProfile.payoutSetupVerifiedAt) {
       throw new Error("This event is not accepting payments yet");
     }
 
-    const splitConfig = pitchOwnerProfile?.chapaSubaccountId
-      ? {
-          id: pitchOwnerProfile.chapaSubaccountId,
-          split_type: pitchOwnerProfile.splitType ?? "percentage",
-          split_value: normalizeSplitValue(pitchOwnerProfile.splitValue?.toString()),
-        }
-      : null;
     const payment = await tx.payment.create({
       data: {
         eventId: payload.eventId,
         userId: payload.userId,
         quantity: payload.quantity,
         unitPriceEtb: event.priceField,
+        surchargeEtb: chargeBreakdown.surchargeTotalEtb,
+        ownerRevenueEtb: chargeBreakdown.ownerRevenueEtb,
         amountEtb: totalAmount,
         currency: "ETB",
         provider: PaymentProvider.chapa,
         status: PaymentStatus.created,
-        chapaSubaccountId: splitConfig?.id ?? null,
+        chapaSubaccountId: null,
         providerReference: txRef,
         reservationExpiresAt,
       },
@@ -405,7 +397,6 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
       paymentId: payment.paymentId,
       eventName: event.eventName,
       amount: totalAmount.toFixed(2),
-      splitConfig,
     };
   });
 
@@ -427,13 +418,10 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
         title: customizationTitle,
         description: `Ticket purchase for ${intent.eventName}`,
       },
-      ...(intent.splitConfig ? { subaccounts: intent.splitConfig } : {}),
     };
 
     if (process.env.NODE_ENV !== "production") {
       logger.info("[chapa] Initialize payload", {
-        hasSubaccounts: Boolean(intent.splitConfig),
-        subaccounts: intent.splitConfig,
         amount: intent.amount,
       });
     }
@@ -542,18 +530,28 @@ export async function confirmChapaPayment(
   }
 
   const verification = await verifyChapaTransactionWithRetry(payload.txRef);
-  const paidStatus = verification.data?.status?.toLowerCase();
-  if (verification.status !== "success" || paidStatus !== "success") {
-    await prisma.payment.update({
-      where: { paymentId: payment.paymentId },
-      data: {
-        status: PaymentStatus.failed,
-        failureReason: "Payment has not been completed",
-        verifiedAt: new Date(),
-        reservationExpiresAt: null,
-      },
-    });
-    throw new Error("Payment has not been completed");
+  const providerStatus = verification.data?.status?.toLowerCase() ?? null;
+  if (providerStatus !== "success") {
+    if (providerStatus === "failed") {
+      await prisma.payment.update({
+        where: { paymentId: payment.paymentId },
+        data: {
+          status: PaymentStatus.failed,
+          failureReason: "Payment failed at the provider",
+          verifiedAt: new Date(),
+          reservationExpiresAt: null,
+        },
+      });
+      throw new Error("Payment failed");
+    }
+
+    return {
+      ok: false,
+      status: "processing",
+      quantity: 0,
+      eventId: payment.eventId,
+      failureReason: "Payment is still processing",
+    };
   }
 
   const verifiedAmount = Number(verification.data?.amount);
@@ -641,7 +639,26 @@ export async function confirmChapaPayment(
       } satisfies ChapaConfirmationResult;
     }
     if (!isPaymentPending(latest.status)) {
-      throw new Error("Payment can no longer be confirmed");
+      const failureReason =
+        latest.status === PaymentStatus.canceled
+          ? "Payment settled after the reservation had already been canceled. Order flagged for refund review."
+          : "Payment settled after the reservation had already failed. Order flagged for refund review.";
+      await tx.payment.update({
+        where: { paymentId: latest.paymentId },
+        data: {
+          status: PaymentStatus.requires_refund,
+          failureReason,
+          verifiedAt: new Date(),
+          reservationExpiresAt: null,
+        },
+      });
+      return {
+        ok: false,
+        status: "requires_refund",
+        quantity: 0,
+        eventId: latest.eventId,
+        failureReason,
+      } satisfies ChapaConfirmationResult;
     }
 
     const snapshot = await getLockedAvailabilitySnapshot(latest.eventId, tx, {
@@ -723,6 +740,8 @@ export async function confirmChapaPayment(
       data: Array.from({ length: latest.quantity }).map(() => ({
         eventId: latest.eventId,
         userId: latest.userId,
+        purchaserUserId: latest.userId,
+        paymentId: latest.paymentId,
         status: "RSVPed",
       })),
     });

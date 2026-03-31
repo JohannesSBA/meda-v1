@@ -126,3 +126,28 @@ export function boundingBox(
     maxLng: center.lng + lngDelta,
   };
 }
+
+export function buildGoogleMapsUrl(params: {
+  addressLabel?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}) {
+  if (
+    typeof params.latitude === "number" &&
+    Number.isFinite(params.latitude) &&
+    typeof params.longitude === "number" &&
+    Number.isFinite(params.longitude)
+  ) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${params.latitude},${params.longitude}`,
+    )}`;
+  }
+
+  if (params.addressLabel?.trim()) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      params.addressLabel.trim(),
+    )}`;
+  }
+
+  return null;
+}

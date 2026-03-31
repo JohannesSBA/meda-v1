@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockVerifyToken = vi.fn();
+const mockParseVerificationToken = vi.fn();
 const mockGetSession = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockFindUniqueAttendee = vi.fn();
@@ -9,7 +9,8 @@ const mockQueryRawUnsafe = vi.fn();
 const mockQueryRaw = vi.fn();
 
 vi.mock("@/lib/tickets/verificationToken", () => ({
-  verifyToken: mockVerifyToken,
+  parseVerificationToken: mockParseVerificationToken,
+  verifyToken: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/server", () => ({
@@ -81,7 +82,10 @@ describe("ticket verification routes", () => {
   });
 
   it("GET verifies a ticket without inserting a scan row", async () => {
-    mockVerifyToken.mockReturnValue("att-1");
+    mockParseVerificationToken.mockReturnValue({
+      id: "att-1",
+      kind: "event_attendee",
+    });
     mockFindUniqueAttendee.mockResolvedValue(makeAttendee());
     mockFindUniqueScan.mockResolvedValue(null);
 
@@ -104,7 +108,10 @@ describe("ticket verification routes", () => {
   });
 
   it("POST records a scan when the ticket is first used", async () => {
-    mockVerifyToken.mockReturnValue("att-1");
+    mockParseVerificationToken.mockReturnValue({
+      id: "att-1",
+      kind: "event_attendee",
+    });
     mockFindUniqueAttendee.mockResolvedValue(makeAttendee());
     mockFindUniqueScan.mockResolvedValue(null);
     mockQueryRaw.mockResolvedValue([
@@ -138,7 +145,7 @@ describe("ticket verification routes", () => {
   });
 
   it("rejects invalid verification tokens before hitting the database", async () => {
-    mockVerifyToken.mockReturnValue(null);
+    mockParseVerificationToken.mockReturnValue(null);
 
     const { GET } = await importHandlers();
     const response = await GET(

@@ -10,6 +10,7 @@ import { Select } from "@/app/components/ui/select";
 import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
 import TicketQRPanel from "@/app/components/tickets/TicketQRPanel";
+import { computeTicketChargeBreakdown } from "@/lib/ticketPricing";
 import { useRegisterPanel } from "./useRegisterPanel";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { ShareTicketCard } from "./ShareTicketCard";
@@ -24,12 +25,18 @@ type RegisterPanelProps = {
 
 export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: RegisterPanelProps) {
   const data = useRegisterPanel({ event, isSoldOut, occurrences });
+  const chargeBreakdown = computeTicketChargeBreakdown({
+    unitPriceEtb: event.priceField ?? 0,
+    quantity: data.qty,
+  });
 
   const registerDisabled =
     data.loading ||
     data.confirmingPayment ||
     data.soldOutForSelection ||
-    (data.isPaid && data.paymentMethod === "balance" && data.userBalance < (event.priceField ?? 0) * data.qty);
+    (data.isPaid &&
+      data.paymentMethod === "balance" &&
+      data.userBalance < chargeBreakdown.totalAmountEtb);
 
   return (
     <Card id="register-panel" className="space-y-5 rounded-[var(--radius-xl)] p-5 sm:p-6">
@@ -46,7 +53,9 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Re
               <p className="heading-kicker">Tickets</p>
               <h3 className="text-2xl font-semibold tracking-[-0.04em] text-[var(--color-text-primary)]">Register to play</h3>
             </div>
-            <Badge variant="accent">{event.priceField ? `ETB ${event.priceField}` : "Free"}</Badge>
+            <Badge variant="accent">
+              {event.priceField ? `ETB ${event.priceField} + 15 fee` : "Free"}
+            </Badge>
           </div>
 
           <div className="space-y-4 text-sm text-[var(--color-text-secondary)]">
@@ -65,7 +74,13 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Re
 
             <div className="grid gap-3">
               <InfoRow label="Available" value={data.soldOutForSelection ? "Sold out" : data.remaining === Infinity ? "No limit" : `${data.remaining} seats`} />
-              <InfoRow label="Your tickets" value={`${data.myTickets ?? 0}`} />
+              <InfoRow label="Tickets you hold" value={`${data.myTickets ?? 0}`} />
+              {data.isPaid ? (
+                <InfoRow
+                  label="Refundable tickets"
+                  value={`${data.refundableTicketCount ?? 0}`}
+                />
+              ) : null}
               <div className="surface-card-muted rounded-[var(--radius-md)] p-3.5">
                 <label className="field-label mb-2">Quantity to add</label>
                 <Input
@@ -83,13 +98,37 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Re
             </div>
           </div>
 
+          {data.isPaid ? (
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4 text-sm text-[var(--color-text-secondary)]">
+              <p className="font-semibold text-[var(--color-text-primary)]">
+                Price breakdown
+              </p>
+              <div className="mt-3 space-y-2">
+                <InfoRow
+                  label="Ticket price"
+                  value={`ETB ${chargeBreakdown.ticketSubtotalEtb.toFixed(2)}`}
+                />
+                <InfoRow
+                  label="Platform fee"
+                  value={`ETB ${chargeBreakdown.surchargeTotalEtb.toFixed(2)}`}
+                />
+                <InfoRow
+                  label="Total to pay"
+                  value={`ETB ${chargeBreakdown.totalAmountEtb.toFixed(2)}`}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-6 text-[var(--color-text-muted)]">
+                The ETB 15 fee per ticket stays with Meda&apos;s Chapa account for payment processing and does not go to the host.
+              </p>
+            </div>
+          ) : null}
+
           <PaymentMethodSelector
             isPaid={data.isPaid}
             userBalance={data.userBalance}
             paymentMethod={data.paymentMethod}
             setPaymentMethod={data.setPaymentMethod}
-            pricePerTicket={event.priceField ?? 0}
-            qty={data.qty}
+            totalDue={chargeBreakdown.totalAmountEtb}
           />
 
           <div className="grid gap-3">
@@ -153,14 +192,21 @@ export default function RegisterPanel({ event, isSoldOut, occurrences = [] }: Re
           {data.showRefundConfirm ? (
             <RefundConfirmCard
               isPaid={data.isPaid}
-              pricePerTicket={event.priceField ?? 0}
               refundQty={data.refundQty}
               setRefundQty={data.setRefundQty}
-              myTickets={data.myTickets}
+              refundableTicketCount={data.refundableTicketCount}
+              refundAmountEtb={data.refundQuoteAmountEtb}
+              refundQuoteLoading={data.refundQuoteLoading}
               refundLoading={data.refundLoading}
               onConfirm={data.handleRefund}
               onCancel={() => data.setShowRefundConfirm(false)}
             />
+          ) : null}
+
+          {data.holdsTransferredTickets ? (
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4 text-xs leading-6 text-[var(--color-text-muted)]">
+              These tickets were transferred to you. Only the original purchaser can request a refund.
+            </div>
           ) : null}
 
           <Button type="button" onClick={data.handleToggleSave} variant="secondary" className="h-11 w-full rounded-full">

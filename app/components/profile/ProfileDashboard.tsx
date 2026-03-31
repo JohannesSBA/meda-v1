@@ -5,31 +5,29 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { cn } from "@/app/components/ui/cn";
-import { Card } from "@/app/components/ui/card";
+import { buttonVariants } from "@/app/components/ui/button";
 import { Stack } from "@/app/components/ui/primitives";
-import { useProfileData } from "./useProfileData";
+import { AppSectionCard } from "@/app/components/ui/app-section-card";
+import { InlineStatusBanner } from "@/app/components/ui/inline-status-banner";
+import { ResponsiveActionBar } from "@/app/components/ui/responsive-action-bar";
+import { useProfileUserData } from "./useProfileUserData";
 import { ProfileHeader } from "./ProfileHeader";
 import { RegisteredEventsTab } from "./RegisteredEventsTab";
 import { SavedEventsTab } from "./SavedEventsTab";
-import { AdminUsersTab } from "./AdminUsersTab";
-import { AdminEventsTab } from "./AdminEventsTab";
-import { AdminStatsTab } from "./AdminStatsTab";
-import { AdminBillingTab } from "./AdminBillingTab";
-import { FacilitatorEventsTab } from "./FacilitatorEventsTab";
-import { FacilitatorsTab } from "./FacilitatorsTab";
-import { PitchOwnerEventsTab } from "./PitchOwnerEventsTab";
 import { PayoutSettingsTab } from "./PayoutSettingsTab";
 import type { ProfileUser } from "./types";
+import { appRoutes } from "@/lib/navigation";
 
 type ProfileDashboardProps = {
   user: ProfileUser;
 };
 
 export default function ProfileDashboard({ user }: ProfileDashboardProps) {
-  const data = useProfileData(user);
   const isPitchOwner = user.role === "pitch_owner";
-  const isFacilitator = user.role === "facilitator";
+  const isAdmin = user.role === "admin";
+  const userData = useProfileUserData(isAdmin);
 
   const avatarUrl = useMemo(
     () =>
@@ -40,166 +38,120 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
 
   return (
     <Stack gap="xl">
-      <ProfileHeader user={user} isAdmin={data.isAdmin} balance={data.balance} avatarUrl={avatarUrl} />
+      <ProfileHeader
+        user={user}
+        isAdmin={isAdmin}
+        balance={userData.balance}
+        avatarUrl={avatarUrl}
+      />
 
-      {!data.isAdmin ? (
+      <AppSectionCard
+        headingKicker="Quick paths"
+        title="Use the right page for the job."
+        description="Profile now focuses on your account, saved items, and role access. Use Tickets for things you joined, Host for pitch operations, and Admin for platform-wide work."
+      >
+        <ResponsiveActionBar>
+          <Link href={appRoutes.play} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+            Play
+          </Link>
+          <Link href={appRoutes.tickets} className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+            Tickets
+          </Link>
+          {isPitchOwner ? (
+            <Link href={appRoutes.host} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Host
+            </Link>
+          ) : null}
+          {isAdmin ? (
+            <Link href={appRoutes.admin} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Admin
+            </Link>
+          ) : null}
+          <Link
+            href={appRoutes.accountSettings}
+            className={cn(buttonVariants("ghost", "md"), "rounded-full")}
+          >
+            Account settings
+          </Link>
+          <Link
+            href="/account/security"
+            className={cn(buttonVariants("ghost", "md"), "rounded-full")}
+          >
+            Security
+          </Link>
+          {isPitchOwner ? (
+            <Link
+              href={appRoutes.createMatch}
+              className={cn(buttonVariants("ghost", "md"), "rounded-full")}
+            >
+              Create match
+            </Link>
+          ) : null}
+        </ResponsiveActionBar>
+      </AppSectionCard>
+
+      {isAdmin ? (
+        <InlineStatusBanner
+          title="Platform operations moved to Admin."
+          description="Users, event moderation, billing, payouts, promo codes, and stats now live in the Admin workspace so Profile stays focused on your account."
+          action={
+            <Link href={appRoutes.admin} className={cn(buttonVariants("primary", "sm"), "rounded-full")}>
+              Open Admin
+            </Link>
+          }
+        />
+      ) : null}
+
+      {!isAdmin ? (
         <>
-          {isPitchOwner ? <PitchOwnerEventsTab /> : null}
+          <InlineStatusBanner
+            title="Tickets and hosting have their own homes now."
+            description={
+              isPitchOwner
+                ? "Use Tickets for things you joined, and Host for places, booking times, people, and money."
+                : "Use Tickets for things you joined. Profile keeps your account and saved items easy to find."
+            }
+            tone="info"
+            action={
+              <ResponsiveActionBar align="end">
+                <Link href={appRoutes.tickets} className={cn(buttonVariants("primary", "sm"), "rounded-full")}>
+                  Open Tickets
+                </Link>
+                {isPitchOwner ? (
+                  <Link href={appRoutes.host} className={cn(buttonVariants("secondary", "sm"), "rounded-full")}>
+                    Open Host
+                  </Link>
+                ) : null}
+              </ResponsiveActionBar>
+            }
+          />
+
+          <RegisteredEventsTab
+            registeredStatus={userData.registeredStatus}
+            setRegisteredStatus={userData.setRegisteredStatus}
+            registeredEvents={userData.registeredEvents}
+            registeredLoading={userData.registeredLoading}
+            registeredError={userData.registeredError}
+            savedIds={userData.savedIds}
+            copiedEventId={userData.copiedEventId}
+            refundingEventId={userData.refundingEventId}
+            onShareLink={userData.handleShareLink}
+            onToggleSaved={userData.toggleSavedEvent}
+            onRefund={userData.handleRefundFromProfile}
+            onRetry={userData.loadRegisteredEvents}
+          />
+
+          <SavedEventsTab
+            savedEvents={userData.savedEvents}
+            savedLoading={userData.savedLoading}
+            savedError={userData.savedError}
+            onToggleSaved={userData.toggleSavedEvent}
+            onRetry={userData.loadSavedEvents}
+          />
+
           {isPitchOwner ? <PayoutSettingsTab /> : null}
-          {isPitchOwner ? <FacilitatorsTab /> : null}
-          {isFacilitator ? <FacilitatorEventsTab /> : null}
-
-          <Card className="p-2">
-            <div role="tablist" aria-label="Profile sections" className="grid grid-cols-2 gap-2">
-              {(["registered", "saved"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={data.userTab === tab}
-                  aria-controls={`profile-tabpanel-${tab}`}
-                  onClick={() => data.setUserTab(tab)}
-                  className={cn(
-                    "rounded-[var(--radius-md)] px-4 py-3 text-sm font-semibold tracking-[-0.01em] transition",
-                    data.userTab === tab
-                      ? "bg-[rgba(125,211,252,0.12)] text-[var(--color-text-primary)]"
-                      : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]",
-                  )}
-                >
-                  {tab === "registered" ? "My tickets" : "Saved events"}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          {data.userTab === "registered" ? (
-            <RegisteredEventsTab
-              registeredStatus={data.registeredStatus}
-              setRegisteredStatus={data.setRegisteredStatus}
-              registeredEvents={data.registeredEvents}
-              registeredLoading={data.registeredLoading}
-              registeredError={data.registeredError}
-              savedIds={data.savedIds}
-              copiedEventId={data.copiedEventId}
-              refundingEventId={data.refundingEventId}
-              onShareLink={data.handleShareLink}
-              onToggleSaved={data.toggleSavedEvent}
-              onRefund={data.handleRefundFromProfile}
-              onRetry={data.loadRegisteredEvents}
-            />
-          ) : (
-            <SavedEventsTab
-              savedEvents={data.savedEvents}
-              savedLoading={data.savedLoading}
-              savedError={data.savedError}
-              onToggleSaved={data.toggleSavedEvent}
-              onRetry={data.loadSavedEvents}
-            />
-          )}
         </>
-      ) : (
-        <>
-          <Card className="p-2">
-            <div role="tablist" aria-label="Admin sections" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {(["users", "events", "billing", "stats"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={data.adminTab === tab}
-                  aria-controls={`admin-tabpanel-${tab}`}
-                  onClick={() => data.setAdminTab(tab)}
-                  className={cn(
-                    "rounded-[var(--radius-md)] px-4 py-3 text-sm font-semibold tracking-[-0.01em] transition",
-                    data.adminTab === tab
-                      ? "bg-[rgba(125,211,252,0.12)] text-[var(--color-text-primary)]"
-                      : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]",
-                  )}
-                >
-                  {tab === "users"
-                    ? "Users"
-                    : tab === "events"
-                      ? "Events"
-                      : tab === "billing"
-                        ? "Billing"
-                        : "Stats"}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          {data.adminTab === "users" ? (
-            <AdminUsersTab
-              adminUsers={data.adminUsers}
-              adminUsersLoading={data.adminUsersLoading}
-              adminUsersError={data.adminUsersError}
-              userSearch={data.userSearch}
-              setUserSearch={data.setUserSearch}
-              onSearch={data.loadAdminUsers}
-              onSetRole={data.handleSetRole}
-              onBanToggle={data.handleBanToggle}
-              onRetry={data.loadAdminUsers}
-            />
-          ) : null}
-
-          {data.adminTab === "events" ? (
-            <AdminEventsTab
-              adminEvents={data.adminEvents}
-              adminEventsLoading={data.adminEventsLoading}
-              adminEventsError={data.adminEventsError}
-              eventSearch={data.eventSearch}
-              setEventSearch={data.setEventSearch}
-              onSearch={data.loadAdminEvents}
-              adminUserNameById={data.adminUserNameById}
-              onEdit={data.startEditEvent}
-              onDelete={data.handleDeleteEvent}
-              editingEvent={data.editingEvent}
-              setEditingEvent={data.setEditingEvent}
-              categories={data.categories}
-              applyToSeries={data.applyToSeries}
-              setApplyToSeries={data.setApplyToSeries}
-              seriesCount={data.seriesCount}
-              savingEvent={data.savingEvent}
-              onSaveChanges={data.handleSaveEventChanges}
-              onRetry={data.loadAdminEvents}
-            />
-          ) : null}
-
-          {data.adminTab === "stats" ? (
-            <AdminStatsTab
-              stats={data.stats}
-              statsLoading={data.statsLoading}
-              statsError={data.statsError}
-              onRetry={data.loadStats}
-            />
-          ) : null}
-
-          {data.adminTab === "billing" ? (
-            <AdminBillingTab
-              fee={data.fee}
-              feeLoading={data.feeLoading}
-              feeError={data.feeError}
-              feeAmountDraft={data.feeAmountDraft}
-              setFeeAmountDraft={data.setFeeAmountDraft}
-              savingFee={data.savingFee}
-              onSaveFee={data.handleSaveEventCreationFee}
-              promoCodes={data.promoCodes}
-              promoCodesLoading={data.promoCodesLoading}
-              promoCodesError={data.promoCodesError}
-              promoForm={data.promoForm}
-              onPromoFieldChange={data.handlePromoFieldChange}
-              creatingPromo={data.creatingPromo}
-              onCreatePromo={data.handleCreatePromoCode}
-              onTogglePromo={data.handleTogglePromoCode}
-              pitchOwners={data.pitchOwners}
-              onRetry={data.loadPromoCodes}
-            />
-          ) : null}
-        </>
-      )}
-
-      {data.deleteEventDialog}
-      {data.applyToSeriesDialog}
+      ) : null}
     </Stack>
   );
 }

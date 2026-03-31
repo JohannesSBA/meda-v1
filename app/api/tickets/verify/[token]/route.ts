@@ -123,10 +123,11 @@ export async function POST(
   }
 
   try {
+    const scannerUser = await getScanSession();
     const resolved = await resolveVerifiedTicket(
       paramParse.data.token,
       bodyParse.data.eventId ?? null,
-      await getScanSession(),
+      scannerUser,
     );
 
     if (!resolved.canScan || !resolved.scannerUserId) {
@@ -136,11 +137,7 @@ export async function POST(
       );
     }
 
-    const inserted = await recordTicketScan({
-      attendeeId: resolved.attendeeId,
-      eventId: resolved.attendee.eventId,
-      scannerUserId: resolved.scannerUserId,
-    });
+    const inserted = await recordTicketScan({ resolved, scannerUser });
 
     return NextResponse.json(
       inserted

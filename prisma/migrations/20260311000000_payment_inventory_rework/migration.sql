@@ -62,7 +62,7 @@ SET
     ELSE p."fulfilled_at"
   END,
   "verified_at" = CASE
-    WHEN p."status" IN ('succeeded', 'failed', 'canceled', 'requires_refund')
+    WHEN p."status" IN ('succeeded', 'failed', 'canceled')
       THEN COALESCE(p."verified_at", p."updated_at")
     ELSE p."verified_at"
   END

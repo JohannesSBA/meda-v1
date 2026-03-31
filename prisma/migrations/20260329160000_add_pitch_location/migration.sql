@@ -1,0 +1,4 @@
+ALTER TABLE "pitches"
+  ADD COLUMN "address_label" VARCHAR(255),
+  ADD COLUMN "latitude" DOUBLE PRECISION,
+  ADD COLUMN "longitude" DOUBLE PRECISION;

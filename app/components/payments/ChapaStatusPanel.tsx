@@ -8,13 +8,16 @@ import { browserApi, BrowserApiError } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
 import { cn } from "@/app/components/ui/cn";
 
+const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_LIMIT = 40;
+
 type ChapaStatusPanelProps = {
   eventId: string | null;
   txRef: string | null;
 };
 
 type StatusState =
-  | { kind: "idle" | "loading" }
+  | { kind: "idle" | "loading"; message?: string }
   | { kind: "success"; quantity: number }
   | { kind: "requires_refund"; message: string }
   | { kind: "error"; message: string };
@@ -29,41 +32,90 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
       : { kind: "loading" },
   );
   const requestedRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
 
-  const confirmPayment = useCallback(async () => {
-    if (!eventId || !txRef) return;
-    setState({ kind: "loading" });
-    try {
-      const data = await browserApi.post<{ quantity?: number }>("/api/payments/chapa/confirm", {
-        txRef,
-      });
-      setState({ kind: "success", quantity: Number(data?.quantity) || 0 });
-    } catch (error) {
-      if (error instanceof BrowserApiError && error.status === 409) {
-        setState({
-          kind: "requires_refund",
-          message:
-            getErrorMessage(error) ||
-            "Payment succeeded with the provider, but the reservation could not be fulfilled. The order was flagged for refund review.",
-        });
-        return;
-      }
+  const confirmPayment = useCallback(
+    async function confirmPaymentImpl(attempt = 0) {
+      if (!eventId || !txRef) return;
       setState({
-        kind: "error",
-        message: getErrorMessage(error) || "We could not confirm this payment.",
+        kind: "loading",
+        message:
+          "We are verifying your Chapa payment and matching it to your reservation.",
       });
-    }
-  }, [eventId, txRef]);
+      try {
+        const response = await browserApi.postDetailed<{
+          quantity?: number;
+          status?: string;
+          message?: string;
+        }>("/api/payments/chapa/confirm", {
+          txRef,
+        });
+
+        if (
+          response.status === 202 ||
+          response.data.status === "processing"
+        ) {
+          if (attempt >= PAYMENT_POLL_LIMIT) {
+            setState({
+              kind: "error",
+              message:
+                response.data.message ||
+                "Payment is still processing. Please try confirming again shortly.",
+            });
+            return;
+          }
+
+          setState({
+            kind: "loading",
+            message:
+              response.data.message ||
+              "Payment is still processing with Chapa. We will keep checking automatically.",
+          });
+          if (pollTimerRef.current != null) {
+            window.clearTimeout(pollTimerRef.current);
+          }
+          pollTimerRef.current = window.setTimeout(() => {
+            void confirmPaymentImpl(attempt + 1);
+          }, PAYMENT_POLL_INTERVAL_MS);
+          return;
+        }
+
+        setState({
+          kind: "success",
+          quantity: Number(response.data?.quantity) || 0,
+        });
+      } catch (error) {
+        if (error instanceof BrowserApiError && error.status === 409) {
+          setState({
+            kind: "requires_refund",
+            message:
+              getErrorMessage(error) ||
+              "Payment succeeded with the provider, but the reservation could not be fulfilled. The order was flagged for refund review.",
+          });
+          return;
+        }
+        setState({
+          kind: "error",
+          message: getErrorMessage(error) || "We could not confirm this payment.",
+        });
+      }
+    },
+    [eventId, txRef],
+  );
 
   useEffect(() => {
     if (!eventId || !txRef) return;
     if (requestedRef.current === txRef) return;
     requestedRef.current = txRef;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void confirmPayment();
+    return () => {
+      if (pollTimerRef.current != null) {
+        window.clearTimeout(pollTimerRef.current);
+      }
+    };
   }, [eventId, txRef, confirmPayment]);
 
-  const eventHref = eventId ? `/events/${eventId}` : "/events";
+  const eventHref = eventId ? `/events/${eventId}` : "/play?mode=events";
 
   return (
     <Card className="mx-auto w-full max-w-2xl overflow-hidden p-8 sm:p-10">
@@ -83,7 +135,8 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
             </h1>
             <p className="mx-auto max-w-xl text-sm leading-7 text-[var(--color-text-secondary)] sm:text-base">
               {state.kind === "loading"
-                ? "We are verifying your Chapa payment and matching it to your reservation."
+                ? state.message ||
+                  "We are verifying your Chapa payment and matching it to your reservation."
                 : state.kind === "success"
                   ? state.quantity > 0
                     ? `Your payment was confirmed and ${state.quantity} ticket${state.quantity === 1 ? " was" : "s were"} issued.`
@@ -116,8 +169,8 @@ export function ChapaStatusPanel({ eventId, txRef }: ChapaStatusPanelProps) {
           >
             Back to event
           </Link>
-          <Link href="/events" className={cn(buttonVariants("secondary", "lg"), "rounded-full")}>
-            Browse events
+          <Link href="/play?mode=events" className={cn(buttonVariants("secondary", "lg"), "rounded-full")}>
+            Browse matches
           </Link>
         </div>
       </div>

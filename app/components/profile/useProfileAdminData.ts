@@ -7,6 +7,7 @@ import { getErrorMessage } from "@/lib/errorMessage";
 import type {
   AdminEventItem,
   AdminTab,
+  AdminOwnerPayoutSummary,
   EventCreationFeeItem,
   AdminUserRow,
   CategoryItem,
@@ -50,6 +51,13 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
   });
 
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [payoutOwners, setPayoutOwners] = useState<AdminOwnerPayoutSummary[]>([]);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
+  const [payoutsError, setPayoutsError] = useState<string | null>(null);
+  const [ticketSurchargeEtb, setTicketSurchargeEtb] = useState(15);
+  const [commissionPercent, setCommissionPercent] = useState(0.05);
+  const [payoutDraftByOwner, setPayoutDraftByOwner] = useState<Record<string, string>>({});
+  const [payingOutOwnerId, setPayingOutOwnerId] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<AdminEventItem | null>(null);
   const [applyToSeries, setApplyToSeries] = useState(false);
   const [seriesCount, setSeriesCount] = useState<number>(1);
@@ -163,6 +171,39 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
       toast.error(message);
     } finally {
       setPromoCodesLoading(false);
+    }
+  }, [isAdmin]);
+
+  const loadAdminPayouts = useCallback(async () => {
+    if (!isAdmin) return;
+    setPayoutsLoading(true);
+    setPayoutsError(null);
+    try {
+      const data = await browserApi.get<{
+        owners?: AdminOwnerPayoutSummary[];
+        ticketSurchargeEtb?: number;
+        commissionPercent?: number;
+      }>("/api/admin/payouts", {
+        cache: "no-store",
+      });
+      const nextOwners = data.owners ?? [];
+      setPayoutOwners(nextOwners);
+      setTicketSurchargeEtb(Number(data.ticketSurchargeEtb) || 15);
+      setCommissionPercent(Number(data.commissionPercent) || 0.05);
+      setPayoutDraftByOwner(
+        Object.fromEntries(
+          nextOwners.map((owner) => [
+            owner.ownerId,
+            owner.availablePayoutEtb ? owner.availablePayoutEtb.toFixed(2) : "",
+          ]),
+        ),
+      );
+    } catch (error) {
+      const message = getErrorMessage(error) || "Failed to load payouts";
+      setPayoutsError(message);
+      toast.error(message);
+    } finally {
+      setPayoutsLoading(false);
     }
   }, [isAdmin]);
 
@@ -381,6 +422,42 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     [loadPromoCodes],
   );
 
+  const handlePayoutDraftChange = useCallback((ownerId: string, value: string) => {
+    setPayoutDraftByOwner((current) => ({
+      ...current,
+      [ownerId]: value,
+    }));
+  }, []);
+
+  const handleCreatePayout = useCallback(
+    async (ownerId: string) => {
+      setPayingOutOwnerId(ownerId);
+      try {
+        const draft = payoutDraftByOwner[ownerId]?.trim() ?? "";
+        await browserApi.post("/api/admin/payouts", {
+          ownerId,
+          amountEtb: draft ? Number(draft) : undefined,
+        });
+        toast.success("Payout transfer created");
+        await loadAdminPayouts();
+      } catch (error) {
+        toast.error(getErrorMessage(error) || "Failed to create payout");
+      } finally {
+        setPayingOutOwnerId(null);
+      }
+    },
+    [loadAdminPayouts, payoutDraftByOwner],
+  );
+
+  const loadBillingData = useCallback(async () => {
+    await Promise.all([
+      loadEventCreationFee(),
+      loadPromoCodes(),
+      loadAdminUsers(),
+      loadAdminPayouts(),
+    ]);
+  }, [loadAdminPayouts, loadAdminUsers, loadEventCreationFee, loadPromoCodes]);
+
   useEffect(() => {
     if (!isAdmin) return;
     if (adminTab === "users") {
@@ -396,11 +473,7 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
       return;
     }
     if (adminTab === "billing") {
-      void Promise.all([
-        loadEventCreationFee(),
-        loadPromoCodes(),
-        loadAdminUsers(),
-      ]);
+      void loadBillingData();
     }
   }, [
     adminTab,
@@ -408,7 +481,9 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     loadAdminEvents,
     loadAdminUsers,
     loadCategories,
+    loadBillingData,
     loadEventCreationFee,
+    loadAdminPayouts,
     loadPromoCodes,
     loadStats,
   ]);
@@ -430,6 +505,7 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     statsLoading,
     statsError,
     loadStats,
+    loadBillingData,
     fee,
     feeLoading,
     feeError,
@@ -441,6 +517,14 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     promoCodesLoading,
     promoCodesError,
     loadPromoCodes,
+    payoutOwners,
+    payoutsLoading,
+    payoutsError,
+    ticketSurchargeEtb,
+    commissionPercent,
+    payoutDraftByOwner,
+    payingOutOwnerId,
+    loadAdminPayouts,
     promoForm,
     creatingPromo,
     pitchOwners,
@@ -462,6 +546,8 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     handlePromoFieldChange,
     handleCreatePromoCode,
     handleTogglePromoCode,
+    handlePayoutDraftChange,
+    handleCreatePayout,
     deleteEventDialog: deleteEventDialog.dialog,
     applyToSeriesDialog: applyToSeriesDialog.dialog,
   };

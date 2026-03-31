@@ -8,6 +8,7 @@ const {
   eventCreationPaymentUpdateMock,
   findActivePromoCodeMock,
   initializeChapaTransactionMock,
+  hasActiveOwnerSubscriptionMock,
   verifyChapaTransactionWithRetryMock,
 } = vi.hoisted(() => ({
   createEventWithClientMock: vi.fn(),
@@ -17,6 +18,7 @@ const {
   eventCreationPaymentUpdateMock: vi.fn(),
   findActivePromoCodeMock: vi.fn(),
   initializeChapaTransactionMock: vi.fn(),
+  hasActiveOwnerSubscriptionMock: vi.fn(),
   verifyChapaTransactionWithRetryMock: vi.fn(),
 }));
 
@@ -52,6 +54,10 @@ vi.mock("@/services/promoCode", () => ({
   consumePromoCode: vi.fn(),
 }));
 
+vi.mock("@/services/subscriptions", () => ({
+  hasActiveOwnerSubscription: hasActiveOwnerSubscriptionMock,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     eventCreationFeeConfig: {
@@ -74,8 +80,10 @@ describe("event creation fee service", () => {
     eventCreationPaymentUpdateMock.mockReset();
     findActivePromoCodeMock.mockReset();
     initializeChapaTransactionMock.mockReset();
+    hasActiveOwnerSubscriptionMock.mockReset();
     verifyChapaTransactionWithRetryMock.mockReset();
     createEventWithClientMock.mockReset();
+    hasActiveOwnerSubscriptionMock.mockResolvedValue(false);
   });
 
   it("waives the fee when a full promo code applies", async () => {
@@ -103,6 +111,7 @@ describe("event creation fee service", () => {
         discountAmountEtb: 100,
         amountDueEtb: 0,
         promo: expect.objectContaining({ id: "promo-1" }),
+        waiverReason: "promo",
       }),
     );
   });
@@ -159,6 +168,31 @@ describe("event creation fee service", () => {
         kind: "checkout",
         checkoutUrl: "https://checkout.example.com",
         txRef: "MEDAFEE-123",
+      }),
+    );
+  });
+
+  it("waives the fee when the owner has an active subscription", async () => {
+    eventCreationFeeConfigFindFirstMock.mockResolvedValue({
+      amountEtb: 120,
+    });
+    findActivePromoCodeMock.mockResolvedValue(null);
+    hasActiveOwnerSubscriptionMock.mockResolvedValue(true);
+
+    const { getEventCreationQuote } = await import(
+      "@/services/eventCreationFee"
+    );
+    const quote = await getEventCreationQuote({
+      pitchOwnerUserId: "owner-1",
+    });
+
+    expect(quote).toEqual(
+      expect.objectContaining({
+        baseAmountEtb: 120,
+        discountAmountEtb: 120,
+        amountDueEtb: 0,
+        promo: null,
+        waiverReason: "subscription",
       }),
     );
   });

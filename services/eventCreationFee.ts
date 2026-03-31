@@ -7,18 +7,25 @@ import {
 import { acquireTransactionLock } from "@/lib/dbLocks";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { createEventWithClient, type CreateEventParams } from "@/services/events";
+import {
+  createEventWithClient,
+  decodeEventImage,
+  type CreateEventParams,
+  type StoredEventImagePayload,
+} from "@/services/events";
 import {
   computePromoDiscount,
   consumePromoCode,
   findActivePromoCode,
   type EventCreationPromo,
 } from "@/services/promoCode";
+import { hasActiveOwnerSubscription } from "@/services/subscriptions";
 
 const EVENT_CREATION_TX_PREFIX = "MEDAFEE";
 
 export type StoredEventCreationPayload = Omit<CreateEventParams, "image"> & {
   pictureUrl?: string | null;
+  imageUpload?: StoredEventImagePayload | null;
 };
 
 export type EventCreationQuote = {
@@ -26,7 +33,10 @@ export type EventCreationQuote = {
   discountAmountEtb: number;
   amountDueEtb: number;
   promo: EventCreationPromo | null;
+  waiverReason: "subscription" | "promo" | null;
 };
+
+type EventCreationPaymentWriter = Pick<typeof prisma, "eventCreationPayment" | "promoCode">;
 
 export type EventCreationCheckoutInitResult =
   | {
@@ -51,7 +61,7 @@ export type EventCreationConfirmationResult =
     }
   | {
       ok: false;
-      status: "failed";
+      status: "failed" | "processing";
       message: string;
     };
 
@@ -93,6 +103,20 @@ function assertStoredPayload(value: Prisma.JsonValue | null): StoredEventCreatio
       record.price == null ? null : Number(record.price),
     pictureUrl:
       typeof record.pictureUrl === "string" ? record.pictureUrl : null,
+    imageUpload:
+      record.imageUpload &&
+      typeof record.imageUpload === "object" &&
+      !Array.isArray(record.imageUpload)
+        ? {
+            dataBase64: String(
+              (record.imageUpload as Record<string, unknown>).dataBase64 ?? "",
+            ),
+            mimeType: String(
+              (record.imageUpload as Record<string, unknown>).mimeType ?? "",
+            ),
+            ext: String((record.imageUpload as Record<string, unknown>).ext ?? ""),
+          }
+        : null,
     recurrenceEnabled: Boolean(record.recurrenceEnabled),
     recurrenceFrequency:
       record.recurrenceFrequency === "daily" ||
@@ -184,17 +208,21 @@ export async function getEventCreationQuote(args: {
   pitchOwnerUserId: string;
   promoCode?: string | null;
 }) {
-  const [config, promo] = await Promise.all([
+  const [config, promo, subscriptionActive] = await Promise.all([
     getActiveEventCreationFeeConfig(),
     findActivePromoCode(prisma, {
       code: args.promoCode,
       pitchOwnerUserId: args.pitchOwnerUserId,
     }),
+    hasActiveOwnerSubscription(args.pitchOwnerUserId),
   ]);
 
   const baseAmountEtb = roundCurrency(toNumber(config?.amountEtb));
+  const effectivePromo = subscriptionActive ? null : promo;
   const discountAmountEtb = roundCurrency(
-    Math.min(baseAmountEtb, computePromoDiscount(baseAmountEtb, promo)),
+    subscriptionActive
+      ? baseAmountEtb
+      : Math.min(baseAmountEtb, computePromoDiscount(baseAmountEtb, effectivePromo)),
   );
   const amountDueEtb = roundCurrency(
     Math.max(0, baseAmountEtb - discountAmountEtb),
@@ -204,7 +232,8 @@ export async function getEventCreationQuote(args: {
     baseAmountEtb,
     discountAmountEtb,
     amountDueEtb,
-    promo,
+    promo: effectivePromo,
+    waiverReason: subscriptionActive ? "subscription" : amountDueEtb <= 0 && effectivePromo ? "promo" : null,
   } satisfies EventCreationQuote;
 }
 
@@ -296,22 +325,20 @@ export async function recordWaivedEventCreation(args: {
   pitchOwnerUserId: string;
   eventId: string;
   quote: EventCreationQuote;
-}) {
-  return prisma.$transaction(async (tx) => {
-    if (args.quote.promo?.id) {
-      await consumePromoCode(tx, args.quote.promo.id);
-    }
+}, db: EventCreationPaymentWriter = prisma) {
+  if (args.quote.promo?.id) {
+    await consumePromoCode(db, args.quote.promo.id);
+  }
 
-    return tx.eventCreationPayment.create({
-      data: {
-        pitchOwnerUserId: args.pitchOwnerUserId,
-        eventId: args.eventId,
-        amountEtb: toDecimal(args.quote.amountDueEtb),
-        promoCodeId: args.quote.promo?.id ?? null,
-        status: "waived",
-        paidAt: new Date(),
-      },
-    });
+  return db.eventCreationPayment.create({
+    data: {
+      pitchOwnerUserId: args.pitchOwnerUserId,
+      eventId: args.eventId,
+      amountEtb: toDecimal(args.quote.amountDueEtb),
+      promoCodeId: args.quote.promo?.id ?? null,
+      status: "waived",
+      paidAt: new Date(),
+    },
   });
 }
 
@@ -340,17 +367,25 @@ export async function confirmChapaEventCreationPayment(args: {
   }
 
   const verification = await verifyChapaTransactionWithRetry(args.txRef);
-  const paidStatus = verification.data?.status?.toLowerCase();
-  if (verification.status !== "success" || paidStatus !== "success") {
-    await prisma.eventCreationPayment.update({
-      where: { id: payment.id },
-      data: { status: "failed" },
-    });
+  const providerStatus = verification.data?.status?.toLowerCase() ?? null;
+  if (providerStatus !== "success") {
+    if (providerStatus === "failed") {
+      await prisma.eventCreationPayment.update({
+        where: { id: payment.id },
+        data: { status: "failed" },
+      });
+
+      return {
+        ok: false,
+        status: "failed",
+        message: "Event creation payment failed",
+      } satisfies EventCreationConfirmationResult;
+    }
 
     return {
       ok: false,
-      status: "failed",
-      message: "Event creation payment has not been completed",
+      status: "processing",
+      message: "Event creation payment is still processing",
     } satisfies EventCreationConfirmationResult;
   }
 
@@ -421,7 +456,7 @@ export async function confirmChapaEventCreationPayment(args: {
 
     const result = await createEventWithClient(tx, {
       ...storedPayload,
-      image: null,
+      image: decodeEventImage(storedPayload.imageUpload),
     });
 
     if (latest.promoCodeId) {

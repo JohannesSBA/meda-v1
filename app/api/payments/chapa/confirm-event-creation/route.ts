@@ -30,6 +30,13 @@ export async function POST(request: Request) {
     });
 
     if (!result.ok) {
+      if (result.status === "processing") {
+        return NextResponse.json(
+          { status: result.status, message: result.message },
+          { status: 202 },
+        );
+      }
+
       return NextResponse.json(
         { error: result.message, status: result.status },
         { status: 409 },

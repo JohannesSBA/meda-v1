@@ -4,10 +4,12 @@
 
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import { Cluster } from "@/app/components/ui/primitives";
+import { Button } from "@/app/components/ui/button";
 
 type CategoryItem = { categoryId: string; categoryName: string };
 
@@ -19,6 +21,9 @@ type EventFilterBarProps = {
   total: number;
   radiusKm: number;
   categories: CategoryItem[];
+  kicker?: string;
+  title?: string;
+  description?: string;
   onSearchChange: (value: string) => void;
   onDateRangeChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
@@ -33,32 +38,37 @@ export function EventFilterBar({
   total,
   radiusKm,
   categories,
+  kicker = "Find a match",
+  title = "Find the right match without fighting the interface.",
+  description = "Search by name, tighten the date, and pick the match that fits your time, place, and price.",
   onSearchChange,
   onDateRangeChange,
   onCategoryChange,
   onSortChange,
 }: EventFilterBarProps) {
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+
   return (
-    <Card className="overflow-hidden p-5 sm:p-6">
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+    <Card className="overflow-hidden p-4 sm:p-6">
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
         <div className="space-y-4">
           <div className="space-y-3">
-            <p className="heading-kicker">Discover matches</p>
+            <p className="heading-kicker">{kicker}</p>
             <h1 className="text-balance text-[var(--text-h1)] font-semibold tracking-[-0.05em] text-[var(--color-text-primary)]">
-              Find the right event without fighting the interface.
+              {title}
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)] sm:text-base">
-              Search by name, tighten the date window, and sort by what matters before you commit.
+              {description}
             </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(180px,1fr)_auto]">
             <label className="block">
               <span className="field-label">Search</span>
               <div className="relative">
                 <Input
                   type="search"
-                  placeholder="Search by name, location, or vibe"
+                  placeholder="Search by match name or place"
                   defaultValue={search}
                   onChange={(e) => onSearchChange(e.target.value)}
                   className="pl-11"
@@ -77,50 +87,69 @@ export function EventFilterBar({
               </Select>
             </label>
 
-            <label className="block">
-              <span className="field-label">Category</span>
-              <Select
-                value={categoryId || "all"}
-                onChange={(e) => onCategoryChange(e.target.value === "all" ? "" : e.target.value)}
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                className="w-full rounded-full md:w-auto"
+                onClick={() => setShowMoreFilters((current) => !current)}
               >
-                <option value="all">All categories</option>
-                {categories.map((category) => (
-                  <option key={category.categoryId} value={category.categoryId}>
-                    {category.categoryName}
-                  </option>
-                ))}
-              </Select>
-            </label>
-
-            <label className="block">
-              <span className="field-label">Sort</span>
-              <Select value={sortOrder} onChange={(e) => onSortChange(e.target.value)}>
-                <option value="date:asc">Soonest first</option>
-                <option value="date:desc">Latest first</option>
-                <option value="price:asc">Lowest price</option>
-                <option value="price:desc">Highest price</option>
-              </Select>
-            </label>
+                {showMoreFilters ? "Hide filters" : "More filters"}
+              </Button>
+            </div>
           </div>
+
+          {showMoreFilters ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="field-label">Category</span>
+                <Select
+                  value={categoryId || "all"}
+                  onChange={(e) => onCategoryChange(e.target.value === "all" ? "" : e.target.value)}
+                >
+                  <option value="all">All categories</option>
+                  {categories.map((category) => (
+                    <option key={category.categoryId} value={category.categoryId}>
+                      {category.categoryName}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <label className="block">
+                <span className="field-label">Show first</span>
+                <Select value={sortOrder} onChange={(e) => onSortChange(e.target.value)}>
+                  <option value="date:asc">Soonest first</option>
+                  <option value="date:desc">Latest first</option>
+                  <option value="price:asc">Lowest price</option>
+                  <option value="price:desc">Highest price</option>
+                </Select>
+              </label>
+            </div>
+          ) : null}
+
+          <Cluster gap="sm" className="text-sm text-[var(--color-text-secondary)]">
+            <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
+              {total} matches in view
+            </span>
+            <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
+              Radius {radiusKm} km
+            </span>
+            {categoryId ? (
+              <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
+                Category filtered
+              </span>
+            ) : null}
+          </Cluster>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <StatBox label="Live events" value={`${total}`} hint="Current results in this discovery window." />
+          <StatBox label="Matches" value={`${total}`} hint="Current results in this search." />
           <StatBox label="Radius" value={`${radiusKm} km`} hint="Search map radius around the selected area." />
         </div>
       </div>
 
-      <Cluster gap="sm" className="mt-5 border-t border-[var(--color-border)] pt-4 text-sm text-[var(--color-text-secondary)]">
-        <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
-          {total} events available
-        </span>
-        <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
-          Radius {radiusKm} km
-        </span>
-        <span className="rounded-full border border-[var(--color-border-strong)] bg-white/[0.05] px-3 py-1.5">
-          Sort by date or price
-        </span>
-      </Cluster>
     </Card>
   );
 }

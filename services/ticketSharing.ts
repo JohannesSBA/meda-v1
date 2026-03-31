@@ -5,6 +5,7 @@
  */
 
 import { InvitationStatus } from "@/generated/prisma/client";
+import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
 import { resolveEventLocation } from "@/lib/location";
 import { prisma } from "@/lib/prisma";
 import { generateShareToken, hashShareToken } from "@/lib/tickets/shareTokens";
@@ -216,6 +217,18 @@ export async function claimShareLink({
     });
     if (alreadyClaimed) {
       throw new Error("You already claimed a ticket from this link");
+    }
+
+    const claimantTicketCount = await tx.eventAttendee.count({
+      where: {
+        eventId: invitation.eventId,
+        userId: claimantUserId,
+      },
+    });
+    if (claimantTicketCount >= MAX_TICKETS_PER_USER_PER_EVENT) {
+      throw new Error(
+        `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
+      );
     }
 
     const ownerTickets = await tx.eventAttendee.findMany({

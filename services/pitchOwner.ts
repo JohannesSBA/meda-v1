@@ -5,6 +5,7 @@ import {
   extractChapaSubaccountId,
 } from "@/lib/chapa";
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
+import { PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
 import {
   decryptPayoutValue,
   encryptPayoutValue,
@@ -12,8 +13,7 @@ import {
 } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-
-export const PLATFORM_COMMISSION_PERCENT = 0.05;
+export { PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
 
 export type PitchOwnerPayoutSettings = {
   businessName: string | null;

@@ -10,10 +10,11 @@ import { Button } from "@/app/components/ui/button";
 
 type RefundConfirmCardProps = {
   isPaid: boolean;
-  pricePerTicket: number;
   refundQty: number;
   setRefundQty: (qty: number) => void;
-  myTickets: number;
+  refundableTicketCount: number;
+  refundAmountEtb: number;
+  refundQuoteLoading: boolean;
   refundLoading: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -21,10 +22,11 @@ type RefundConfirmCardProps = {
 
 export function RefundConfirmCard({
   isPaid,
-  pricePerTicket,
   refundQty,
   setRefundQty,
-  myTickets,
+  refundableTicketCount,
+  refundAmountEtb,
+  refundQuoteLoading,
   refundLoading,
   onConfirm,
   onCancel,
@@ -39,12 +41,14 @@ export function RefundConfirmCard({
         <Input
           type="number"
           min={1}
-          max={myTickets}
+          max={refundableTicketCount}
           value={refundQty}
           onChange={(e) => {
             const val = Number(e.target.value);
             setRefundQty(
-              Number.isFinite(val) ? Math.max(1, Math.min(myTickets, val)) : 1,
+              Number.isFinite(val)
+                ? Math.max(1, Math.min(refundableTicketCount, val))
+                : 1,
             );
           }}
           className="w-24 border-none bg-[#0a1927] text-right"
@@ -52,8 +56,9 @@ export function RefundConfirmCard({
       </div>
       {isPaid ? (
         <p className="text-sm text-[var(--color-text-muted)]">
-          ETB {pricePerTicket * refundQty} will be credited to your Meda
-          balance.
+          {refundQuoteLoading
+            ? "Calculating your refund amount..."
+            : `ETB ${refundAmountEtb} will be credited to your Meda balance.`}
         </p>
       ) : null}
       <div className="flex gap-2">
@@ -61,7 +66,7 @@ export function RefundConfirmCard({
           type="button"
           variant="danger"
           className="h-11 flex-1 rounded-xl"
-          disabled={refundLoading}
+          disabled={refundLoading || refundQuoteLoading}
           onClick={() => void onConfirm()}
         >
           {refundLoading ? "Processing…" : "Confirm"}

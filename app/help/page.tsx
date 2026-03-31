@@ -67,10 +67,10 @@ export default function HelpPage() {
             </p>
           </div>
           <Link
-            href="/events"
+            href="/play?mode=events"
             className={cn(buttonVariants("secondary", "lg"), "rounded-full px-6")}
           >
-            Browse events
+            Find a match
           </Link>
         </div>
       </section>

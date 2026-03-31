@@ -23,7 +23,7 @@ export default async function EventScanPage({ params }: { params: Promise<{ id: 
   });
 
   if (!event) {
-    redirect("/events");
+    redirect("/play?mode=events");
   }
 
   const canScan = canScanEvent(user ?? null, event.userId);

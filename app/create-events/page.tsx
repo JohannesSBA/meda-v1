@@ -8,11 +8,13 @@ import { auth } from "@/lib/auth/server";
 import { canCreateEvent } from "@/lib/auth/roles";
 import { prisma } from "@/lib/prisma";
 import CreateEventForm from "../components/CreateEventForm";
-import { Card } from "../components/ui/card";
 import { PageShell } from "../components/ui/page-shell";
 import { buttonVariants } from "../components/ui/button";
 import { cn } from "../components/ui/cn";
-import { PageIntro, Section, Stack } from "../components/ui/primitives";
+import { Stack } from "../components/ui/primitives";
+import { Card } from "../components/ui/card";
+import { AppPageHeader } from "../components/ui/app-page-header";
+import { AppSectionCard } from "../components/ui/app-section-card";
 import { Category } from "../types/catagory";
 import { getCategories } from "@/lib/data/categories";
 
@@ -49,17 +51,53 @@ export default async function CreateEventsPage() {
     );
 
   return (
-    <PageShell containerClassName="mx-auto max-w-7xl">
+    <PageShell containerClassName="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
       <Stack gap="xl">
-        <Section size="md" className="pb-0">
-          <PageIntro
-            kicker="Host on Meda"
-            title={<>Create a match with calmer structure and clearer commitment.</>}
-            description="Set the pitch details, time, location, pricing, and capacity once. The interface now gives the form better hierarchy, better preview separation, and cleaner mobile spacing."
-          />
-        </Section>
+        <AppPageHeader
+          kicker="Create match"
+          title="Use this when you are publishing a real match, not just opening booking times."
+          description="Booking times are the simpler path for hosts. Create a match when players are joining a specific organized game with its own details, image, and description."
+          primaryAction={
+            <Link
+              href="/host?view=calendar"
+              className={cn(buttonVariants("secondary", "md"), "rounded-full")}
+            >
+              Back to Host calendar
+            </Link>
+          }
+          secondaryActions={
+            <Link
+              href="/host?view=places"
+              className={cn(buttonVariants("ghost", "md"), "rounded-full")}
+            >
+              Edit places
+            </Link>
+          }
+        />
 
-        <Section size="sm" className="pt-0">
+        <AppSectionCard
+          headingKicker="Before you publish"
+          title="Choose the right publishing path"
+          description="Booking times are for simple availability. Matches are for organized games people join as an event."
+          density="compact"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+              <p className="text-base font-semibold text-[var(--color-text-primary)]">Use booking times when</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+                You want to open playable 2-hour windows on the host calendar and let people reserve them.
+              </p>
+            </div>
+            <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+              <p className="text-base font-semibold text-[var(--color-text-primary)]">Use create match when</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+                You are running a specific match with its own story, image, level, and event page.
+              </p>
+            </div>
+          </div>
+        </AppSectionCard>
+
+        <div>
           {payoutReady ? (
             <CreateEventForm categories={categories} creatorRole={user.role ?? "user"} />
           ) : (
@@ -79,7 +117,7 @@ export default async function CreateEventsPage() {
               </Link>
             </Card>
           )}
-        </Section>
+        </div>
       </Stack>
     </PageShell>
   );

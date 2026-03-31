@@ -20,6 +20,10 @@ export const confirmPaymentSchema = z.object({
   txRef: z.string().trim().min(3),
 });
 
+export const createPitchOwnerPayoutSchema = z.object({
+  amountEtb: z.coerce.number().positive().max(10_000_000).optional(),
+});
+
 export const chapaCallbackQuerySchema = z.object({
   tx_ref: z.string().trim().min(3).optional(),
   txRef: z.string().trim().min(3).optional(),
@@ -31,13 +35,16 @@ export const chapaCallbackPayloadSchema = z
     tx_ref: z.string().trim().min(3).optional(),
     txRef: z.string().trim().min(3).optional(),
     reference: z.string().trim().min(3).optional(),
+    status: z.string().trim().optional(),
     data: z
       .object({
         tx_ref: z.string().trim().min(3).optional(),
         txRef: z.string().trim().min(3).optional(),
         reference: z.string().trim().min(3).optional(),
+        status: z.string().trim().optional(),
       })
       .partial()
+      .passthrough()
       .optional(),
   })
   .passthrough();

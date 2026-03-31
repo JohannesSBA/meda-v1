@@ -21,6 +21,9 @@ export async function promoteWaitlistForEvent(eventId: string): Promise<number> 
   if (!event || event.waitlist.length === 0) {
     return 0;
   }
+  if ((event.priceField ?? 0) > 0) {
+    return 0;
+  }
   const location = resolveEventLocation(event);
 
   let promoted = 0;
@@ -42,6 +45,8 @@ export async function promoteWaitlistForEvent(eventId: string): Promise<number> 
         data: {
           eventId,
           userId: w.userId,
+          purchaserUserId: w.userId,
+          paymentId: null,
           status: "RSVPed",
         },
       });

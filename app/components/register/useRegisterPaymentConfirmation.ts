@@ -11,6 +11,9 @@ import { browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
 import type { EventOccurrence } from "@/app/types/eventTypes";
 
+const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_LIMIT = 40;
+
 type SearchParamsLike = Pick<URLSearchParams, "get">;
 type RegisterRouter = {
   replace: (href: string) => void;
@@ -26,6 +29,9 @@ type UseRegisterPaymentConfirmationArgs = {
   occurrenceOptions: EventOccurrence[];
   myTickets: number;
   setMyTickets: Dispatch<SetStateAction<number>>;
+  refreshTicketState: (
+    eventId?: string,
+  ) => Promise<{ heldTicketCount: number } | null>;
   generateShareLink: (eventId: string) => Promise<void>;
 };
 
@@ -38,6 +44,7 @@ export function useRegisterPaymentConfirmation({
   occurrenceOptions,
   myTickets,
   setMyTickets,
+  refreshTicketState,
   generateShareLink,
 }: UseRegisterPaymentConfirmationArgs) {
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -58,7 +65,6 @@ export function useRegisterPaymentConfirmation({
 
   useEffect(() => {
     if (!userId || paymentProvider !== "chapa" || !txRef) {
-      setConfirmingPayment(false);
       confirmedTxRefRef.current = null;
       return;
     }
@@ -66,25 +72,51 @@ export function useRegisterPaymentConfirmation({
     confirmedTxRefRef.current = txRef;
 
     let cancelled = false;
-    const confirmPayment = async () => {
+    let pollTimer: number | null = null;
+    const confirmPayment = async (attempt = 0) => {
       setConfirmingPayment(true);
       try {
-        const response = await browserApi.post<{ quantity?: number }>(
+        const response = await browserApi.postDetailed<{
+          quantity?: number;
+          status?: string;
+          message?: string;
+        }>(
           "/api/payments/chapa/confirm",
           { txRef },
         );
-        const addedTickets = Number(response.quantity) || 0;
-        if (!cancelled && addedTickets > 0) {
-          const nextTicketCount = myTickets + addedTickets;
+
+        if (
+          response.status === 202 ||
+          response.data.status === "processing"
+        ) {
+          if (attempt >= PAYMENT_POLL_LIMIT) {
+            if (!cancelled) {
+              toast.error(
+                response.data.message ||
+                  "Payment is still processing. Please try confirming again shortly.",
+                { id: `payment-error-${txRef}` },
+              );
+              setConfirmingPayment(false);
+            }
+            return;
+          }
+          pollTimer = window.setTimeout(() => {
+            void confirmPayment(attempt + 1);
+          }, PAYMENT_POLL_INTERVAL_MS);
+          return;
+        }
+
+        const targetEventId =
+          decodedSelectedFromQuery &&
+          occurrenceOptions.some((entry) => entry.eventId === decodedSelectedFromQuery)
+            ? decodedSelectedFromQuery
+            : selectedEventId;
+        const nextState = await refreshTicketState(targetEventId);
+        const nextTicketCount = nextState?.heldTicketCount ?? myTickets;
+
+        if (!cancelled) {
           setMyTickets(nextTicketCount);
           if (nextTicketCount > 1) {
-            const targetEventId =
-              decodedSelectedFromQuery &&
-              occurrenceOptions.some(
-                (entry) => entry.eventId === decodedSelectedFromQuery,
-              )
-                ? decodedSelectedFromQuery
-                : selectedEventId;
             await generateShareLink(targetEventId);
           }
         }
@@ -92,29 +124,27 @@ export function useRegisterPaymentConfirmation({
           toast.success("Payment confirmed. Ticket added.", {
             id: `payment-${txRef}`,
           });
-          const returnEventId =
-            decodedSelectedFromQuery &&
-            occurrenceOptions.some((entry) => entry.eventId === decodedSelectedFromQuery)
-              ? decodedSelectedFromQuery
-              : selectedEventId;
-          const encodedOccurrence = encodeURIComponent(returnEventId);
-          router.replace(`/events/${returnEventId}?occurrence=${encodedOccurrence}`);
+          const encodedOccurrence = encodeURIComponent(targetEventId);
+          router.replace(`/events/${targetEventId}?occurrence=${encodedOccurrence}`);
           router.refresh();
+          setConfirmingPayment(false);
         }
       } catch (error) {
         if (!cancelled) {
           toast.error(getErrorMessage(error) || "Unable to confirm payment", {
             id: `payment-error-${txRef}`,
           });
+          setConfirmingPayment(false);
         }
-      } finally {
-        setConfirmingPayment(false);
       }
     };
 
     void confirmPayment();
     return () => {
       cancelled = true;
+      if (pollTimer != null) {
+        window.clearTimeout(pollTimer);
+      }
     };
   }, [
     decodedSelectedFromQuery,
@@ -122,6 +152,7 @@ export function useRegisterPaymentConfirmation({
     myTickets,
     occurrenceOptions,
     paymentProvider,
+    refreshTicketState,
     router,
     selectedEventId,
     setMyTickets,

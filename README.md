@@ -2,6 +2,10 @@
 
 Meda is a Next.js event marketplace where admins, pitch owners, facilitators, and attendees can browse events, create and operate events, purchase tickets, scan check-ins, and manage payouts and billing flows.
 
+## Roadmap and Planning Docs
+
+- [Upcoming Features And Services](docs/UPCOMING_FEATURES_AND_SERVICES.md) - proposed next-stage product roadmap and the service-layer boundaries each feature should introduce
+
 ## Feature List
 
 ### Core Features

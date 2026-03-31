@@ -15,7 +15,13 @@ import type { EventListResponse, EventResponse } from "@/app/types/eventTypes";
 
 const PAGE_SIZE = 8;
 
-export function useEventSearch() {
+type UseEventSearchOptions = {
+  basePath?: string;
+  fixedParams?: Record<string, string>;
+};
+
+export function useEventSearch(options: UseEventSearchOptions = {}) {
+  const { basePath = "/events", fixedParams = {} } = options;
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -206,9 +212,15 @@ export function useEventSearch() {
         if (value === undefined || value === "") params.delete(key);
         else params.set(key, String(value));
       });
-      router.push(`/events?${params.toString()}`);
+
+      Object.entries(fixedParams).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
+
+      const query = params.toString();
+      router.push(query ? `${basePath}?${query}` : basePath);
     },
-    [router, searchParams],
+    [basePath, fixedParams, router, searchParams],
   );
 
   const handleSearchChange = useCallback(
@@ -267,9 +279,15 @@ export function useEventSearch() {
   const handleSaveToggle = useCallback(
     async (eventId: string, isSaved: boolean) => {
       const session = await authClient.getSession();
+      const redirectParams = new URLSearchParams(searchParams.toString());
+      Object.entries(fixedParams).forEach(([key, value]) => {
+        if (value) redirectParams.set(key, value);
+      });
+      const redirectTarget = `${basePath}${redirectParams.toString() ? `?${redirectParams.toString()}` : ""}`;
+
       if (!session.data?.user?.id) {
         router.push(
-          `/auth/sign-in?redirect=${encodeURIComponent("/events" + (searchParams.toString() ? `?${searchParams.toString()}` : ""))}`,
+          `/auth/sign-in?redirect=${encodeURIComponent(redirectTarget)}`,
         );
         return;
       }
@@ -290,15 +308,13 @@ export function useEventSearch() {
       } catch (err) {
         const message = getErrorMessage(err) || "Save action failed";
         if (message === "Unauthenticated") {
-          router.push(
-            `/auth/sign-in?redirect=${encodeURIComponent("/events" + (searchParams.toString() ? `?${searchParams.toString()}` : ""))}`,
-          );
+          router.push(`/auth/sign-in?redirect=${encodeURIComponent(redirectTarget)}`);
           return;
         }
         toast.error(message);
       }
     },
-    [router, searchParams],
+    [basePath, fixedParams, router, searchParams],
   );
 
   const retry = useCallback(() => {

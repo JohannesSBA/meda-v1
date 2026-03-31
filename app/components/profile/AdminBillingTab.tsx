@@ -6,6 +6,7 @@ import { Card } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
 import type {
+  AdminOwnerPayoutSummary,
   AdminUserRow,
   EventCreationFeeItem,
   PromoCodeItem,
@@ -39,9 +40,26 @@ type AdminBillingTabProps = {
   creatingPromo: boolean;
   onCreatePromo: () => void;
   onTogglePromo: (promoId: string, isActive: boolean) => void;
+  payoutOwners: AdminOwnerPayoutSummary[];
+  payoutsLoading: boolean;
+  payoutsError?: string | null;
+  ticketSurchargeEtb: number;
+  commissionPercent: number;
+  payoutDraftByOwner: Record<string, string>;
+  payingOutOwnerId: string | null;
+  onPayoutDraftChange: (ownerId: string, value: string) => void;
+  onCreatePayout: (ownerId: string) => void;
   pitchOwners: AdminUserRow[];
   onRetry?: () => void;
 };
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "ETB",
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
 export function AdminBillingTab({
   fee,
@@ -59,6 +77,15 @@ export function AdminBillingTab({
   creatingPromo,
   onCreatePromo,
   onTogglePromo,
+  payoutOwners,
+  payoutsLoading,
+  payoutsError,
+  ticketSurchargeEtb,
+  commissionPercent,
+  payoutDraftByOwner,
+  payingOutOwnerId,
+  onPayoutDraftChange,
+  onCreatePayout,
   pitchOwners,
   onRetry,
 }: AdminBillingTabProps) {
@@ -72,9 +99,47 @@ export function AdminBillingTab({
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-white">Billing controls</h2>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          Manage the pitch-owner event creation fee and promo codes used to waive or reduce it.
+          Manage platform fees, host payouts, and promo codes used to waive or reduce host creation costs.
         </p>
       </div>
+
+      <Card className="space-y-4 p-5">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+            Ticket pricing and payout rule
+          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            Every paid ticket now includes an extra platform fee that stays in Meda&apos;s Chapa account.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Platform fee
+            </p>
+            <p className="mt-2 text-lg font-semibold text-[var(--color-text-primary)]">
+              {formatCurrency(ticketSurchargeEtb)} per ticket
+            </p>
+          </div>
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Platform commission
+            </p>
+            <p className="mt-2 text-lg font-semibold text-[var(--color-text-primary)]">
+              {(commissionPercent * 100).toFixed(0)}% of ticket price
+            </p>
+          </div>
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+              Payout destination rule
+            </p>
+            <p className="mt-2 text-sm font-medium leading-6 text-[var(--color-text-primary)]">
+              Host payouts are sent from Meda&apos;s Chapa balance to the host&apos;s verified bank destination. This is not a direct wallet-to-wallet Chapa send.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <Card className="space-y-4 p-5">
@@ -230,6 +295,124 @@ export function AdminBillingTab({
       </div>
 
       <AsyncPanelState
+        loading={payoutsLoading}
+        error={payoutsError}
+        isEmpty={payoutOwners.length === 0}
+        loadingFallback={<Card className="p-5 text-sm text-[var(--color-text-secondary)]">Loading host payouts...</Card>}
+        emptyTitle="No host payout profiles yet"
+        emptyDescription="Hosts need verified payout details before their earnings can be transferred."
+        onRetry={onRetry}
+      >
+        <div className="space-y-3">
+          {payoutOwners.map((owner) => (
+            <Card key={owner.ownerId} className="space-y-4 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      {owner.ownerName ?? owner.businessName ?? "Pitch owner"}
+                    </p>
+                    <span className="rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+                      {owner.payoutReady ? "Ready" : "Needs setup"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {owner.ownerEmail ?? "No email on file"}
+                  </p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {owner.destinationLabel ?? "No verified payout destination yet"}
+                  </p>
+                </div>
+
+                <div className="min-w-[220px] rounded-[var(--radius-md)] border border-[rgba(125,211,252,0.2)] bg-[var(--color-accent-soft)] p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                    Ready to send now
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--color-text-primary)]">
+                    {formatCurrency(owner.availablePayoutEtb)}
+                  </p>
+                  <p className="mt-1 text-xs leading-6 text-[var(--color-text-muted)]">
+                    Already sent: {formatCurrency(owner.totalPaidOutEtb)}. Still pending: {formatCurrency(owner.totalPendingPayoutEtb)}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
+                <Metric label="Ticket sales" value={formatCurrency(owner.grossTicketSalesEtb)} />
+                <Metric label="Platform commission" value={formatCurrency(owner.platformCommissionEtb)} />
+                <Metric label="Platform fees" value={formatCurrency(owner.ticketSurchargeEtb)} />
+                <Metric label="Host net revenue" value={formatCurrency(owner.netOwnerRevenueEtb)} />
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-[220px_auto]">
+                <label>
+                  <span className="field-label">Payout amount (ETB)</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={payoutDraftByOwner[owner.ownerId] ?? ""}
+                    onChange={(event) =>
+                      onPayoutDraftChange(owner.ownerId, event.target.value)
+                    }
+                    disabled={!owner.payoutReady || owner.availablePayoutEtb <= 0}
+                  />
+                </label>
+
+                <div className="flex items-end gap-3">
+                  <Button
+                    type="button"
+                    className="rounded-full"
+                    disabled={
+                      !owner.payoutReady ||
+                      owner.availablePayoutEtb <= 0 ||
+                      payingOutOwnerId === owner.ownerId
+                    }
+                    onClick={() => void onCreatePayout(owner.ownerId)}
+                  >
+                    {payingOutOwnerId === owner.ownerId
+                      ? "Sending..."
+                      : "Send payout"}
+                  </Button>
+                  <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+                    Funds leave Meda&apos;s Chapa balance and go to the verified host destination shown above.
+                  </p>
+                </div>
+              </div>
+
+              {owner.recentPayouts.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                    Recent payouts
+                  </p>
+                  <div className="grid gap-2">
+                    {owner.recentPayouts.map((payout) => (
+                      <div
+                        key={payout.id}
+                        className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.02] px-4 py-3 text-sm text-[var(--color-text-secondary)] md:flex-row md:items-center md:justify-between"
+                      >
+                        <div>
+                          <p className="font-medium text-[var(--color-text-primary)]">
+                            {formatCurrency(payout.amountEtb)} • {payout.status}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)]">
+                            {new Date(payout.createdAt).toLocaleString()} • {payout.reference}
+                          </p>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          {payout.failureReason ?? payout.destinationBusinessName ?? "Processing"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+          ))}
+        </div>
+      </AsyncPanelState>
+
+      <AsyncPanelState
         loading={promoCodesLoading}
         error={promoCodesError}
         isEmpty={promoCodes.length === 0}
@@ -284,5 +467,18 @@ export function AdminBillingTab({
         </div>
       </AsyncPanelState>
     </section>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-white/[0.03] p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-[var(--color-text-primary)]">
+        {value}
+      </p>
+    </div>
   );
 }

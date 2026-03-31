@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "./button";
 import { Card } from "./card";
+import { OverlayPortal } from "./overlay-portal";
 
 type ConfirmTone = "default" | "danger";
 
@@ -59,8 +60,8 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center">
+  const dialog = (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <button
         type="button"
         className="absolute inset-0 bg-[rgba(2,6,23,0.68)] backdrop-blur-sm"
@@ -91,6 +92,8 @@ export function ConfirmDialog({
       </Card>
     </div>
   );
+
+  return <OverlayPortal>{dialog}</OverlayPortal>;
 }
 
 export function useConfirmDialog() {

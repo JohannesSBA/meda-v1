@@ -5,12 +5,14 @@ import { NextResponse } from "next/server";
 
 const mockRequireSessionUser = vi.fn();
 const mockProcessRefund = vi.fn();
+const mockGetRefundQuote = vi.fn();
 
 vi.mock("@/lib/auth/guards", () => ({
   requireSessionUser: mockRequireSessionUser,
 }));
 
 vi.mock("@/services/refunds", () => ({
+  getRefundQuote: mockGetRefundQuote,
   processRefund: mockProcessRefund,
 }));
 
@@ -46,7 +48,7 @@ function makeRequest(body: object, ip = "1.2.3.4") {
 
 async function importHandler() {
   const mod = await import("@/app/api/events/[id]/refund/route");
-  return mod.POST;
+  return mod;
 }
 
 // ---- tests ----
@@ -58,9 +60,17 @@ describe("POST /api/events/[id]/refund", () => {
     mockProcessRefund.mockResolvedValue({
       ok: true,
       refundId: "refund-uuid-1",
+      refundIds: ["refund-uuid-1"],
       ticketCount: 2,
       amountEtb: 200,
       newBalance: 200,
+    });
+    mockGetRefundQuote.mockResolvedValue({
+      ok: true,
+      heldTicketCount: 2,
+      refundableTicketCount: 2,
+      ticketCount: 2,
+      amountEtb: 200,
     });
   });
 
@@ -70,7 +80,7 @@ describe("POST /api/events/[id]/refund", () => {
       response: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }),
     });
 
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     const res = await POST(makeRequest({}), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -78,7 +88,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("returns 200 on successful refund", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     const res = await POST(makeRequest({ ticketCount: 2 }), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -90,7 +100,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("passes ticketCount to processRefund when provided", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     await POST(makeRequest({ ticketCount: 3 }), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -98,7 +108,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("passes undefined ticketCount when not provided", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     await POST(makeRequest({}), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -106,7 +116,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("floors fractional ticketCount", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     await POST(makeRequest({ ticketCount: 2.7 }), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -114,7 +124,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("enforces minimum ticketCount of 1", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     await POST(makeRequest({ ticketCount: 0 }), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -126,7 +136,7 @@ describe("POST /api/events/[id]/refund", () => {
       new Error("Refunds are not available within 24 hours of the event start time"),
     );
 
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     const res = await POST(makeRequest({ ticketCount: 1 }), {
       params: Promise.resolve({ id: EVENT_ID }),
     });
@@ -136,7 +146,7 @@ describe("POST /api/events/[id]/refund", () => {
   });
 
   it("handles invalid JSON body gracefully", async () => {
-    const POST = await importHandler();
+    const { POST } = await importHandler();
     const req = new Request(`http://localhost/api/events/${EVENT_ID}/refund`, {
       method: "POST",
       headers: { "x-forwarded-for": "1.2.3.4" },
@@ -147,5 +157,20 @@ describe("POST /api/events/[id]/refund", () => {
     });
     expect(res.status).toBe(400);
     expect(mockProcessRefund).not.toHaveBeenCalled();
+  });
+
+  it("returns a refund quote on GET", async () => {
+    const { GET } = await importHandler();
+    const req = new Request(
+      `http://localhost/api/events/${EVENT_ID}/refund?ticketCount=2`,
+    );
+    const res = await GET(req, {
+      params: Promise.resolve({ id: EVENT_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.amountEtb).toBe(200);
+    expect(mockGetRefundQuote).toHaveBeenCalledWith(EVENT_ID, TEST_USER_ID, 2);
   });
 });

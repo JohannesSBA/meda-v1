@@ -9,6 +9,7 @@
 import { NeonAuthUIProvider } from "@neondatabase/auth/react";
 import { Toaster } from "sonner";
 import { authClient } from "@/lib/auth/client";
+import { appRoutes } from "@/lib/navigation";
 import HeaderNav from "./HeaderNav";
 type NeonUIAuthClient = React.ComponentProps<
   typeof NeonAuthUIProvider
@@ -22,7 +23,7 @@ export default function AuthProviders({ children }: AuthProvidersProps) {
   return (
     <NeonAuthUIProvider
       authClient={authClient as unknown as NeonUIAuthClient}
-      redirectTo="/events"
+      redirectTo={appRoutes.play}
       className="bg-[var(--color-bg)]"
       social={{
         providers: ["google"],

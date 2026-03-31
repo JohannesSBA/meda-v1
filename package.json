@@ -17,7 +17,8 @@
     "test:concurrency": "vitest run --config vitest.integration.config.ts __tests__/integration/payments.concurrency.test.ts",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "issues:import": "node scripts/import-github-issues.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.993.0",

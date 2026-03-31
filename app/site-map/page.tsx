@@ -9,7 +9,7 @@ import { PageShell } from "../components/ui/page-shell";
 export const metadata: Metadata = {
   title: "Sitemap | Meda",
   description:
-    "Explore Meda's key pages for pickup football: events, hosting, account, help, and legal resources.",
+    "Explore Meda's key pages for pickup football: play, tickets, hosting, account, help, and legal resources.",
 };
 
 type LinkGroup = {
@@ -22,10 +22,10 @@ const groups: LinkGroup[] = [
     title: "Core experience",
     links: [
       { label: "Home", href: "/" },
-      { label: "Events", href: "/events", note: "Browse upcoming matches" },
-      { label: "Create event", href: "/create-events", note: "For hosts and admins" },
-      { label: "My events & tickets", href: "/my-tickets", note: "Manage the matches you joined" },
-      { label: "Profile", href: "/profile", note: "Update details and see balances" },
+      { label: "Play", href: "/play", note: "Find a match or book a time to play" },
+      { label: "Tickets", href: "/tickets", note: "See upcoming tickets and actions" },
+      { label: "Host", href: "/host", note: "Manage places, booking times, and money" },
+      { label: "Profile", href: "/profile", note: "Account, preferences, and role access" },
     ],
   },
   {

@@ -17,8 +17,8 @@ export default function NotFound() {
         <Link href="/" className={buttonVariants("primary", "lg")}>
           Go home
         </Link>
-        <Link href="/events" className={buttonVariants("secondary", "lg")}>
-          Browse events
+        <Link href="/play" className={buttonVariants("secondary", "lg")}>
+          Open Play
         </Link>
       </div>
     </PageShell>

@@ -54,6 +54,8 @@ export async function registerForEvent(
       data: Array.from({ length: quantity }).map(() => ({
         eventId,
         userId,
+        purchaserUserId: userId,
+        paymentId: null,
         status: "RSVPed" as const,
       })),
     });

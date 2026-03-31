@@ -33,6 +33,8 @@ type SerializeOptions = {
   attendeeCount: number;
   reservedCount?: number;
   myTickets?: number | null;
+  refundableTicketCount?: number;
+  refundableAmountEtb?: number;
 };
 
 export function serializePublicEvent(
@@ -75,6 +77,9 @@ export function serializePublicEvent(
     updatedAt: event.updatedAt?.toISOString(),
     attendeeCount: options.attendeeCount,
     myTickets: options.myTickets ?? null,
+    heldTicketCount: options.myTickets ?? null,
+    refundableTicketCount: options.refundableTicketCount ?? 0,
+    refundableAmountEtb: options.refundableAmountEtb ?? 0,
     addressLabel: location.addressLabel,
     latitude: location.latitude,
     longitude: location.longitude,
@@ -101,6 +106,9 @@ export function serializeOccurrence(
     eventEndtime: event.eventEndtime.toISOString(),
     attendeeCount: options.attendeeCount,
     myTickets: options.myTickets ?? 0,
+    heldTicketCount: options.myTickets ?? 0,
+    refundableTicketCount: options.refundableTicketCount ?? 0,
+    refundableAmountEtb: options.refundableAmountEtb ?? 0,
     capacity: spotsLeft,
     capacityTotal: event.capacity,
     reservedCount,

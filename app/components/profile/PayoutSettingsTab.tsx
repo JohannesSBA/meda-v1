@@ -138,7 +138,7 @@ export function PayoutSettingsTab() {
         </p>
         <h2 className="text-lg font-semibold text-white">Settlement details</h2>
         <p className="text-sm text-[var(--color-text-secondary)]">
-          Complete Chapa payout verification before creating events or accepting ticket payments.
+          Complete Chapa payout verification before creating events or accepting ticket payments. Meda sends host payouts from its Chapa balance to this verified bank destination.
         </p>
       </div>
 
@@ -158,7 +158,7 @@ export function PayoutSettingsTab() {
                 Payout setup verified
               </p>
               <p className="text-sm text-[var(--color-text-secondary)]">
-                Ticket payments for your events can now split to your Chapa subaccount automatically.
+                Your host payout destination is verified. Meda can now transfer your settled earnings from its Chapa balance to this destination.
               </p>
             </div>
 

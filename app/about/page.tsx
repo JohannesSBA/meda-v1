@@ -81,10 +81,10 @@ export default function AboutPage() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/events"
+                href="/play?mode=events"
                 className={cn(buttonVariants("primary", "lg"), "rounded-full px-6")}
               >
-                Explore matches
+                Find a match
               </Link>
               <Link
                 href="/create-events"

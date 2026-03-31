@@ -65,6 +65,9 @@ export function EventCard({
   const priceLabel = event.priceField == null || event.priceField === 0 ? "Free" : `ETB ${event.priceField}`;
   const categoryLabel = event.categoryName ?? (event.categoryId ? "Featured" : "Community");
   const spotsLabel = event.spotsLeft ?? event.capacity ?? null;
+  const fitLine = [dateLabel, locationLabel, priceLabel, spotsLabel != null ? `${spotsLabel} spots left` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Card as="article" className={`group relative h-full overflow-hidden ${className}`} {...rest}>
@@ -105,6 +108,9 @@ export function EventCard({
             <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
               <FaLocationDot className="h-3.5 w-3.5 shrink-0 text-[var(--color-brand-alt)]" />
               <span className="line-clamp-1">{locationLabel}</span>
+            </p>
+            <p className="text-sm text-[var(--color-text-secondary)] line-clamp-2">
+              Good fit if you want: {fitLine}
             </p>
           </div>
 

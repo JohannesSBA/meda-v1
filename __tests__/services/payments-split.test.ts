@@ -93,7 +93,7 @@ describe("payments split handling", () => {
     userBalanceUpsertMock.mockReset();
   });
 
-  it("sends a Chapa split payload for pitch-owner events", async () => {
+  it("includes surcharge totals and stores owner payout metadata for pitch-owner events", async () => {
     getChapaClientMock.mockReturnValue({
       genTxRef: () => "MEDA-TX-1",
     });
@@ -146,18 +146,16 @@ describe("payments split handling", () => {
 
     expect(initializeChapaTransactionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: "240.00",
-        subaccounts: {
-          id: "sub-123",
-          split_type: "percentage",
-          split_value: 0.05,
-        },
+        amount: "270.00",
       }),
     );
     expect(paymentCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          chapaSubaccountId: "sub-123",
+          amountEtb: 270,
+          surchargeEtb: 30,
+          ownerRevenueEtb: 228,
+          chapaSubaccountId: null,
         }),
       }),
     );

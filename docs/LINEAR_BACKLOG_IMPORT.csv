@@ -1,0 +1,264 @@
+Title,Description,Priority,Status,Assignee,Labels,Estimate,Created,Completed,Started,Archived
+"Define and enforce a canonical application role contract","## Problem
+
+The effective user role is derived from both Neon auth state and DB-backed marketplace relationships, which makes authorization behavior harder to reason about.
+
+## Scope
+
+- define the canonical authorization field to use everywhere
+- document when `authRole` is informational only
+- add invariant tests for malformed or inconsistent role payloads
+
+## Acceptance Criteria
+
+- authorization helpers rely on one normalized role contract
+- tests cover admin, user, pitch owner, and facilitator behavior
+- edge and server runtime behavior are both explicitly tested
+
+## Verification
+
+- targeted auth tests
+- `npm test`",High,Backlog,,"area:auth, type:tech-debt, priority:p0",,,,
+"Align middleware protection with the actual authenticated surface","## Problem
+
+Authenticated flows span `/profile`, `/create-events`, `/admin`, and related routes, but protection semantics have drifted between middleware and route-level checks.
+
+## Scope
+
+- define the intended protection matrix
+- ensure middleware and route guards cover the same surface
+- preserve redirect and E2E bypass behavior
+
+## Acceptance Criteria
+
+- protected routes behave consistently for authenticated and unauthenticated users
+- redirect behavior is explicit and test-covered
+- E2E auth bypass still works in non-production test runs
+
+## Verification
+
+- relevant unit tests
+- `npm run test:e2e`",High,Backlog,,"area:auth, type:bug, priority:p0",,,,
+"Decide and encode the role transition policy in admin flows","## Problem
+
+Admin-facing role mutation rules do not cleanly match the real marketplace role model.
+
+## Scope
+
+- choose whether admin role APIs remain limited to base auth roles or become the canonical role transition surface
+- align schemas, route semantics, and UI copy with that policy
+
+## Acceptance Criteria
+
+- the allowed role transitions are documented and enforced
+- admin APIs and UI no longer imply contradictory role behavior
+- tests cover permitted and forbidden transitions
+
+## Verification
+
+- targeted admin route tests
+- `npm test`",High,Backlog,,"area:admin, type:tech-debt, priority:p0",,,,
+"Add a high-value integration lifecycle for pitch-owner commerce","## Problem
+
+Core marketplace behavior spans promotion, payout setup, event creation, checkout, and refund, but the repo lacks one end-to-end confidence path across those boundaries.
+
+## Scope
+
+- add an integration flow covering pitch-owner onboarding through ticket purchase and refund
+- include at least one negative path for incomplete payout setup
+
+## Acceptance Criteria
+
+- the lifecycle can be exercised in tests without manual setup drift
+- key permission and settlement assumptions are asserted
+
+## Verification
+
+- `npm run test:integration`",High,Backlog,,"area:payments, type:testing, priority:p0",,,,
+"Clarify event inventory semantics instead of overloading capacity","## Problem
+
+`Event.capacity` behaves like mutable remaining inventory in some flows, which makes reporting and concurrency reasoning harder.
+
+## Scope
+
+- define whether capacity is total, remaining, or derived
+- align availability logic and mutation paths with that definition
+- add migration follow-up if the chosen model needs schema support
+
+## Acceptance Criteria
+
+- the meaning of capacity is unambiguous in code and tests
+- purchase, refund, and availability logic use the same semantics
+
+## Verification
+
+- targeted service tests
+- `npm test`",Medium,Backlog,,"area:events, type:tech-debt, priority:p1",,,,
+"Normalize payment field naming away from legacy provider terminology","## Problem
+
+Payment fields still map through legacy `telebirr_*` column names while the app now runs Chapa and balance flows.
+
+## Scope
+
+- define a migration path to provider-neutral naming
+- preserve backward compatibility during the transition
+- update code references and any operational docs
+
+## Acceptance Criteria
+
+- the domain model reads as provider-neutral
+- code and schema no longer imply the wrong payment provider
+
+## Verification
+
+- targeted payment tests
+- `npm run build`",Medium,Backlog,,"area:payments, type:tech-debt, priority:p1",,,,
+"Decompose profile dashboard state into feature-scoped hooks","## Problem
+
+Profile/dashboard orchestration is broad and mixes registered events, saved events, admin controls, billing, and pitch-owner tooling.
+
+## Scope
+
+- split large hook surfaces into smaller feature-scoped hooks
+- preserve existing UI behavior and tab semantics
+- avoid introducing a broad state-management rewrite
+
+## Acceptance Criteria
+
+- feature hooks have narrower ownership boundaries
+- loading, error, and refresh behavior still matches current UX
+- the refactor reduces coupling without changing product behavior
+
+## Verification
+
+- targeted component tests where feasible
+- `npm run test:e2e`",Medium,Backlog,,"area:profile, type:refactor, priority:p1",,,,
+"Standardize route-to-service boundaries in profile and admin APIs","## Problem
+
+Some routes delegate to `services/*`, while others still combine parsing, data access, and business logic directly in route handlers.
+
+## Scope
+
+- identify profile and admin routes with meaningful business logic still embedded at the boundary
+- move only non-trivial logic into services
+- keep simple read-only routes simple when abstraction adds no value
+
+## Acceptance Criteria
+
+- route handlers are consistently thin where domain rules are involved
+- business logic is easier to test without HTTP setup
+
+## Verification
+
+- relevant unit tests
+- `npm test`",Medium,Backlog,,"area:admin, type:refactor, priority:p1",,,,
+"Split dense public-event read logic into documented sub-responsibilities","## Problem
+
+`services/publicEvents.ts` is a concentration point for filtering, grouping, caching, availability, and serialization.
+
+## Scope
+
+- do not split for style alone
+- document the intended responsibility boundaries first
+- extract only the most stable seams if it materially improves testability or readability
+
+## Acceptance Criteria
+
+- the service has an explicit internal structure or companion documentation
+- future contributors can identify where to change filtering, grouping, or serialization behavior
+
+## Verification
+
+- targeted public event tests
+- `npm test`",Medium,Backlog,,"area:events, type:tech-debt, priority:p1",,,,
+"Fix environment and dependency drift that can surprise contributors","## Problem
+
+There are signs of operational drift, including a suspicious default Supabase bucket name and implicit reliance on undeclared transitive packages.
+
+## Scope
+
+- verify and correct the default bucket behavior in `lib/supabaseAdmin.ts`
+- add direct dependencies where the app imports packages directly
+- update docs where current setup instructions are misleading
+
+## Acceptance Criteria
+
+- runtime defaults match documented intent
+- direct imports are declared in `package.json`
+- local setup friction is reduced
+
+## Verification
+
+- `npm run lint`
+- `npm run typecheck`
+- targeted smoke verification",Medium,Backlog,,"area:docs, type:bug, priority:p1",,,,
+"Add an operational runbook for payout encryption and key rotation","## Problem
+
+Payout encryption exists in code, but the repo does not clearly document rotation, re-encryption, or incident handling.
+
+## Scope
+
+- write a runbook for key rotation, re-encryption strategy, and break-glass access
+- document what must be audited after an incident
+
+## Acceptance Criteria
+
+- the runbook explains who rotates keys, what data is affected, and how success is verified
+- operational steps are explicit enough for on-call use
+
+## Verification
+
+- doc review",Low,Backlog,,"area:payments, type:docs, priority:p2",,,,
+"Introduce financial state-transition auditability for disputes","## Problem
+
+Settlement and refund behavior is spread across payment status fields and logs, but there is no single append-only audit trail for financial transitions.
+
+## Scope
+
+- design an immutable audit record for payment and refund state transitions
+- include actor or system source and idempotency context
+- avoid changing user-visible behavior in the first pass
+
+## Acceptance Criteria
+
+- there is a documented audit model and implementation plan
+- new financial transitions can be traced without reconstructing state from scattered logs
+
+## Verification
+
+- design review
+- targeted tests if implementation lands",Low,Backlog,,"area:payments, type:tech-debt, priority:p2",,,,
+"Add ADR-style architecture docs for the highest-friction decisions","## Problem
+
+Major decisions around role derivation, payouts, split settlement, and event-creation billing are implemented across many files but not captured as compact architecture records.
+
+## Scope
+
+- write ADRs for role model, payout and split settlement, and event-creation fee flow
+- keep them short and tied to concrete code paths
+
+## Acceptance Criteria
+
+- contributors can find one source of truth for the key architectural decisions
+- future changes can reference the relevant ADR instead of reverse-engineering behavior
+
+## Verification
+
+- doc review",Low,Backlog,,"area:docs, type:docs, priority:p2",,,,
+"Create a repo-level docs impact checklist for architecture-sensitive changes","## Problem
+
+The README and audit material are detailed, which increases drift risk when architecture changes land quickly.
+
+## Scope
+
+- define which changes require docs review
+- add a lightweight checklist for PRs or issue completion notes
+
+## Acceptance Criteria
+
+- contributors have a simple rule for when docs must be updated
+- architecture-sensitive work leaves fewer stale explanations behind
+
+## Verification
+
+- doc review",Low,Backlog,,"area:docs, type:docs, priority:p2",,,,

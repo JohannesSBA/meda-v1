@@ -40,6 +40,13 @@ export async function POST(request: Request) {
     revalidateEventData(result.eventId, [session.user.id]);
 
     if (!result.ok) {
+      if (result.status === "processing") {
+        return NextResponse.json(
+          { status: result.status, message: result.failureReason },
+          { status: 202 },
+        );
+      }
+
       return NextResponse.json(
         { error: result.failureReason, status: result.status },
         { status: 409 },

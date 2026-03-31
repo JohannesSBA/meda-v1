@@ -8,12 +8,15 @@ import { cn } from "@/app/components/ui/cn";
 import { BrowserApiError, browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
 
+const EVENT_CREATION_POLL_INTERVAL_MS = 3000;
+const EVENT_CREATION_POLL_LIMIT = 40;
+
 type CreateEventStatusPanelProps = {
   txRef: string | null;
 };
 
 type StatusState =
-  | { kind: "idle" | "loading" }
+  | { kind: "idle" | "loading"; message?: string }
   | { kind: "success"; eventId: string; createdOccurrences: number }
   | { kind: "error"; message: string };
 
@@ -29,60 +32,104 @@ export function CreateEventStatusPanel({
       : { kind: "loading" },
   );
   const requestedRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
 
-  const confirmPayment = useCallback(async () => {
-    if (!txRef) return;
-    setState({ kind: "loading" });
-
-    try {
-      const data = await browserApi.post<{
-        eventId?: string;
-        createdOccurrences?: number;
-      }>("/api/payments/chapa/confirm-event-creation", {
-        txRef,
-      });
-
-      if (!data.eventId) {
-        throw new Error("Confirmation did not return an event");
-      }
-
+  const confirmPayment = useCallback(
+    async function confirmPaymentImpl(attempt = 0) {
+      if (!txRef) return;
       setState({
-        kind: "success",
-        eventId: data.eventId,
-        createdOccurrences: Number(data.createdOccurrences) || 1,
+        kind: "loading",
+        message: "We are verifying your Chapa payment and finalizing the event.",
       });
-    } catch (error) {
-      if (error instanceof BrowserApiError && error.status === 409) {
+
+      try {
+        const response = await browserApi.postDetailed<{
+          eventId?: string;
+          createdOccurrences?: number;
+          status?: string;
+          message?: string;
+        }>("/api/payments/chapa/confirm-event-creation", {
+          txRef,
+        });
+
+        if (
+          response.status === 202 ||
+          response.data.status === "processing"
+        ) {
+          if (attempt >= EVENT_CREATION_POLL_LIMIT) {
+            setState({
+              kind: "error",
+              message:
+                response.data.message ||
+                "Payment is still processing. Please try confirming again shortly.",
+            });
+            return;
+          }
+
+          setState({
+            kind: "loading",
+            message:
+              response.data.message ||
+              "Payment is still processing with Chapa. We will keep checking automatically.",
+          });
+          if (pollTimerRef.current != null) {
+            window.clearTimeout(pollTimerRef.current);
+          }
+          pollTimerRef.current = window.setTimeout(() => {
+            void confirmPaymentImpl(attempt + 1);
+          }, EVENT_CREATION_POLL_INTERVAL_MS);
+          return;
+        }
+
+        const data = response.data;
+        if (!data.eventId) {
+          throw new Error("Confirmation did not return an event");
+        }
+
+        setState({
+          kind: "success",
+          eventId: data.eventId,
+          createdOccurrences: Number(data.createdOccurrences) || 1,
+        });
+      } catch (error) {
+        if (error instanceof BrowserApiError && error.status === 409) {
+          setState({
+            kind: "error",
+            message:
+              getErrorMessage(error) ||
+              "The payment was verified, but the event could not be created automatically.",
+          });
+          return;
+        }
+
         setState({
           kind: "error",
           message:
             getErrorMessage(error) ||
-            "The payment was verified, but the event could not be created automatically.",
+            "We could not confirm the event creation payment.",
         });
-        return;
       }
-
-      setState({
-        kind: "error",
-        message:
-          getErrorMessage(error) ||
-          "We could not confirm the event creation payment.",
-      });
-    }
-  }, [txRef]);
+    },
+    [txRef],
+  );
 
   useEffect(() => {
     if (!txRef) return;
     if (requestedRef.current === txRef) return;
     requestedRef.current = txRef;
     void confirmPayment();
+    return () => {
+      if (pollTimerRef.current != null) {
+        window.clearTimeout(pollTimerRef.current);
+      }
+    };
   }, [confirmPayment, txRef]);
 
   const eventHref =
     state.kind === "success" ? `/events/${state.eventId}` : "/create-events";
   const description =
     state.kind === "loading"
-      ? "We are verifying your Chapa payment and finalizing the event."
+      ? state.message || "We are verifying your Chapa payment and finalizing the event."
       : state.kind === "success"
         ? state.createdOccurrences > 1
           ? `Your payment was confirmed and ${state.createdOccurrences} recurring occurrences were created.`

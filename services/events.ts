@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadEventImageUnified } from "@/lib/uploadEventImage";
 import { logger } from "@/lib/logger";
 import { prepareEventLocationFields } from "@/lib/location";
+import { resolveCategoryIdWithFallback } from "@/lib/categoryDefaults";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB per supabase guidance
 const MAX_RECURRING_OCCURRENCES = 180;
@@ -23,10 +24,22 @@ type OccurrenceWindow = {
   index: number;
 };
 
+export type EventImageInput = {
+  buffer: Buffer;
+  mimeType: string;
+  ext: string;
+};
+
+export type StoredEventImagePayload = {
+  dataBase64: string;
+  mimeType: string;
+  ext: string;
+};
+
 export type CreateEventParams = {
   userId: string;
   eventName: string;
-  categoryId: string;
+  categoryId?: string | null;
   description: string | null;
   startDate: string;
   endDate: string;
@@ -35,7 +48,7 @@ export type CreateEventParams = {
   longitude: string;
   capacity: number | null;
   price: number | null;
-  image?: { buffer: Buffer; mimeType: string; ext: string } | null;
+  image?: EventImageInput | null;
   pictureUrl?: string | null;
   recurrenceEnabled: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
@@ -48,7 +61,7 @@ export type CreateEventResult =
   | { event: { eventId: string; [key: string]: unknown }; createdOccurrences?: never; seriesId?: never }
   | { event: { eventId: string; [key: string]: unknown }; createdOccurrences: number; seriesId: string };
 
-type EventWriter = Pick<typeof prisma, "event">;
+type EventWriter = Pick<typeof prisma, "event" | "category">;
 
 function toDate(value: string): Date | null {
   const parsed = new Date(value);
@@ -118,6 +131,45 @@ function buildRecurringWindows(params: {
   return windows;
 }
 
+export function validateEventImage(image: EventImageInput) {
+  if (image.buffer.byteLength > MAX_IMAGE_BYTES) {
+    throw new Error("Image too large (max 6MB)");
+  }
+  if (
+    !ALLOWED_MIME_TYPES.includes(
+      image.mimeType as (typeof ALLOWED_MIME_TYPES)[number],
+    )
+  ) {
+    throw new Error("Invalid file type. Allowed: JPEG, PNG, GIF, WEBP");
+  }
+}
+
+export function encodeEventImage(
+  image: EventImageInput | null | undefined,
+): StoredEventImagePayload | null {
+  if (!image) return null;
+  validateEventImage(image);
+  return {
+    dataBase64: image.buffer.toString("base64"),
+    mimeType: image.mimeType,
+    ext: image.ext,
+  };
+}
+
+export function decodeEventImage(
+  image: StoredEventImagePayload | null | undefined,
+): EventImageInput | null {
+  if (!image?.dataBase64 || !image.mimeType || !image.ext) {
+    return null;
+  }
+
+  return {
+    buffer: Buffer.from(image.dataBase64, "base64"),
+    mimeType: image.mimeType,
+    ext: image.ext,
+  };
+}
+
 export async function createEventWithClient(
   db: EventWriter,
   params: CreateEventParams,
@@ -125,7 +177,7 @@ export async function createEventWithClient(
   const {
     userId,
     eventName,
-    categoryId,
+    categoryId: requestedCategoryId,
     description,
     startDate,
     endDate,
@@ -143,9 +195,11 @@ export async function createEventWithClient(
     recurrenceWeekdays = "",
   } = params;
 
-  if (!eventName || !categoryId || !startDate || !endDate || !location || !latitude || !longitude) {
+  if (!eventName || !startDate || !endDate || !location || !latitude || !longitude) {
     throw new Error("Missing required fields");
   }
+
+  const categoryId = await resolveCategoryIdWithFallback(requestedCategoryId, db);
 
   const startAt = toDate(startDate);
   const endAt = toDate(endDate);
@@ -169,12 +223,7 @@ export async function createEventWithClient(
   const eventId = randomUUID();
 
   if (image) {
-    if (image.buffer.byteLength > MAX_IMAGE_BYTES) {
-      throw new Error("Image too large (max 6MB)");
-    }
-    if (!ALLOWED_MIME_TYPES.includes(image.mimeType as (typeof ALLOWED_MIME_TYPES)[number])) {
-      throw new Error("Invalid file type. Allowed: JPEG, PNG, GIF, WEBP");
-    }
+    validateEventImage(image);
     pictureUrl = await uploadEventImageUnified(eventId, {
       buffer: image.buffer,
       mimeType: image.mimeType,

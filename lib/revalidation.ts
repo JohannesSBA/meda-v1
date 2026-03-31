@@ -6,6 +6,7 @@ export function revalidateEventData(eventId: string, userIds: string[] = []) {
   revalidateTag(cacheTags.event(eventId), "max");
   revalidateTag(cacheTags.landing, "max");
   revalidateTag(cacheTags.adminEvents, "max");
+  revalidatePath("/play");
   revalidatePath("/events");
   revalidatePath(`/events/${eventId}`);
 
@@ -16,6 +17,7 @@ export function revalidateEventData(eventId: string, userIds: string[] = []) {
 
   if (uniqueUserIds.length > 0) {
     revalidatePath("/profile");
+    revalidatePath("/tickets");
     revalidatePath("/my-tickets");
   }
 }
@@ -26,5 +28,6 @@ export function revalidateCategoriesData() {
 
 export function revalidateAdminStats() {
   revalidateTag(cacheTags.adminStats, "max");
+  revalidatePath("/admin");
   revalidatePath("/profile");
 }

@@ -9,6 +9,7 @@ import {
   serializeOccurrence,
   serializePublicEvent,
 } from "@/lib/events/serializers";
+import { getUserEventTicketSummaryMap } from "@/services/ticketSummaries";
 import type { EventListQueryInput } from "@/lib/validations/events";
 import type {
   EventOccurrence,
@@ -58,6 +59,8 @@ type EventListResponse = {
   offset: number;
   limit: number;
 };
+
+const MAP_ITEMS_LIMIT = 200;
 
 function buildWhereClause(input: EventListQueryInput) {
   const filters: Prisma.Sql[] = [Prisma.sql`e.event_endtime >= NOW()`];
@@ -195,15 +198,7 @@ function buildListingBaseSql(whereClause: Prisma.Sql) {
         END AS "spotsLeft",
         COALESCE(
           e.series_id::text,
-          md5(
-            concat_ws(
-              '|',
-              e.event_name,
-              COALESCE(e.address_label, ''),
-              COALESCE(e.latitude::text, ''),
-              COALESCE(e.longitude::text, '')
-            )
-          )
+          e.event_id::text
         ) AS "groupKey"
       FROM events e
       LEFT JOIN categories c ON c.category_id = e.category_id
@@ -295,6 +290,8 @@ const getCachedPublicEventDetail = unstable_cache(
           attendeeCount: entry._count.attendees,
           reservedCount: seriesReservationCounts.get(entry.eventId) ?? 0,
           myTickets: 0,
+          refundableTicketCount: 0,
+          refundableAmountEtb: 0,
         }),
       );
     }
@@ -339,6 +336,7 @@ const getCachedEventList = unstable_cache(
         FROM grouped
         WHERE "seriesRank" = 1
         ${orderByClause}
+        LIMIT ${MAP_ITEMS_LIMIT}
       `),
       prisma.$queryRaw<Array<{ total: number }>>(Prisma.sql`
         ${baseSql}
@@ -377,25 +375,27 @@ export async function getPublicEventDetail(
     ...(baseDetail.occurrences?.map((occurrence) => occurrence.eventId) ?? []),
   ];
 
-  const grouped = await prisma.eventAttendee.groupBy({
-    by: ["eventId"],
-    where: {
-      userId: viewerUserId,
-      eventId: { in: relatedEventIds },
-    },
-    _count: { _all: true },
-  });
-
-  const myTicketCounts = new Map(
-    grouped.map((entry) => [entry.eventId, entry._count._all]),
+  const ticketSummaryMap = await getUserEventTicketSummaryMap(
+    viewerUserId,
+    relatedEventIds,
   );
+  const detailSummary = ticketSummaryMap.get(baseDetail.eventId);
 
   return {
     ...baseDetail,
-    myTickets: myTicketCounts.get(baseDetail.eventId) ?? 0,
+    myTickets: detailSummary?.heldTicketCount ?? 0,
+    heldTicketCount: detailSummary?.heldTicketCount ?? 0,
+    refundableTicketCount: detailSummary?.refundableTicketCount ?? 0,
+    refundableAmountEtb: detailSummary?.refundableAmountEtb ?? 0,
     occurrences: baseDetail.occurrences?.map((occurrence) => ({
       ...occurrence,
-      myTickets: myTicketCounts.get(occurrence.eventId) ?? 0,
+      myTickets: ticketSummaryMap.get(occurrence.eventId)?.heldTicketCount ?? 0,
+      heldTicketCount:
+        ticketSummaryMap.get(occurrence.eventId)?.heldTicketCount ?? 0,
+      refundableTicketCount:
+        ticketSummaryMap.get(occurrence.eventId)?.refundableTicketCount ?? 0,
+      refundableAmountEtb:
+        ticketSummaryMap.get(occurrence.eventId)?.refundableAmountEtb ?? 0,
     })),
   };
 }

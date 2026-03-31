@@ -15,6 +15,9 @@ export type RegisteredEventItem = {
   eventName: string;
   eventDatetime: string;
   ticketCount: number;
+  heldTicketCount?: number;
+  refundableTicketCount?: number;
+  refundableAmountEtb?: number;
   priceField?: number | null;
   addressLabel?: string | null;
   pictureUrl?: string | null;
@@ -80,6 +83,42 @@ export type PromoCodeItem = {
   expiresAt: string;
   isActive: boolean;
   createdAt: string;
+};
+
+export type AdminPayoutItem = {
+  id: string;
+  ownerId: string;
+  amountEtb: number;
+  currency: string;
+  reference: string;
+  providerTransferId?: string | null;
+  status: string;
+  destinationBusinessName?: string | null;
+  destinationAccountLast4?: string | null;
+  destinationBankCode?: string | null;
+  failureReason?: string | null;
+  initiatedByUserId?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminOwnerPayoutSummary = {
+  ownerId: string;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  businessName?: string | null;
+  payoutReady: boolean;
+  destinationLabel?: string | null;
+  destinationBankCode?: string | null;
+  grossTicketSalesEtb: number;
+  platformCommissionEtb: number;
+  ticketSurchargeEtb: number;
+  netOwnerRevenueEtb: number;
+  totalPaidOutEtb: number;
+  totalPendingPayoutEtb: number;
+  availablePayoutEtb: number;
+  recentPayouts: AdminPayoutItem[];
 };
 
 export function readUser(user: unknown): AdminUserRow {

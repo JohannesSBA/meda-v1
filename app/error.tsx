@@ -37,8 +37,8 @@ export default function Error({
         <Link href="/" className={buttonVariants("secondary", "lg")}>
           Go home
         </Link>
-        <Link href="/events" className={buttonVariants("ghost", "lg")}>
-          Browse events
+        <Link href="/play?mode=events" className={buttonVariants("ghost", "lg")}>
+          Find a match
         </Link>
       </div>
     </PageShell>

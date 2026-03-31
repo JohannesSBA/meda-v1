@@ -47,7 +47,7 @@ export function SavedEventsTab({
         }
         emptyTitle="You haven't saved any events yet"
         emptyDescription="Save events you're interested in so they stay easy to find."
-        emptyAction={{ label: "Browse events", href: "/events" }}
+        emptyAction={{ label: "Find a match", href: "/play?mode=events" }}
         onRetry={onRetry}
       >
         <div className="grid gap-4">

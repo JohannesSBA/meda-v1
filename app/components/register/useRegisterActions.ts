@@ -37,6 +37,10 @@ type UseRegisterActionsArgs = {
   setOnWaitlist: Dispatch<SetStateAction<boolean>>;
   setShowRefundConfirm: Dispatch<SetStateAction<boolean>>;
   setRefundQty: Dispatch<SetStateAction<number>>;
+  refreshTicketState: (
+    eventId?: string,
+  ) => Promise<{ heldTicketCount: number } | null>;
+  refreshUserBalance: () => Promise<number | null>;
   generateShareLink: (eventId: string) => Promise<void>;
 };
 
@@ -62,6 +66,8 @@ export function useRegisterActions({
   setOnWaitlist,
   setShowRefundConfirm,
   setRefundQty,
+  refreshTicketState,
+  refreshUserBalance,
   generateShareLink,
 }: UseRegisterActionsArgs) {
   const [loading, setLoading] = useState(false);
@@ -100,12 +106,16 @@ export function useRegisterActions({
             eventId: selectedEventId,
             quantity: qty,
           });
-          const addedTickets = Number(response.quantity) || qty;
           toast.success("Payment confirmed from your Meda balance.");
-          const nextTicketCount = myTickets + addedTickets;
-          setMyTickets(nextTicketCount);
-          setUserBalance(Number(response.newBalance) ?? 0);
-          if (nextTicketCount > 1) {
+          const nextState = await refreshTicketState(selectedEventId);
+          const refreshedBalance = await refreshUserBalance();
+          if (typeof refreshedBalance === "number") {
+            setUserBalance(refreshedBalance);
+          } else {
+            setUserBalance(Number(response.newBalance) ?? 0);
+          }
+          setMyTickets(nextState?.heldTicketCount ?? myTickets);
+          if ((nextState?.heldTicketCount ?? 0) > 1) {
             await generateShareLink(selectedEventId);
           }
           router.refresh();
@@ -131,9 +141,9 @@ export function useRegisterActions({
         userId,
       });
       toast.success("Registered!");
-      const nextTicketCount = myTickets + qty;
-      setMyTickets(nextTicketCount);
-      if (nextTicketCount > 1) {
+      const nextState = await refreshTicketState(selectedEventId);
+      setMyTickets(nextState?.heldTicketCount ?? myTickets + qty);
+      if ((nextState?.heldTicketCount ?? 0) > 1) {
         await generateShareLink(selectedEventId);
       }
       router.refresh();
@@ -156,6 +166,8 @@ export function useRegisterActions({
     selectedCapacity,
     selectedEndtime,
     selectedEventId,
+    refreshTicketState,
+    refreshUserBalance,
     setMyTickets,
     setUserBalance,
     userId,
@@ -194,7 +206,14 @@ export function useRegisterActions({
       );
       const refunded = Number(data.ticketCount) || refundQty;
       const amount = Number(data.amountEtb) || 0;
-      setMyTickets((current) => Math.max(0, current - refunded));
+      const [nextState, refreshedBalance] = await Promise.all([
+        refreshTicketState(selectedEventId),
+        refreshUserBalance(),
+      ]);
+      setMyTickets(nextState?.heldTicketCount ?? Math.max(0, myTickets - refunded));
+      if (typeof refreshedBalance === "number") {
+        setUserBalance(refreshedBalance);
+      }
       setShowRefundConfirm(false);
       setRefundQty(1);
       toast.success(
@@ -210,13 +229,17 @@ export function useRegisterActions({
       setRefundLoading(false);
     }
   }, [
+    myTickets,
     refundLoading,
     refundQty,
     router,
     selectedEventId,
+    setUserBalance,
     setMyTickets,
     setRefundQty,
     setShowRefundConfirm,
+    refreshTicketState,
+    refreshUserBalance,
     userId,
   ]);
 

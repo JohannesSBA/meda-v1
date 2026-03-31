@@ -7,18 +7,43 @@ import { getErrorMessage } from "@/lib/errorMessage";
 type UseRegisterResourcesArgs = {
   selectedEventId: string;
   selectedOccurrenceTickets: number;
+  selectedOccurrenceRefundableTicketCount: number;
+  selectedOccurrenceRefundableAmountEtb: number;
   soldOutForSelection: boolean;
   isPaid: boolean;
+};
+
+type TicketStateResponse = {
+  event?: {
+    myTickets?: number;
+    heldTicketCount?: number;
+    refundableTicketCount?: number;
+    refundableAmountEtb?: number;
+  };
+};
+
+type TicketState = {
+  heldTicketCount: number;
+  refundableTicketCount: number;
+  refundableAmountEtb: number;
 };
 
 export function useRegisterResources({
   selectedEventId,
   selectedOccurrenceTickets,
+  selectedOccurrenceRefundableTicketCount,
+  selectedOccurrenceRefundableAmountEtb,
   soldOutForSelection,
   isPaid,
 }: UseRegisterResourcesArgs) {
   const [userId, setUserId] = useState<string | null>(null);
   const [myTickets, setMyTickets] = useState<number>(selectedOccurrenceTickets);
+  const [refundableTicketCount, setRefundableTicketCount] = useState<number>(
+    selectedOccurrenceRefundableTicketCount,
+  );
+  const [refundableAmountEtb, setRefundableAmountEtb] = useState<number>(
+    selectedOccurrenceRefundableAmountEtb,
+  );
   const [isSaved, setIsSaved] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -28,17 +53,47 @@ export function useRegisterResources({
   const [userBalance, setUserBalance] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"chapa" | "balance">("chapa");
 
-  const fetchMyTickets = useCallback(async (uid: string, eventId: string) => {
+  const applyTicketState = useCallback((state: TicketState) => {
+    setMyTickets(state.heldTicketCount);
+    setRefundableTicketCount(state.refundableTicketCount);
+    setRefundableAmountEtb(state.refundableAmountEtb);
+  }, []);
+
+  const fetchTicketState = useCallback(async (uid: string, eventId: string) => {
     try {
-      const data = await browserApi.get<{ event?: { myTickets?: number } }>(
+      const data = await browserApi.get<TicketStateResponse>(
         `/api/events/${eventId}?userId=${uid}`,
         { cache: "no-store" },
       );
-      setMyTickets(data.event?.myTickets ?? 0);
+      const nextState = {
+        heldTicketCount:
+          Number(data.event?.heldTicketCount ?? data.event?.myTickets) || 0,
+        refundableTicketCount: Number(data.event?.refundableTicketCount) || 0,
+        refundableAmountEtb: Number(data.event?.refundableAmountEtb) || 0,
+      } satisfies TicketState;
+      applyTicketState(nextState);
+      return nextState;
     } catch {
       // Ignore ticket count refresh failures and keep stale UI state.
+      return null;
     }
-  }, []);
+  }, [applyTicketState]);
+
+  const refreshUserBalance = useCallback(async () => {
+    if (!userId || !isPaid) return null;
+    try {
+      const data = await browserApi.get<{ balanceEtb?: number }>(
+        "/api/profile/balance",
+        { cache: "no-store" },
+      );
+      const balance = Number(data.balanceEtb) || 0;
+      setUserBalance(balance);
+      if (balance <= 0) setPaymentMethod("chapa");
+      return balance;
+    } catch {
+      return null;
+    }
+  }, [isPaid, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,11 +115,23 @@ export function useRegisterResources({
 
   useEffect(() => {
     if (!userId) {
-      setMyTickets(selectedOccurrenceTickets);
+      applyTicketState({
+        heldTicketCount: selectedOccurrenceTickets,
+        refundableTicketCount: selectedOccurrenceRefundableTicketCount,
+        refundableAmountEtb: selectedOccurrenceRefundableAmountEtb,
+      });
       return;
     }
-    void fetchMyTickets(userId, selectedEventId);
-  }, [fetchMyTickets, selectedEventId, selectedOccurrenceTickets, userId]);
+    void fetchTicketState(userId, selectedEventId);
+  }, [
+    applyTicketState,
+    fetchTicketState,
+    selectedEventId,
+    selectedOccurrenceRefundableAmountEtb,
+    selectedOccurrenceRefundableTicketCount,
+    selectedOccurrenceTickets,
+    userId,
+  ]);
 
   const generateShareLink = useCallback(
     async (eventId: string) => {
@@ -119,14 +186,11 @@ export function useRegisterResources({
     let cancelled = false;
     const loadBalance = async () => {
       try {
-        const data = await browserApi.get<{ balanceEtb?: number }>(
-          "/api/profile/balance",
-          { cache: "no-store" },
-        );
+        const balance = await refreshUserBalance();
         if (cancelled) return;
-        const balance = Number(data.balanceEtb) || 0;
-        setUserBalance(balance);
-        if (balance <= 0) setPaymentMethod("chapa");
+        if (typeof balance === "number") {
+          setUserBalance(balance);
+        }
       } catch {
         // Ignore balance lookup failures.
       }
@@ -136,7 +200,7 @@ export function useRegisterResources({
     return () => {
       cancelled = true;
     };
-  }, [isPaid, userId]);
+  }, [isPaid, refreshUserBalance, userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -181,6 +245,8 @@ export function useRegisterResources({
     userId,
     myTickets,
     setMyTickets,
+    refundableTicketCount,
+    refundableAmountEtb,
     isSaved,
     setIsSaved,
     shareLoading,
@@ -193,6 +259,20 @@ export function useRegisterResources({
     setUserBalance,
     paymentMethod,
     setPaymentMethod,
+    refreshTicketState: async (eventId = selectedEventId) => {
+      if (!userId) {
+        const fallbackState = {
+          heldTicketCount: selectedOccurrenceTickets,
+          refundableTicketCount: selectedOccurrenceRefundableTicketCount,
+          refundableAmountEtb: selectedOccurrenceRefundableAmountEtb,
+        } satisfies TicketState;
+        applyTicketState(fallbackState);
+        return fallbackState;
+      }
+
+      return fetchTicketState(userId, eventId);
+    },
+    refreshUserBalance,
     generateShareLink,
     handleCopyShareLink,
   };

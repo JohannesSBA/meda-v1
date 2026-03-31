@@ -51,6 +51,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
     eventLocation: "Venue!longitude=38.7&latitude=9.0",
     capacity: 10,
     priceField: 100,
+    userId: "owner-uuid-1",
     ...overrides,
   };
 }
@@ -58,6 +59,8 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
 function makeTickets(count: number) {
   return Array.from({ length: count }, (_, i) => ({
     attendeeId: `attendee-${i}`,
+    userId: USER_ID,
+    paymentId: null,
   }));
 }
 
@@ -65,9 +68,21 @@ function setupDefaultTransaction() {
   mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
     return fn({
       ticketScan: { deleteMany: vi.fn() },
-      eventAttendee: { deleteMany: vi.fn() },
+      eventAttendee: {
+        findMany: mockAttendeeFindMany,
+        count: vi.fn().mockResolvedValue(0),
+        deleteMany: vi.fn().mockImplementation((args: { where?: { attendeeId?: { in?: string[] } } }) =>
+          Promise.resolve({
+            count: args?.where?.attendeeId?.in?.length ?? 0,
+          }),
+        ),
+      },
+      payment: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
       event: { update: vi.fn() },
       userBalance: {
+        upsert: vi.fn().mockResolvedValue({ userId: USER_ID, balanceEtb: 150 }),
         findUnique: vi.fn().mockResolvedValue({ userId: USER_ID, balanceEtb: 50 }),
         update: vi.fn().mockResolvedValue({ userId: USER_ID, balanceEtb: 150 }),
         create: vi.fn().mockResolvedValue({ userId: USER_ID, balanceEtb: 100 }),
@@ -171,7 +186,7 @@ describe("processRefund", () => {
 
     expect(result.ticketCount).toBe(1);
     expect(result.amountEtb).toBe(0);
-    expect(result.newBalance).toBe(0);
+    expect(result.newBalance).toBe(50);
   });
 
   it("sends waitlist notification emails when waitlist has entries", async () => {

@@ -12,6 +12,7 @@ import { buttonVariants } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/cn";
 import { Cluster } from "@/app/components/ui/primitives";
 import type { ProfileUser } from "./types";
+import { appRoutes } from "@/lib/navigation";
 
 type ProfileHeaderProps = {
   user: ProfileUser;
@@ -74,13 +75,24 @@ export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHead
 
         <Cluster gap="sm" className="lg:justify-end">
           {!isAdmin ? (
-            <Link href="/events" className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
-              Browse events
+            <Link href={appRoutes.play} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Play
             </Link>
           ) : null}
-          <Link href="/my-tickets" className={cn(buttonVariants("primary", "md"), "rounded-full")}>
-            My tickets
-          </Link>
+          {isPitchOwner ? (
+            <Link href={appRoutes.host} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Host
+            </Link>
+          ) : null}
+          {isAdmin ? (
+            <Link href={appRoutes.admin} className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+              Admin
+            </Link>
+          ) : (
+            <Link href={appRoutes.tickets} className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+              Tickets
+            </Link>
+          )}
         </Cluster>
       </div>
     </Card>

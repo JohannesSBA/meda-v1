@@ -61,9 +61,9 @@ export function EventDetailContent({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#050d17] via-[#050d17]/40 to-transparent" />
         <Link
-          href="/events"
+          href="/play?mode=events"
           className="absolute left-4 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
-          aria-label="Back to events"
+          aria-label="Back to matches"
         >
           <svg
             className="h-5 w-5"

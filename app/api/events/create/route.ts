@@ -1,10 +1,13 @@
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { requireAdminOrPitchOwnerUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { createEvent } from "@/services/events";
+import {
+  createEvent,
+  createEventWithClient,
+  encodeEventImage,
+} from "@/services/events";
 import {
   initializeEventCreationCheckout,
   recordWaivedEventCreation,
@@ -12,7 +15,7 @@ import {
 import { createEventFormSchema } from "@/lib/validations/events";
 import { parseFormData, validationErrorResponse } from "@/lib/validations/http";
 import { revalidateAdminStats, revalidateEventData } from "@/lib/revalidation";
-import { uploadEventImageUnified } from "@/lib/uploadEventImage";
+import { resolveCategoryIdWithFallback } from "@/lib/categoryDefaults";
 
 export async function POST(request: Request) {
   const rl = await checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
 
   const {
     eventName,
-    categoryId,
+    categoryId: requestedCategoryId,
     promoCode,
     description,
     startDate,
@@ -77,10 +80,7 @@ export async function POST(request: Request) {
     imageData = { buffer, mimeType: image.type, ext };
   }
 
-  let pictureUrl: string | null = null;
-  if (imageData) {
-    pictureUrl = await uploadEventImageUnified(randomUUID(), imageData);
-  }
+  const categoryId = await resolveCategoryIdWithFallback(requestedCategoryId);
 
   const eventPayload = {
     userId,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     longitude,
     capacity,
     price,
-    pictureUrl,
+    pictureUrl: null,
     recurrenceEnabled,
     recurrenceFrequency,
     recurrenceInterval,
@@ -116,7 +116,10 @@ export async function POST(request: Request) {
         callbackUrl,
         returnUrlBase: `${baseUrl}/create-events/status`,
         promoCode,
-        eventPayload,
+        eventPayload: {
+          ...eventPayload,
+          imageUpload: encodeEventImage(imageData),
+        },
       });
 
       if (result.kind === "checkout") {
@@ -130,14 +133,20 @@ export async function POST(request: Request) {
         );
       }
 
-      const createdEvent = await createEvent({
-        ...eventPayload,
-        image: null,
-      });
-      await recordWaivedEventCreation({
-        pitchOwnerUserId: userId,
-        eventId: createdEvent.event.eventId,
-        quote: result.quote,
+      const createdEvent = await prisma.$transaction(async (tx) => {
+        const eventResult = await createEventWithClient(tx, {
+          ...eventPayload,
+          image: imageData,
+        });
+        await recordWaivedEventCreation(
+          {
+            pitchOwnerUserId: userId,
+            eventId: eventResult.event.eventId,
+            quote: result.quote,
+          },
+          tx,
+        );
+        return eventResult;
       });
 
       revalidateEventData(createdEvent.event.eventId, [userId]);
@@ -159,7 +168,7 @@ export async function POST(request: Request) {
 
     const result = await createEvent({
       ...eventPayload,
-      image: null,
+      image: imageData,
     });
 
     revalidateEventData(result.event.eventId, [userId]);

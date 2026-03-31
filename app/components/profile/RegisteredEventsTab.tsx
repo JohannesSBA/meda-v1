@@ -79,13 +79,19 @@ export function RegisteredEventsTab({
         }
         emptyTitle="No tickets yet"
         emptyDescription="Browse events and register for your first match."
-        emptyAction={{ label: "Browse events", href: "/events" }}
+        emptyAction={{ label: "Find a match", href: "/play?mode=events" }}
         onRetry={onRetry}
       >
         <div className="grid gap-4">
           {registeredEvents.map((event) => {
             const hoursUntil = (new Date(event.eventDatetime).getTime() - nowTimestamp) / (1000 * 60 * 60);
-            const canRefund = registeredStatus !== "past" && hoursUntil >= 24;
+            const heldTicketCount = event.heldTicketCount ?? event.ticketCount ?? 0;
+            const refundableTicketCount = event.refundableTicketCount ?? 0;
+            const refundableAmountEtb = Number(event.refundableAmountEtb) || 0;
+            const canRefund =
+              registeredStatus !== "past" &&
+              hoursUntil >= 24 &&
+              refundableTicketCount > 0;
 
             return (
               <Card key={event.eventId} className="p-5 sm:p-6">
@@ -106,8 +112,18 @@ export function RegisteredEventsTab({
                       <p className="text-sm text-[var(--color-text-muted)]">{event.addressLabel ?? "Location pending"}</p>
                       <Cluster gap="sm">
                         <span className="rounded-full bg-[rgba(125,211,252,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-brand)]">
-                          {event.ticketCount} ticket{event.ticketCount === 1 ? "" : "s"}
+                          {heldTicketCount} held
                         </span>
+                        {refundableTicketCount > 0 ? (
+                          <span className="rounded-full bg-[rgba(251,191,36,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-warning)]">
+                            {refundableTicketCount} refundable
+                          </span>
+                        ) : null}
+                        {heldTicketCount > 0 && refundableTicketCount === 0 ? (
+                          <span className="rounded-full bg-[rgba(248,113,113,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-danger)]">
+                            Transfer ticket
+                          </span>
+                        ) : null}
                         <span className="rounded-full bg-[rgba(52,211,153,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-brand-alt)]">
                           ETB {event.priceField ?? 0}
                         </span>
@@ -117,7 +133,7 @@ export function RegisteredEventsTab({
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <Link href={`/events/${event.eventId}`} className={cn(buttonVariants("secondary", "sm"), "rounded-full")}>View event</Link>
-                    {event.ticketCount > 1 ? (
+                    {heldTicketCount > 1 ? (
                       <button
                         type="button"
                         onClick={() => void onShareLink(event.eventId)}
@@ -145,8 +161,8 @@ export function RegisteredEventsTab({
                             title: (event.priceField ?? 0) > 0 ? "Refund tickets?" : "Cancel tickets?",
                             description:
                               (event.priceField ?? 0) > 0
-                                ? `Cancel all tickets and refund ETB ${(event.priceField ?? 0) * event.ticketCount} to your Meda balance?`
-                                : `Cancel all ${event.ticketCount} ticket${event.ticketCount === 1 ? "" : "s"} for this event?`,
+                                ? `Cancel ${refundableTicketCount} refundable ticket${refundableTicketCount === 1 ? "" : "s"} and refund ETB ${refundableAmountEtb} to your Meda balance?`
+                                : `Cancel all ${refundableTicketCount} ticket${refundableTicketCount === 1 ? "" : "s"} for this event?`,
                             confirmLabel: (event.priceField ?? 0) > 0 ? "Refund tickets" : "Cancel tickets",
                             tone: "danger",
                           });

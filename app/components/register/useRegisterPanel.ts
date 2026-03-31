@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { EventOccurrence, EventResponse } from "@/app/types/eventTypes";
+import { browserApi } from "@/lib/browserApi";
 import { REFUND_CUTOFF_HOURS } from "@/lib/constants";
 import { useRegisterSelection } from "./useRegisterSelection";
 import { useRegisterResources } from "./useRegisterResources";
@@ -36,6 +37,14 @@ export function useRegisterPanel({
   const resources = useRegisterResources({
     selectedEventId: selection.selectedEventId,
     selectedOccurrenceTickets: selection.selectedOccurrence?.myTickets ?? event.myTickets ?? 0,
+    selectedOccurrenceRefundableTicketCount:
+      selection.selectedOccurrence?.refundableTicketCount ??
+      event.refundableTicketCount ??
+      0,
+    selectedOccurrenceRefundableAmountEtb:
+      selection.selectedOccurrence?.refundableAmountEtb ??
+      event.refundableAmountEtb ??
+      0,
     soldOutForSelection: selection.soldOutForSelection,
     isPaid: selection.isPaid,
   });
@@ -62,6 +71,8 @@ export function useRegisterPanel({
     setOnWaitlist: resources.setOnWaitlist,
     setShowRefundConfirm: selection.setShowRefundConfirm,
     setRefundQty: selection.setRefundQty,
+    refreshTicketState: resources.refreshTicketState,
+    refreshUserBalance: resources.refreshUserBalance,
     generateShareLink: resources.generateShareLink,
   });
 
@@ -74,10 +85,13 @@ export function useRegisterPanel({
     occurrenceOptions: selection.occurrenceOptions,
     myTickets: resources.myTickets,
     setMyTickets: resources.setMyTickets,
+    refreshTicketState: resources.refreshTicketState,
     generateShareLink: resources.generateShareLink,
   });
 
   const [comparisonNow, setComparisonNow] = useState(() => Date.now());
+  const [refundQuoteAmountEtb, setRefundQuoteAmountEtb] = useState<number>(0);
+  const [refundQuoteLoading, setRefundQuoteLoading] = useState(false);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -96,7 +110,52 @@ export function useRegisterPanel({
     [comparisonNow, selection.selectedDatetime],
   );
   const refundEligible =
-    resources.myTickets > 0 && hoursUntilEvent >= REFUND_CUTOFF_HOURS;
+    resources.refundableTicketCount > 0 && hoursUntilEvent >= REFUND_CUTOFF_HOURS;
+  const holdsTransferredTickets =
+    resources.myTickets > 0 && resources.refundableTicketCount === 0;
+
+  useEffect(() => {
+    if (!selection.showRefundConfirm || !resources.userId || !refundEligible) return;
+
+    let cancelled = false;
+    const loadRefundQuote = async () => {
+      setRefundQuoteLoading(true);
+      try {
+        const data = await browserApi.get<{ amountEtb?: number }>(
+          `/api/events/${selection.selectedEventId}/refund?ticketCount=${selection.refundQty}`,
+          { cache: "no-store" },
+        );
+        if (!cancelled) {
+          setRefundQuoteAmountEtb(Number(data.amountEtb) || 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setRefundQuoteAmountEtb(0);
+        }
+      } finally {
+        if (!cancelled) {
+          setRefundQuoteLoading(false);
+        }
+      }
+    };
+
+    void loadRefundQuote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    refundEligible,
+    resources.userId,
+    selection.refundQty,
+    selection.selectedEventId,
+    selection.showRefundConfirm,
+  ]);
+
+  const activeRefundQuoteAmountEtb =
+    selection.showRefundConfirm && refundEligible ? refundQuoteAmountEtb : 0;
+  const activeRefundQuoteLoading =
+    selection.showRefundConfirm && refundEligible ? refundQuoteLoading : false;
 
   return {
     event,
@@ -116,6 +175,11 @@ export function useRegisterPanel({
     onWaitlist: resources.onWaitlist,
     waitlistLoading: actions.waitlistLoading,
     myTickets: resources.myTickets,
+    refundableTicketCount: resources.refundableTicketCount,
+    refundableAmountEtb: resources.refundableAmountEtb,
+    refundQuoteAmountEtb: activeRefundQuoteAmountEtb,
+    refundQuoteLoading: activeRefundQuoteLoading,
+    holdsTransferredTickets,
     userId: resources.userId,
     refundLoading: actions.refundLoading,
     refundQty: selection.refundQty,

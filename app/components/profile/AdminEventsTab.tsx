@@ -8,6 +8,7 @@ import { type Dispatch, type SetStateAction } from "react";
 import { AsyncPanelState } from "@/app/components/ui/async-panel-state";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { ResponsiveTableCard } from "@/app/components/ui/responsive-table-card";
 import { Select } from "@/app/components/ui/select";
 import { Table } from "@/app/components/ui/table";
 import { TableSkeleton } from "@/app/components/ui/skeleton";
@@ -84,53 +85,62 @@ export function AdminEventsTab({
         emptyDescription="Adjust your filters or create a new event."
         onRetry={onRetry}
       >
-        <div className="overflow-x-auto">
-          <Table className="table-shell">
-            <thead className="text-[var(--color-brand)]">
-              <tr>
-                <th className="py-2 pr-4">Event</th>
-                <th className="py-2 pr-4">Date</th>
-                <th className="py-2 pr-4">Host</th>
-                <th className="py-2 pr-4">Price</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="text-[var(--color-text-secondary)]">
-              {adminEvents.map((event) => (
-                <tr key={event.eventId} className="border-t border-white/10">
-                  <td className="py-3 pr-4 text-white">{event.eventName}</td>
-                  <td className="py-3 pr-4">
-                    {new Date(event.eventDatetime).toLocaleString()}
-                  </td>
-                  <td className="py-3 pr-4">
-                    {adminUserNameById.get(event.userId) ?? event.userId}
-                  </td>
-                  <td className="py-3 pr-4">ETB {event.priceField ?? 0}</td>
-                  <td className="py-3 pr-4">
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void onEdit(event.eventId)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="danger"
-                        onClick={() => void onDelete(event.eventId)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
+        <ResponsiveTableCard
+          table={
+            <Table className="table-shell">
+              <thead className="text-[var(--color-brand)]">
+                <tr>
+                  <th className="py-2 pr-4">Event</th>
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Host</th>
+                  <th className="py-2 pr-4">Price</th>
+                  <th className="py-2 pr-4">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
+              </thead>
+              <tbody className="text-[var(--color-text-secondary)]">
+                {adminEvents.map((event) => (
+                  <tr key={event.eventId} className="border-t border-white/10">
+                    <td className="py-3 pr-4 text-white">{event.eventName}</td>
+                    <td className="py-3 pr-4">
+                      {new Date(event.eventDatetime).toLocaleString()}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {adminUserNameById.get(event.userId) ?? event.userId}
+                    </td>
+                    <td className="py-3 pr-4">ETB {event.priceField ?? 0}</td>
+                    <td className="py-3 pr-4">
+                      <EventRowActions
+                        event={event}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          }
+          mobileCards={adminEvents.map((event) => (
+            <div
+              key={event.eventId}
+              className="rounded-[var(--radius-md)] border border-white/10 bg-white/[0.03] p-4"
+            >
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-white">{event.eventName}</p>
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  {new Date(event.eventDatetime).toLocaleString()}
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)]">
+                <p>Host: {adminUserNameById.get(event.userId) ?? event.userId}</p>
+                <p>Price: ETB {event.priceField ?? 0}</p>
+              </div>
+              <div className="mt-4">
+                <EventRowActions event={event} onEdit={onEdit} onDelete={onDelete} />
+              </div>
+            </div>
+          ))}
+        />
       </AsyncPanelState>
 
       {editingEvent ? (
@@ -284,5 +294,36 @@ export function AdminEventsTab({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function EventRowActions({
+  event,
+  onEdit,
+  onDelete,
+}: {
+  event: AdminEventItem;
+  onEdit: (eventId: string) => void;
+  onDelete: (eventId: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={() => void onEdit(event.eventId)}
+      >
+        Edit
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="danger"
+        onClick={() => void onDelete(event.eventId)}
+      >
+        Delete
+      </Button>
+    </div>
   );
 }

@@ -45,13 +45,13 @@ export default function MyEventsPanel() {
   }, []);
 
   const loadEvents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await browserApi.get<{ items?: RegisteredEventItem[] }>(`/api/profile/registered-events?status=${status}`, {
-        cache: "no-store",
-      });
-      setItems(data.items ?? []);
+      setLoading(true);
+      setError(null);
+      try {
+      const data = await browserApi.get<{ items?: RegisteredEventItem[] }>(`/api/profile/registered-events?status=${status}&scope=held`, {
+          cache: "no-store",
+        });
+        setItems(data.items ?? []);
     } catch (loadError) {
       const message = getErrorMessage(loadError) || "Failed to load events";
       setError(message);
@@ -112,7 +112,7 @@ export default function MyEventsPanel() {
           }
           emptyTitle="No tickets yet"
           emptyDescription="When you buy or claim tickets, your events appear here."
-          emptyAction={{ label: "Browse events", href: "/events" }}
+          emptyAction={{ label: "Find a match", href: "/play?mode=events" }}
           onRetry={loadEvents}
         >
           <div className="grid gap-4">
@@ -135,7 +135,7 @@ export default function MyEventsPanel() {
                       <p className="text-sm text-[var(--color-text-muted)]">{event.addressLabel ?? "Location pending"}</p>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full bg-[rgba(125,211,252,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-brand)]">
-                          {event.ticketCount} ticket{event.ticketCount === 1 ? "" : "s"}
+                          {event.ticketCount} held
                         </span>
                         <span className="rounded-full bg-[rgba(52,211,153,0.12)] px-3 py-1 text-xs font-semibold text-[var(--color-brand-alt)]">
                           ETB {event.priceField ?? 0}

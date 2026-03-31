@@ -32,8 +32,8 @@ export default function EventsError({
         <Button variant="primary" size="lg" onClick={reset}>
           Try again
         </Button>
-        <Link href="/events" className={buttonVariants("secondary", "lg")}>
-          All events
+        <Link href="/play?mode=events" className={buttonVariants("secondary", "lg")}>
+          All matches
         </Link>
         <Link href="/" className={buttonVariants("ghost", "lg")}>
           Go home

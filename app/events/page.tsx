@@ -1,24 +1,13 @@
-import { Suspense } from "react";
-import { PageShell } from "../components/ui/page-shell";
-import { EventCardSkeleton } from "../components/ui/skeleton";
-import EventsPageClient from "./EventsPageClient";
+import { redirect } from "next/navigation";
+import { appRoutes, searchParamsToQueryString } from "@/lib/navigation";
 
-export default function EventsPage() {
-  return (
-    <Suspense fallback={<EventsPageFallback />}>
-      <EventsPageClient />
-    </Suspense>
-  );
-}
+type LegacyEventsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-function EventsPageFallback() {
-  return (
-    <PageShell>
-      <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <EventCardSkeleton key={index} />
-        ))}
-      </div>
-    </PageShell>
-  );
+export default async function EventsPage({ searchParams }: LegacyEventsPageProps) {
+  const resolved = await searchParams;
+  const params = new URLSearchParams(searchParamsToQueryString(resolved));
+  params.set("mode", "events");
+  redirect(`${appRoutes.play}?${params.toString()}`);
 }
