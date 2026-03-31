@@ -110,10 +110,78 @@ describe("auth server wrapper", () => {
         user: {
           id: "session-user",
           role: "user",
-          authRole: null,
+          authRole: "user",
           parentPitchOwnerUserId: null,
         },
       },
     });
+  });
+
+  it("uses DB enrichment in server runtime", async () => {
+    const proxyAuth = createProxyAuth();
+    proxyAuth.originalGetSession.mockResolvedValue({
+      data: {
+        user: { id: "owner-user", role: "user" },
+      },
+    });
+    pitchOwnerProfileFindUniqueMock.mockResolvedValue({ userId: "owner-user" });
+    createNeonAuthMock.mockReturnValue(proxyAuth.auth);
+
+    const { auth } = await import("@/lib/auth/server");
+    const result = await auth.getSession();
+
+    expect(pitchOwnerProfileFindUniqueMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      data: {
+        user: {
+          id: "owner-user",
+          role: "pitch_owner",
+          authRole: "user",
+          parentPitchOwnerUserId: null,
+        },
+      },
+    });
+  });
+
+  it("normalizes contract without DB access in edge runtime", async () => {
+    const originalEdge = (globalThis as { EdgeRuntime?: string }).EdgeRuntime;
+    (globalThis as { EdgeRuntime?: string }).EdgeRuntime = "1";
+
+    try {
+      const proxyAuth = createProxyAuth();
+      proxyAuth.originalGetSession.mockResolvedValue({
+        data: {
+          user: {
+            id: "edge-user",
+            role: "unknown_role",
+            authRole: "weird_role",
+            parentPitchOwnerUserId: "owner-1",
+          },
+        },
+      });
+      createNeonAuthMock.mockReturnValue(proxyAuth.auth);
+
+      const { auth } = await import("@/lib/auth/server");
+      const result = await auth.getSession();
+
+      expect(pitchOwnerProfileFindUniqueMock).not.toHaveBeenCalled();
+      expect(facilitatorFindUniqueMock).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        data: {
+          user: {
+            id: "edge-user",
+            role: "user",
+            authRole: "weird_role",
+            parentPitchOwnerUserId: null,
+          },
+        },
+      });
+    } finally {
+      if (typeof originalEdge === "undefined") {
+        delete (globalThis as { EdgeRuntime?: string }).EdgeRuntime;
+      } else {
+        (globalThis as { EdgeRuntime?: string }).EdgeRuntime = originalEdge;
+      }
+    }
   });
 });

@@ -1,52 +1,30 @@
 import { prisma } from "@/lib/prisma";
+import {
+  normalizeSessionUserContract,
+  type AppUserRole,
+  type SessionUser,
+} from "@/lib/auth/session-contract";
 
-export type AppUserRole =
-  | "admin"
-  | "pitch_owner"
-  | "facilitator"
-  | "user";
-
-export const APP_USER_ROLES: readonly AppUserRole[] = [
-  "admin",
-  "pitch_owner",
-  "facilitator",
-  "user",
-];
-
-export function isAppUserRole(value: unknown): value is AppUserRole {
-  return (
-    typeof value === "string" &&
-    (APP_USER_ROLES as readonly string[]).includes(value)
-  );
-}
-
-export function normalizeAppUserRole(role: unknown): AppUserRole {
-  return isAppUserRole(role) ? role : "user";
-}
-
-export type SessionUser = {
-  id: string;
-  role?: string | null;
-  authRole?: string | null;
-  email?: string | null;
-  name?: string | null;
-  image?: string | null;
-  parentPitchOwnerUserId?: string | null;
-};
+export * from "@/lib/auth/session-contract";
 
 export async function enrichSessionUser<T extends SessionUser | null>(user: T) {
   if (!user?.id) {
     return user;
   }
 
-  const authRole = user.role ?? null;
+  const authRole =
+    typeof user.authRole === "string"
+      ? user.authRole
+      : typeof user.role === "string"
+        ? user.role
+        : null;
   if (authRole === "admin") {
-    return {
+    return normalizeSessionUserContract({
       ...user,
       role: "admin" as AppUserRole,
       authRole,
       parentPitchOwnerUserId: null,
-    };
+    });
   }
 
   const [pitchOwnerProfile, facilitator] = await Promise.all([
@@ -66,13 +44,13 @@ export async function enrichSessionUser<T extends SessionUser | null>(user: T) {
       ? "facilitator"
       : "user";
 
-  return {
+  return normalizeSessionUserContract({
     ...user,
     role,
     authRole,
     parentPitchOwnerUserId:
       role === "facilitator" ? facilitator?.pitchOwnerUserId ?? null : null,
-  };
+  });
 }
 
 export function canCreateEvent(user: Pick<SessionUser, "role"> | null | undefined) {
