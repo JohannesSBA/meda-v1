@@ -1,3 +1,9 @@
+/**
+ * TicketClaimPanel -- UI for claiming a shared ticket via token.
+ *
+ * Validates token and creates attendee record on claim.
+ */
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,28 +11,32 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
+import { browserApi } from "@/lib/browserApi";
+import { getErrorMessage } from "@/lib/errorMessage";
 
 type TicketClaimPanelProps = {
   token: string;
 };
 
 type ShareDetails = {
-  status: "Active" | "Expired" | "Revoked";
+  kind?: "event_attendee" | "booking_ticket";
+  status: "Active" | "Expired" | "Revoked" | "Claimed";
   remainingClaims: number;
-  event: {
+  event?: {
     eventId: string;
     eventName: string;
     eventDatetime: string;
     pictureUrl?: string | null;
     addressLabel?: string | null;
   };
+  booking?: {
+    ticketId: string;
+    pitchName: string;
+    startsAt: string;
+    endsAt: string;
+    addressLabel?: string | null;
+  };
 };
-
-function getErrorMessage(value: unknown) {
-  if (value instanceof Error) return value.message;
-  if (typeof value === "string") return value;
-  return "Something went wrong";
-}
 
 export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
   const router = useRouter();
@@ -42,13 +52,10 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/tickets/share/${encodeURIComponent(token)}`, {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data?.error || "Share link not found");
-        }
+        const data = await browserApi.get<ShareDetails>(
+          `/api/tickets/share/${encodeURIComponent(token)}`,
+          { cache: "no-store" },
+        );
         if (!cancelled) setDetails(data);
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err));
@@ -72,14 +79,18 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
   const handleClaim = async () => {
     setClaiming(true);
     try {
-      const res = await fetch(
+      const data = await browserApi.post<{ eventId?: string; redirectPath?: string }>(
         `/api/tickets/share/${encodeURIComponent(token)}/claim`,
-        { method: "POST" },
+        undefined,
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Unable to claim ticket");
       toast.success("Ticket claimed successfully");
-      router.push(`/events/${data.eventId}`);
+      if (data.redirectPath) {
+        router.push(data.redirectPath);
+      } else if (data.eventId) {
+        router.push(`/events/${data.eventId}`);
+      } else {
+        router.push("/tickets");
+      }
       router.refresh();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -107,19 +118,29 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
     );
   }
 
+  const title = details.event?.eventName ?? details.booking?.pitchName ?? "Ticket share";
+  const subtitle = details.event
+    ? `${new Date(details.event.eventDatetime).toLocaleString()} • ${details.event.addressLabel ?? "Location pending"}`
+    : details.booking
+      ? `${new Date(details.booking.startsAt).toLocaleString()} • ${details.booking.addressLabel ?? "Location pending"}`
+      : "Open this link to claim the ticket.";
+
   return (
     <Card className="space-y-4 rounded-3xl bg-[#0f2235] p-6">
       <div>
         <p className="heading-kicker">Ticket share</p>
-        <h1 className="text-2xl font-semibold text-white">{details.event.eventName}</h1>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          {new Date(details.event.eventDatetime).toLocaleString()} •{" "}
-          {details.event.addressLabel ?? "Location pending"}
-        </p>
+        <h1 className="text-2xl font-semibold text-white">{title}</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">{subtitle}</p>
       </div>
       <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
         <p>Status: {details.status}</p>
-        <p>Tickets remaining on this link: {details.remainingClaims}</p>
+        <p>
+          {details.kind === "booking_ticket"
+            ? details.status === "Active"
+              ? "This claim link is ready to use."
+              : "This claim link is no longer available."
+            : `Tickets remaining on this link: ${details.remainingClaims}`}
+        </p>
       </div>
       <Button
         type="button"

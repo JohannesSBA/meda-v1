@@ -1,34 +1,35 @@
+/**
+ * AuthProviders -- wraps app with NeonAuthUIProvider and Toaster.
+ *
+ * Provides auth context and shared client-side chrome.
+ */
+
 "use client";
 
 import { NeonAuthUIProvider } from "@neondatabase/auth/react";
 import { Toaster } from "sonner";
 import { authClient } from "@/lib/auth/client";
+import { appRoutes } from "@/lib/navigation";
 import HeaderNav from "./HeaderNav";
-
-type SessionPayload = ReturnType<typeof authClient.useSession>["data"];
 type NeonUIAuthClient = React.ComponentProps<
   typeof NeonAuthUIProvider
 >["authClient"];
 
 type AuthProvidersProps = {
   children: React.ReactNode;
-  initialSession?: unknown | null;
 };
 
-export default function AuthProviders({
-  children,
-  initialSession = null,
-}: AuthProvidersProps) {
+export default function AuthProviders({ children }: AuthProvidersProps) {
   return (
     <NeonAuthUIProvider
       authClient={authClient as unknown as NeonUIAuthClient}
-      redirectTo="/events"
-      className="bg-black"
+      redirectTo={appRoutes.play}
+      className="bg-[var(--color-bg)]"
       social={{
         providers: ["google"],
       }}
     >
-      <HeaderNav initialSession={initialSession as SessionPayload | null} />
+      <HeaderNav />
       {children}
       <Toaster position="top-center" theme="dark" />
     </NeonAuthUIProvider>

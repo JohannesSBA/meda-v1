@@ -1,5 +1,12 @@
+/**
+ * Ticket sharing service -- share token generation, claim, and revocation.
+ *
+ * Integrates with shareTokens lib and sends claim/revoke notifications.
+ */
+
 import { InvitationStatus } from "@/generated/prisma/client";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
+import { resolveEventLocation } from "@/lib/location";
 import { prisma } from "@/lib/prisma";
 import { generateShareToken, hashShareToken } from "@/lib/tickets/shareTokens";
 
@@ -118,6 +125,9 @@ export async function getShareLinkDetails(token: string) {
           eventDatetime: true,
           eventEndtime: true,
           eventLocation: true,
+          addressLabel: true,
+          latitude: true,
+          longitude: true,
           pictureUrl: true,
           priceField: true,
         },
@@ -137,7 +147,7 @@ export async function getShareLinkDetails(token: string) {
   }
   const status = isTimeExpired ? InvitationStatus.Expired : invitation.status;
   const remainingClaims = Math.max(0, invitation.maxClaims - invitation.claimedCount);
-  const decoded = decodeEventLocation(invitation.event.eventLocation);
+  const location = resolveEventLocation(invitation.event);
 
   return {
     invitationId: invitation.invitationId,
@@ -152,7 +162,7 @@ export async function getShareLinkDetails(token: string) {
       eventEndtime: invitation.event.eventEndtime.toISOString(),
       pictureUrl: invitation.event.pictureUrl,
       priceField: invitation.event.priceField,
-      addressLabel: decoded.addressLabel,
+      addressLabel: location.addressLabel,
     },
   };
 }
@@ -207,6 +217,18 @@ export async function claimShareLink({
     });
     if (alreadyClaimed) {
       throw new Error("You already claimed a ticket from this link");
+    }
+
+    const claimantTicketCount = await tx.eventAttendee.count({
+      where: {
+        eventId: invitation.eventId,
+        userId: claimantUserId,
+      },
+    });
+    if (claimantTicketCount >= MAX_TICKETS_PER_USER_PER_EVENT) {
+      throw new Error(
+        `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
+      );
     }
 
     const ownerTickets = await tx.eventAttendee.findMany({

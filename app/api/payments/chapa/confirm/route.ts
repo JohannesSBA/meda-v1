@@ -1,25 +1,19 @@
-import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { confirmPaymentSchema } from "@/lib/validations/payments";
-import { confirmChapaPayment } from "@/services/payments";
+import {
+  confirmChapaPayment,
+  getPaymentEmailPayloadByReference,
+} from "@/services/payments";
 import { sendTicketConfirmationEmail } from "@/services/email";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-
-function formatUnknownError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Unknown confirm error";
-  }
-}
+import { formatUnknownError } from "@/lib/apiResponse";
+import { logger } from "@/lib/logger";
+import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
+import { revalidateEventData } from "@/lib/revalidation";
 
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`confirm:${getClientId(request)}`, 10, 60_000);
+  const rl = await checkRateLimit(`confirm:${getClientId(request)}`, 10, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before confirming payment again." },
@@ -32,13 +26,9 @@ export async function POST(request: Request) {
     return session.response!;
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = confirmPaymentSchema.safeParse(body);
+  const parsed = await parseJsonBody(confirmPaymentSchema, request);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid payload", issues: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return validationErrorResponse(parsed.error, "Invalid payment confirmation payload");
   }
 
   try {
@@ -47,58 +37,60 @@ export async function POST(request: Request) {
       userId: session.user.id,
     });
 
-    if (result.eventId) {
-      revalidatePath(`/events/${result.eventId}`);
-      revalidatePath("/events");
+    revalidateEventData(result.eventId, [session.user.id]);
 
-      if (
-        result.quantity > 0 &&
-        session.user.email &&
-        !result.alreadyConfirmed
-      ) {
-        const event = await prisma.event.findUnique({
-          where: { eventId: result.eventId },
-          select: {
-            eventName: true,
-            eventDatetime: true,
-            eventEndtime: true,
-            eventLocation: true,
-          },
-        });
-        if (event) {
-          const decoded = decodeEventLocation(event.eventLocation);
-          const attendees = await prisma.eventAttendee.findMany({
-            where: { eventId: result.eventId, userId: session.user.id },
-            select: { attendeeId: true },
-            orderBy: { createdAt: "desc" },
+    if (!result.ok) {
+      if (result.status === "processing") {
+        return NextResponse.json(
+          { status: result.status, message: result.failureReason },
+          { status: 202 },
+        );
+      }
+
+      return NextResponse.json(
+        { error: result.failureReason, status: result.status },
+        { status: 409 },
+      );
+    }
+
+    if (
+      result.status === "fulfilled" &&
+      result.quantity > 0 &&
+      session.user.email
+    ) {
+      const emailPayload = await getPaymentEmailPayloadByReference(
+        parsed.data.txRef,
+        new URL(request.url).origin,
+      );
+      if (emailPayload) {
+        try {
+          await sendTicketConfirmationEmail({
+            to: session.user.email,
+            buyerName: session.user.name ?? null,
+            eventName: emailPayload.eventName,
+            eventDateTime: emailPayload.eventDateTime,
+            eventEndTime: emailPayload.eventEndTime,
+            locationLabel: emailPayload.locationLabel,
+            quantity: emailPayload.quantity,
+            eventId: emailPayload.eventId,
+            attendeeIds: emailPayload.attendeeIds,
+            baseUrl: emailPayload.baseUrl,
           });
-          try {
-            await sendTicketConfirmationEmail({
-              to: session.user.email,
-              buyerName: session.user.name ?? null,
-              eventName: event.eventName,
-              eventDateTime: event.eventDatetime,
-              eventEndTime: event.eventEndtime,
-              locationLabel: decoded.addressLabel,
-              quantity: result.quantity,
-              eventId: result.eventId,
-              attendeeIds: attendees.map((a) => a.attendeeId),
-              baseUrl: new URL(request.url).origin,
-            });
-          } catch (emailErr) {
-            console.error("Failed to send ticket confirmation email:", emailErr);
-          }
+        } catch (emailErr) {
+          logger.error("Failed to send ticket confirmation email", emailErr);
         }
       }
     }
 
     return NextResponse.json(
-      { quantity: result.quantity },
+      { quantity: result.quantity, status: result.status },
       { status: 200 }
     );
   } catch (error) {
-    const message = formatUnknownError(error);
-    console.error("Chapa payment confirmation failed:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    logger.error("Chapa payment confirmation failed", error);
+    return NextResponse.json(
+      { error: formatUnknownError(error) },
+      { status: 400 },
+    );
   }
 }

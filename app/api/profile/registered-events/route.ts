@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { getActiveReservationCountMap } from "@/lib/events/availability";
+import { serializePublicEvent } from "@/lib/events/serializers";
+import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
+import { profileStatusQuerySchema } from "@/lib/validations/profile";
+import { getUserEventTicketSummaryMap } from "@/services/ticketSummaries";
 
 export async function GET(request: Request) {
   const sessionCheck = await requireSessionUser();
@@ -9,9 +13,14 @@ export async function GET(request: Request) {
   const user = sessionCheck.user!;
 
   const url = new URL(request.url);
-  const status = (url.searchParams.get("status") ?? "upcoming").toLowerCase();
-  const now = new Date();
+  const parsed = parseSearchParams(profileStatusQuerySchema, url.searchParams);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid registration filter");
+  }
 
+  const status = parsed.data.status;
+  const scope = parsed.data.scope ?? "related";
+  const now = new Date();
   const dateFilter =
     status === "past"
       ? { lt: now }
@@ -19,13 +28,25 @@ export async function GET(request: Request) {
         ? undefined
         : { gte: now };
 
-  const grouped = await prisma.eventAttendee.groupBy({
-    by: ["eventId"],
-    where: { userId: user.id },
-    _count: { _all: true },
-  });
+  const [heldGrouped, refundableGrouped] = await Promise.all([
+    prisma.eventAttendee.groupBy({
+      by: ["eventId"],
+      where: { userId: user.id },
+      _count: { _all: true },
+    }),
+    scope === "related"
+      ? prisma.eventAttendee.groupBy({
+          by: ["eventId"],
+          where: { purchaserUserId: user.id },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
-  const eventIds = grouped.map((row) => row.eventId);
+  const eventIds =
+    scope === "held"
+      ? heldGrouped.map((row) => row.eventId)
+      : [...new Set([...heldGrouped, ...refundableGrouped].map((row) => row.eventId))];
   if (eventIds.length === 0) {
     return NextResponse.json({ items: [] }, { status: 200 });
   }
@@ -33,32 +54,34 @@ export async function GET(request: Request) {
   const events = await prisma.event.findMany({
     where: {
       eventId: { in: eventIds },
-      ...(dateFilter ? { eventDatetime: dateFilter } : {}),
+      ...(dateFilter ? { eventEndtime: dateFilter } : {}),
     },
     include: { _count: { select: { attendees: true } } },
     orderBy: { eventDatetime: status === "past" ? "desc" : "asc" },
   });
 
-  const ticketMap = new Map(grouped.map((row) => [row.eventId, row._count._all]));
+  const reservationCounts = await getActiveReservationCountMap(eventIds);
+  const ticketSummaryMap = await getUserEventTicketSummaryMap(
+    user.id,
+    events.map((event) => event.eventId),
+  );
 
   return NextResponse.json(
     {
-      items: events.map((event) => {
-        const decoded = decodeEventLocation(event.eventLocation);
-        return {
-          eventId: event.eventId,
-          eventName: event.eventName,
-          eventDatetime: event.eventDatetime.toISOString(),
-          eventEndtime: event.eventEndtime.toISOString(),
+      items: events.map((event) => ({
+        ...serializePublicEvent(event, {
           attendeeCount: event._count.attendees,
-          capacity: event.capacity,
-          ticketCount: ticketMap.get(event.eventId) ?? 0,
-          priceField: event.priceField,
-          pictureUrl: event.pictureUrl,
-          addressLabel: decoded.addressLabel,
-        };
-      }),
+          reservedCount: reservationCounts.get(event.eventId) ?? 0,
+        }),
+        ticketCount: ticketSummaryMap.get(event.eventId)?.heldTicketCount ?? 0,
+        heldTicketCount:
+          ticketSummaryMap.get(event.eventId)?.heldTicketCount ?? 0,
+        refundableTicketCount:
+          ticketSummaryMap.get(event.eventId)?.refundableTicketCount ?? 0,
+        refundableAmountEtb:
+          ticketSummaryMap.get(event.eventId)?.refundableAmountEtb ?? 0,
+      })),
     },
-    { status: 200 }
+    { status: 200 },
   );
 }

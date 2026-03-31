@@ -1,10 +1,17 @@
+/**
+ * Admin event edit page -- edit event details for moderators.
+ *
+ * Requires auth; uses CreateEventForm with existing event data.
+ */
+
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
 import CreateEventForm from "@/app/components/CreateEventForm";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
 import { PageShell } from "@/app/components/ui/page-shell";
 import type { Category } from "@/app/types/catagory";
+import { getCategories } from "@/lib/data/categories";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +28,7 @@ export default async function AdminEditEventPage({
   const { id } = await params;
   const [event, categories] = await Promise.all([
     prisma.event.findUnique({ where: { eventId: id } }),
-    prisma.category.findMany(),
+    getCategories(),
   ]);
   if (!event) return notFound();
   const seriesCount =
@@ -29,7 +36,7 @@ export default async function AdminEditEventPage({
       ? await prisma.event.count({ where: { seriesId: event.seriesId } })
       : 1;
 
-  const decoded = decodeEventLocation(event.eventLocation);
+  const location = resolveEventLocation(event);
   const normalizedCategories: Category[] = categories.map((category) => ({
     categoryId: category.categoryId,
     categoryName: category.categoryName,
@@ -61,9 +68,9 @@ export default async function AdminEditEventPage({
             pictureUrl: event.pictureUrl,
             eventDatetime: event.eventDatetime.toISOString(),
             eventEndtime: event.eventEndtime.toISOString(),
-            addressLabel: decoded.addressLabel,
-            latitude: decoded.latitude,
-            longitude: decoded.longitude,
+            addressLabel: location.addressLabel,
+            latitude: location.latitude,
+            longitude: location.longitude,
             capacity: event.capacity,
             priceField: event.priceField,
             isRecurring: event.isRecurring,

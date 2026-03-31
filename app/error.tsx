@@ -1,3 +1,9 @@
+/**
+ * Global error boundary -- catches unhandled errors and renders a recovery UI.
+ *
+ * Client component; shows retry and home links.
+ */
+
 "use client";
 
 import { useEffect } from "react";
@@ -31,8 +37,8 @@ export default function Error({
         <Link href="/" className={buttonVariants("secondary", "lg")}>
           Go home
         </Link>
-        <Link href="/events" className={buttonVariants("ghost", "lg")}>
-          Browse events
+        <Link href="/play?mode=events" className={buttonVariants("ghost", "lg")}>
+          Find a match
         </Link>
       </div>
     </PageShell>

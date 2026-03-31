@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
 import { requireSessionUser } from "@/lib/auth/guards";
+import { getActiveReservationCountMap } from "@/lib/events/availability";
+import { serializePublicEvent } from "@/lib/events/serializers";
+import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
+import { profileStatusQuerySchema } from "@/lib/validations/profile";
 
 export async function GET(request: Request) {
   const sessionCheck = await requireSessionUser();
@@ -9,9 +12,14 @@ export async function GET(request: Request) {
   const user = sessionCheck.user!;
 
   const url = new URL(request.url);
-  const status = (url.searchParams.get("status") ?? "upcoming").toLowerCase();
-  const page = Math.max(Number(url.searchParams.get("page")) || 1, 1);
-  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 10, 1), 50);
+  const parsed = parseSearchParams(profileStatusQuerySchema, url.searchParams);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event filter");
+  }
+
+  const status = parsed.data.status;
+  const page = parsed.data.page ?? 1;
+  const limit = parsed.data.limit ?? 10;
   const now = new Date();
 
   const datetimeFilter =
@@ -23,7 +31,7 @@ export async function GET(request: Request) {
 
   const where = {
     userId: user.id,
-    ...(datetimeFilter ? { eventDatetime: datetimeFilter } : {}),
+    ...(datetimeFilter ? { eventEndtime: datetimeFilter } : {}),
   };
 
   const [total, events] = await Promise.all([
@@ -36,27 +44,19 @@ export async function GET(request: Request) {
       take: limit,
     }),
   ]);
+  const reservationCounts = await getActiveReservationCountMap(
+    events.map((event) => event.eventId),
+  );
 
   return NextResponse.json({
     total,
     page,
     limit,
-    items: events.map((event) => {
-      const decoded = decodeEventLocation(event.eventLocation);
-      return {
-        eventId: event.eventId,
-        eventName: event.eventName,
-        eventDatetime: event.eventDatetime.toISOString(),
-        eventEndtime: event.eventEndtime.toISOString(),
+    items: events.map((event) =>
+      serializePublicEvent(event, {
         attendeeCount: event._count.attendees,
-        capacity: event.capacity,
-        priceField: event.priceField,
-        seriesId: event.seriesId,
-        isRecurring: event.isRecurring,
-        recurrenceKind: event.recurrenceKind,
-        occurrenceIndex: event.occurrenceIndex,
-        addressLabel: decoded.addressLabel,
-      };
-    }),
+        reservedCount: reservationCounts.get(event.eventId) ?? 0,
+      }),
+    ),
   });
 }

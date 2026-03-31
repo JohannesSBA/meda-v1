@@ -1,50 +1,85 @@
 @import "tailwindcss";
 @import "@neondatabase/auth/ui/tailwind";
 
-/* Force dark mode via class so it applies regardless of system preference */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #050d17;
-  --foreground: #e8f2ff;
-  --color-bg: #050d17;
-  --color-surface: rgba(14, 29, 45, 0.84);
-  --color-surface-2: rgba(13, 25, 39, 0.86);
-  --color-border: rgba(136, 196, 241, 0.16);
-  --color-border-strong: rgba(136, 196, 241, 0.28);
-  --color-text-primary: #f3f9ff;
-  --color-text-secondary: #cddff2;
-  --color-text-muted: #adc5db;
-  --color-brand: #00e5ff;
-  --color-brand-alt: #22ff88;
-  --color-brand-text: #03101c;
-  --color-ring: rgba(0, 229, 255, 0.62);
-  --shadow-elevated: 0 18px 50px rgba(0, 0, 0, 0.34);
+  color-scheme: dark;
 
-  /* Mobile type scale (rem-based, min 0.875rem / 14px) */
-  --text-display: clamp(2rem, 6vw, 3rem);
-  --text-h1: clamp(1.75rem, 5vw, 2.5rem);
-  --text-h2: 1.375rem;
-  --text-h3: 1.125rem;
-  --text-body-lg: 1.0625rem;
+  --background: #07111a;
+  --foreground: #eef6ff;
+
+  --color-bg: #07111a;
+  --color-bg-elevated: #091521;
+  --color-surface: rgba(10, 19, 30, 0.96);
+  --color-surface-2: rgba(12, 23, 36, 0.98);
+  --color-surface-3: rgba(16, 30, 46, 0.98);
+  --color-border: rgba(148, 163, 184, 0.28);
+  --color-border-strong: rgba(148, 163, 184, 0.46);
+  --color-text-primary: #f8fbff;
+  --color-text-secondary: #d7e4f2;
+  --color-text-muted: #afc2d4;
+  --color-brand: #7dd3fc;
+  --color-brand-strong: #38bdf8;
+  --color-brand-alt: #34d399;
+  --color-brand-text: #03111c;
+  --color-ring: rgba(125, 211, 252, 0.42);
+  --color-danger: #fb7185;
+  --color-warning: #fbbf24;
+  --color-control-bg: rgba(255, 255, 255, 0.085);
+  --color-control-bg-hover: rgba(255, 255, 255, 0.12);
+  --color-accent-soft: rgba(125, 211, 252, 0.18);
+  --color-success-soft: rgba(52, 211, 153, 0.18);
+  --shadow-elevated: 0 28px 90px rgba(2, 6, 23, 0.44);
+  --shadow-card: 0 18px 42px rgba(2, 6, 23, 0.38);
+  --shadow-soft: 0 10px 22px rgba(2, 6, 23, 0.16);
+
+  --body-bg: radial-gradient(circle at top left, rgba(56, 189, 248, 0.05), transparent 24%),
+    radial-gradient(circle at top right, rgba(52, 211, 153, 0.04), transparent 22%),
+    linear-gradient(180deg, #08131f 0%, #07111a 38%, #08111a 100%);
+  --shell-bg: radial-gradient(circle at 12% 10%, rgba(56, 189, 248, 0.06), transparent 24%),
+    radial-gradient(circle at 88% 4%, rgba(52, 211, 153, 0.05), transparent 20%),
+    linear-gradient(180deg, rgba(8, 17, 28, 0.98), rgba(7, 17, 26, 1));
+  --glow-bg: radial-gradient(circle at 10% 14%, rgba(125, 211, 252, 0.06), transparent 28%),
+    radial-gradient(circle at 86% 0%, rgba(52, 211, 153, 0.05), transparent 26%);
+  --card-bg: linear-gradient(180deg, rgba(14, 24, 38, 0.98), rgba(8, 16, 26, 0.98));
+  --card-muted-bg: rgba(255, 255, 255, 0.075);
+  --card-muted-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --bottom-bar-bg: rgba(7, 17, 27, 0.78);
+  --footer-bg: rgba(4, 10, 18, 0.9);
+  --selection-bg: rgba(56, 189, 248, 0.32);
+
+  --text-display: clamp(2.8rem, 6vw, 5rem);
+  --text-h1: clamp(2rem, 4.8vw, 3.4rem);
+  --text-h2: clamp(1.5rem, 3vw, 2.25rem);
+  --text-h3: clamp(1.125rem, 2vw, 1.375rem);
+  --text-body-lg: clamp(1.05rem, 1.6vw, 1.15rem);
   --text-body: 1rem;
   --text-body-sm: 0.9375rem;
-  --text-caption: 0.875rem;
-  --text-label: 0.875rem;
+  --text-caption: 0.8125rem;
+  --text-label: 0.8125rem;
 
-  /* 4px base grid spacing */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-24: 96px;
+  --space-32: 128px;
 
-  /* Bottom nav height */
-  --bottom-nav-height: 56px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 999px;
+
+  --container-inline: clamp(14px, 3.6vw, 36px);
+  --container-max: 1240px;
+  --header-height: 68px;
+  --bottom-nav-height: 74px;
 }
 
 @theme inline {
@@ -55,13 +90,29 @@
 }
 
 html {
-  color-scheme: dark only;
+  min-height: 100%;
+  scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background: var(--body-bg);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+*::selection {
+  background: var(--selection-bg);
+  color: var(--color-text-primary);
 }
 
 a,
@@ -69,7 +120,13 @@ button,
 input,
 select,
 textarea {
-  transition-duration: 160ms;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+button,
+select {
+  cursor: pointer;
 }
 
 input,
@@ -78,63 +135,116 @@ textarea {
   font-size: 1rem;
 }
 
+img {
+  display: block;
+}
+
 .app-shell {
-  background: linear-gradient(160deg, #071221 0%, #0a1a2d 45%, #071320 100%);
+  position: relative;
+  background: var(--shell-bg);
 }
 
 .app-glow-bg {
-  background:
-    radial-gradient(
-      circle at 14% 16%,
-      rgba(0, 229, 255, 0.12),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 82% 0%,
-      rgba(34, 255, 136, 0.1),
-      transparent 33%
-    );
+  background: var(--glow-bg);
+}
+
+.site-container,
+.page-container {
+  width: min(calc(100% - (var(--container-inline) * 2)), var(--container-max));
+  margin-inline: auto;
 }
 
 .page-container {
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 1120px;
-  padding: 1.25rem 1rem 2rem;
+  padding-block: clamp(var(--space-4), 1.8vw, var(--space-6));
 }
 
-@media (min-width: 640px) {
-  .page-container {
-    padding: 2.25rem 1.5rem 2.75rem;
-  }
+.page-section {
+  padding-block: clamp(var(--space-6), 3.2vw, var(--space-12));
 }
 
+.section-stack > * + * {
+  margin-top: clamp(var(--space-4), 2vw, var(--space-6));
+}
+
+.surface-card,
 .glass-card {
-  border-radius: 1.25rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-elevated);
-  backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    var(--card-bg);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(18px);
 }
 
-.heading-kicker {
-  font-size: 0.875rem;
+.surface-card-muted {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--card-muted-bg);
+  box-shadow: var(--card-muted-shadow);
+}
+
+.surface-outline {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-control-bg);
+}
+
+.heading-kicker,
+.kicker {
+  font-size: var(--text-label);
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--color-brand);
 }
 
-.muted-copy {
+.page-title {
+  font-size: var(--text-display);
+  line-height: 0.96;
+  font-weight: 750;
+  letter-spacing: -0.05em;
+  color: var(--color-text-primary);
+}
+
+.section-title {
+  font-size: var(--text-h2);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
+}
+
+.body-lead {
+  font-size: var(--text-body-lg);
+  line-height: 1.7;
   color: var(--color-text-secondary);
 }
 
-.table-shell th {
-  color: var(--color-brand);
+.body-copy,
+.muted-copy {
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: var(--space-2);
   font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
   font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.table-shell th {
+  padding-bottom: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-weight: 700;
 }
 
 .table-shell td {
@@ -145,31 +255,64 @@ textarea {
   border-top: 1px solid var(--color-border);
 }
 
+.soft-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, var(--color-border-strong), transparent);
+}
+
 @keyframes slideUp {
   from {
-    transform: translateY(100%);
+    transform: translateY(16px);
+    opacity: 0;
   }
   to {
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* Safe-area bottom padding utility */
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(125, 211, 252, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(125, 211, 252, 0.08);
+  }
+}
+
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Sticky bottom action bar for CTAs */
 .bottom-action-bar {
   position: fixed;
-  bottom: 0;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   z-index: 40;
-  padding: 0.75rem 1rem;
-  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, var(--color-bg) 60%, transparent);
-  backdrop-filter: blur(12px);
+  padding-inline: var(--container-inline);
+  animation: slideUp 220ms ease-out;
+}
+
+.bottom-action-bar > div {
+  border-radius: 22px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--bottom-bar-bg);
+  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(20px);
+  padding: 10px;
+}
+
+.mobile-sheet {
+  border-radius: 28px 28px 0 0;
+  border: 1px solid var(--color-border-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--card-bg);
+  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(24px);
 }
 
 @media (min-width: 768px) {
@@ -178,13 +321,34 @@ textarea {
   }
 }
 
-/* Bottom nav spacer added to page content */
 .has-bottom-nav {
-  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--bottom-nav-height) + 28px + env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 768px) {
   .has-bottom-nav {
     padding-bottom: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --header-height: 64px;
+    --bottom-nav-height: 72px;
+    --radius-lg: 22px;
+    --radius-xl: 26px;
+  }
+
+  .page-container {
+    padding-block: var(--space-4);
+  }
+
+  .section-stack > * + * {
+    margin-top: var(--space-4);
+  }
+
+  .surface-card,
+  .glass-card {
+    box-shadow: 0 16px 38px rgba(2, 6, 23, 0.28);
   }
 }

@@ -1,3 +1,7 @@
+/**
+ * Client-rendered demo page -- example of client-side rendering with auth.
+ */
+
 "use client";
 
 import { Card } from "@/app/components/ui/card";

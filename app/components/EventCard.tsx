@@ -1,7 +1,12 @@
+/**
+ * EventCard -- card displaying event summary with image, title, date, location, and save action.
+ */
+
 import Link from "next/link";
 import Image from "next/image";
 import type { ComponentPropsWithoutRef } from "react";
 import type { EventResponse } from "../types/eventTypes";
+import { Card } from "./ui/card";
 import { FaBookmark, FaLocationDot, FaRegBookmark } from "react-icons/fa6";
 
 type EventCardProps = {
@@ -9,7 +14,7 @@ type EventCardProps = {
   href: string;
   isSaved?: boolean;
   onSaveToggle?: (eventId: string, isSaved: boolean) => void | Promise<void>;
-} & ComponentPropsWithoutRef<"a">;
+} & ComponentPropsWithoutRef<"article">;
 
 const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -24,6 +29,29 @@ function formatShortDate(event: EventResponse) {
   return shortDateFormatter.format(start);
 }
 
+function SaveButton({
+  eventId,
+  isSaved,
+  onSaveToggle,
+}: {
+  eventId: string;
+  isSaved: boolean;
+  onSaveToggle: (eventId: string, isSaved: boolean) => void | Promise<void>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void onSaveToggle(eventId, isSaved);
+      }}
+      className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[rgba(7,17,26,0.92)] text-[var(--color-text-primary)] backdrop-blur transition hover:border-[rgba(125,211,252,0.28)] hover:text-[var(--color-brand)]"
+      aria-label={isSaved ? "Remove from saved" : "Save event"}
+    >
+      {isSaved ? <FaBookmark className="h-4 w-4 text-[var(--color-brand)]" /> : <FaRegBookmark className="h-4 w-4" />}
+    </button>
+  );
+}
+
 export function EventCard({
   event,
   href,
@@ -33,150 +61,71 @@ export function EventCard({
   ...rest
 }: EventCardProps) {
   const dateLabel = formatShortDate(event);
-  const locationLabel =
-    event.addressLabel ?? event.eventLocation ?? "Location TBA";
-
-  const priceLabel =
-    event.priceField == null || event.priceField === 0
-      ? "Free"
-      : `ETB ${event.priceField}`;
-
-  const categoryLabel =
-    event.categoryName ??
-    (event.categoryId ? "Featured" : "Community");
+  const locationLabel = event.addressLabel ?? event.eventLocation ?? "Location TBA";
+  const priceLabel = event.priceField == null || event.priceField === 0 ? "Free" : `ETB ${event.priceField}`;
+  const categoryLabel = event.categoryName ?? (event.categoryId ? "Featured" : "Community");
+  const spotsLabel = event.spotsLeft ?? event.capacity ?? null;
+  const fitLine = [dateLabel, locationLabel, priceLabel, spotsLabel != null ? `${spotsLabel} spots left` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <Link
-      href={href}
-      className={`group block h-full overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-br from-[#0d1a27] via-[#0f2235] to-[#0b1624] shadow-lg shadow-black/30 transition will-change-transform active:scale-[0.98] sm:hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] ${className}`}
-      {...rest}
-    >
-      {/* Mobile: compact horizontal layout */}
-      <article className="flex items-stretch sm:hidden">
-        <div className="relative h-28 w-28 shrink-0 overflow-hidden">
-          {event.pictureUrl ? (
-            <Image
-              src={event.pictureUrl}
-              alt={event.eventName}
-              fill
-              className="object-cover"
-              sizes="112px"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,229,255,0.25),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(34,255,136,0.22),transparent_38%),linear-gradient(135deg,#0f2b3f,#0b1d2d)]" />
-          )}
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[0.6875rem] font-semibold text-white backdrop-blur-sm">
-            {categoryLabel}
-          </span>
-        </div>
-        <div className="flex flex-1 flex-col justify-center gap-0.5 px-3 py-2.5">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white">
-            {event.eventName}
-          </h3>
-          {dateLabel ? (
-            <p className="text-xs text-[var(--color-text-secondary)]">{dateLabel}</p>
-          ) : null}
-          <p className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
-            <FaLocationDot className="h-3 w-3 shrink-0 text-[var(--color-brand-alt)]" />
-            <span className="line-clamp-1">{locationLabel}</span>
-          </p>
-          <div className="mt-auto flex items-center justify-between pt-1">
-            <span className="text-sm font-bold text-white">{priceLabel}</span>
-            {event.capacity != null && event.capacity > 0 ? (
-              <span className="rounded-full bg-[var(--color-brand-alt)]/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-[var(--color-brand-alt)]">
-                {event.capacity} left
-              </span>
-            ) : null}
-          </div>
-        </div>
-        {onSaveToggle ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void onSaveToggle(event.eventId, isSaved);
-            }}
-            className="flex w-11 shrink-0 items-center justify-center border-l border-[var(--color-border)] text-white transition active:scale-90"
-            aria-label={isSaved ? "Remove from saved" : "Save event"}
-          >
-            {isSaved ? (
-              <FaBookmark className="h-4 w-4 text-[var(--color-brand)]" />
-            ) : (
-              <FaRegBookmark className="h-4 w-4" />
-            )}
-          </button>
-        ) : null}
-      </article>
+    <Card as="article" className={`group relative h-full overflow-hidden ${className}`} {...rest}>
+      {onSaveToggle ? (
+        <SaveButton eventId={event.eventId} isSaved={isSaved} onSaveToggle={onSaveToggle} />
+      ) : null}
 
-      {/* Desktop / tablet: vertical card layout */}
-      <article className="hidden h-full flex-col sm:flex">
-        <div className="relative aspect-video w-full overflow-hidden">
+      <Link href={href} className="flex h-full flex-col" aria-label={`View ${event.eventName}`}>
+        <div className="relative aspect-[16/10] overflow-hidden">
           {event.pictureUrl ? (
             <Image
               src={event.pictureUrl}
               alt={event.eventName}
               fill
               className="object-cover transition duration-500 group-hover:scale-105"
-              sizes="(max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
             />
           ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,229,255,0.25),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(34,255,136,0.22),transparent_38%),linear-gradient(135deg,#0f2b3f,#0b1d2d)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(125,211,252,0.22),transparent_28%),radial-gradient(circle_at_100%_0%,rgba(52,211,153,0.18),transparent_24%),linear-gradient(135deg,#102033,#0b1724)]" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d1a27] via-transparent to-transparent" />
-
-          <span className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-            {categoryLabel}
-          </span>
-
-          {onSaveToggle ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void onSaveToggle(event.eventId, isSaved);
-              }}
-              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition active:scale-90 sm:hover:bg-black/70 sm:hover:text-[var(--color-brand-alt)]"
-              aria-label={isSaved ? "Remove from saved" : "Save event"}
-            >
-              {isSaved ? (
-                <FaBookmark className="h-5 w-5 text-[var(--color-brand)]" />
-              ) : (
-                <FaRegBookmark className="h-5 w-5" />
-              )}
-            </button>
-          ) : null}
-        </div>
-
-        <div className="flex flex-1 flex-col gap-2 p-4">
-          <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-white">
-            {event.eventName}
-          </h3>
-
-          {dateLabel ? (
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              {dateLabel}
-            </p>
-          ) : null}
-
-          <p className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)]">
-            <FaLocationDot className="h-3.5 w-3.5 shrink-0 text-[var(--color-brand-alt)]" />
-            <span className="line-clamp-1">{locationLabel}</span>
-          </p>
-
-          <div className="mt-auto flex items-center justify-between pt-2">
-            <span className="text-base font-bold text-white">
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(6,17,27,0.84)] via-[rgba(6,17,27,0.22)] to-transparent" />
+          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3">
+            <span className="rounded-full border border-[var(--color-border-strong)] bg-[rgba(7,17,26,0.78)] px-2.5 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-primary)] backdrop-blur">
+              {categoryLabel}
+            </span>
+            <span className="rounded-full border border-[rgba(125,211,252,0.22)] bg-[rgba(125,211,252,0.16)] px-3 py-1 text-xs font-semibold text-[var(--color-text-primary)] backdrop-blur">
               {priceLabel}
             </span>
-            {event.capacity != null && event.capacity > 0 ? (
-              <span className="rounded-full bg-[var(--color-brand-alt)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--color-brand-alt)]">
-                {event.capacity} left
-              </span>
-            ) : null}
           </div>
         </div>
-      </article>
-    </Link>
+
+        <div className="flex flex-1 flex-col gap-2.5 p-4">
+          <div className="space-y-1.5">
+            <h3 className="line-clamp-2 text-lg font-semibold tracking-[-0.03em] text-[var(--color-text-primary)] sm:text-xl">
+              {event.eventName}
+            </h3>
+            {dateLabel ? <p className="text-sm text-[var(--color-text-secondary)]">{dateLabel}</p> : null}
+            <p className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+              <FaLocationDot className="h-3.5 w-3.5 shrink-0 text-[var(--color-brand-alt)]" />
+              <span className="line-clamp-1">{locationLabel}</span>
+            </p>
+            <p className="text-sm text-[var(--color-text-secondary)] line-clamp-2">
+              Good fit if you want: {fitLine}
+            </p>
+          </div>
+
+          <div className="mt-auto flex items-center justify-between gap-3 pt-1 text-sm">
+            <span className="font-medium text-[#c9ffea]">
+              {spotsLabel != null && spotsLabel > 0
+                ? `${spotsLabel} spots left`
+                : `${event.attendeeCount ?? 0} attending`}
+            </span>
+            <span className="font-medium text-[var(--color-text-secondary)] transition group-hover:text-[var(--color-text-primary)]">
+              View details
+            </span>
+          </div>
+        </div>
+      </Link>
+    </Card>
   );
 }

@@ -1,3 +1,7 @@
+/**
+ * Ticket verification tokens -- HMAC-signed tokens for ticket verification.
+ */
+
 import { createHmac } from "crypto";
 
 const SECRET = (() => {
@@ -13,19 +17,29 @@ const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 3; // 3 days
 type TokenPayload = {
   id: string;
   exp: number;
+  kind?: VerificationTokenKind;
 };
 
-export function createVerificationToken(attendeeId: string): string {
+export type VerificationTokenKind = "event_attendee" | "booking_ticket";
+
+export function createVerificationToken(
+  id: string,
+  kind: VerificationTokenKind = "event_attendee",
+): string {
   const payload: TokenPayload = {
-    id: attendeeId,
+    id,
     exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS,
+    kind,
   };
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const sig = createHmac("sha256", SECRET).update(encoded).digest("base64url");
   return `${encoded}.${sig}`;
 }
 
-export function verifyToken(token: string): string | null {
+export function parseVerificationToken(token: string): {
+  id: string;
+  kind: VerificationTokenKind;
+} | null {
   const parts = token.split(".");
   if (parts.length !== 2) return null;
   const [encoded, sigB64] = parts;
@@ -43,5 +57,12 @@ export function verifyToken(token: string): string | null {
   if (!payload.id || typeof payload.exp !== "number") return null;
   if (Math.floor(Date.now() / 1000) > payload.exp) return null;
 
-  return payload.id;
+  return {
+    id: payload.id,
+    kind: payload.kind === "booking_ticket" ? "booking_ticket" : "event_attendee",
+  };
+}
+
+export function verifyToken(token: string): string | null {
+  return parseVerificationToken(token)?.id ?? null;
 }

@@ -1,0 +1,100 @@
+/**
+ * ProfileHeader -- Avatar, name, email, balance, and admin badge for profile page.
+ */
+
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { Card } from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
+import { buttonVariants } from "@/app/components/ui/button";
+import { cn } from "@/app/components/ui/cn";
+import { Cluster } from "@/app/components/ui/primitives";
+import type { ProfileUser } from "./types";
+import { appRoutes } from "@/lib/navigation";
+
+type ProfileHeaderProps = {
+  user: ProfileUser;
+  isAdmin: boolean;
+  balance: number;
+  avatarUrl: string;
+};
+
+export function ProfileHeader({ user, isAdmin, balance, avatarUrl }: ProfileHeaderProps) {
+  const isPitchOwner = user.role === "pitch_owner";
+  const isFacilitator = user.role === "facilitator";
+
+  return (
+    <Card className="overflow-hidden p-6 sm:p-8">
+      <div className="grid gap-6 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+        <Image
+          src={avatarUrl}
+          alt={`${user.name} profile`}
+          width={112}
+          height={112}
+          className="h-24 w-24 rounded-[28px] border border-[var(--color-border-strong)] object-cover shadow-[0_16px_36px_rgba(2,6,23,0.18)] sm:h-28 sm:w-28"
+        />
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="heading-kicker">
+              {isAdmin
+                ? "Admin workspace"
+                : isPitchOwner
+                  ? "Pitch owner workspace"
+                  : isFacilitator
+                    ? "Facilitator workspace"
+                    : "Player profile"}
+            </p>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-semibold tracking-[-0.05em] text-[var(--color-text-primary)] sm:text-4xl">
+                {user.name}
+              </h1>
+              <p className="text-sm text-[var(--color-text-secondary)] sm:text-base">{user.email}</p>
+            </div>
+          </div>
+
+          <Cluster gap="sm">
+            {isAdmin ? (
+              <Badge variant="accent">Admin access</Badge>
+            ) : isPitchOwner ? (
+              <Badge variant="accent">Pitch owner</Badge>
+            ) : isFacilitator ? (
+              <Badge variant="default">Facilitator</Badge>
+            ) : (
+              <Badge variant="default">Community member</Badge>
+            )}
+            {!isAdmin && !isFacilitator ? (
+              <Badge variant={balance > 0 ? "accent" : "default"}>
+                Balance: ETB {balance.toFixed(2)}
+              </Badge>
+            ) : null}
+          </Cluster>
+        </div>
+
+        <Cluster gap="sm" className="lg:justify-end">
+          {!isAdmin ? (
+            <Link href={appRoutes.play} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Play
+            </Link>
+          ) : null}
+          {isPitchOwner ? (
+            <Link href={appRoutes.host} className={cn(buttonVariants("secondary", "md"), "rounded-full")}>
+              Host
+            </Link>
+          ) : null}
+          {isAdmin ? (
+            <Link href={appRoutes.admin} className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+              Admin
+            </Link>
+          ) : (
+            <Link href={appRoutes.tickets} className={cn(buttonVariants("primary", "md"), "rounded-full")}>
+              Tickets
+            </Link>
+          )}
+        </Cluster>
+      </div>
+    </Card>
+  );
+}

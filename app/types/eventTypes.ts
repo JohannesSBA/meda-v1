@@ -1,3 +1,7 @@
+/**
+ * Event types and schemas -- EventSchema, EventResponse, and related types.
+ */
+
 import { z } from "zod";
 
 export const EventSchema = z.object({
@@ -9,6 +13,9 @@ export const EventSchema = z.object({
   description: z.string().nullable().optional(),
   pictureUrl: z.string().nullable().optional(),
   capacity: z.number().nullable().optional(),
+  capacityTotal: z.number().nullable().optional(),
+  reservedCount: z.number().int().nonnegative().optional(),
+  spotsLeft: z.number().nullable().optional(),
   priceField: z.number().nullable().optional(),
   userId: z.string(),
   categoryId: z.string(),
@@ -25,6 +32,11 @@ export const EventSchema = z.object({
   updatedAt: z.string().optional(),
   attendeeCount: z.number().int().nonnegative().nullable().optional(),
   myTickets: z.number().int().nonnegative().nullable().optional(),
+  heldTicketCount: z.number().int().nonnegative().nullable().optional(),
+  refundableTicketCount: z.number().int().nonnegative().nullable().optional(),
+  refundableAmountEtb: z.number().nonnegative().optional(),
+  recurringCount: z.number().int().nonnegative().optional(),
+  nextOccurrence: z.string().optional(),
   // derived
   addressLabel: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
@@ -39,7 +51,13 @@ export const EventOccurrenceSchema = z.object({
   eventEndtime: z.string(),
   attendeeCount: z.number().int().nonnegative().optional(),
   myTickets: z.number().int().nonnegative().optional(),
+  heldTicketCount: z.number().int().nonnegative().optional(),
+  refundableTicketCount: z.number().int().nonnegative().optional(),
+  refundableAmountEtb: z.number().nonnegative().optional(),
   capacity: z.number().nullable().optional(),
+  capacityTotal: z.number().nullable().optional(),
+  reservedCount: z.number().int().nonnegative().optional(),
+  spotsLeft: z.number().nullable().optional(),
   occurrenceIndex: z.number().int().nonnegative().nullable().optional(),
 });
 

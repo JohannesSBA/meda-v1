@@ -1,3 +1,9 @@
+/**
+ * QRScanner -- camera-based QR code scanner for event check-in.
+ *
+ * Uses html5-qrcode; validates tokens against event attendees.
+ */
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -6,6 +12,7 @@ import { PageShell } from "../ui/page-shell";
 import { Card } from "../ui/card";
 import Link from "next/link";
 import { Button } from "../ui/button";
+import { browserApi, BrowserApiError } from "@/lib/browserApi";
 
 type Props = {
   eventId: string;
@@ -48,34 +55,41 @@ export default function QRScanner({ eventId, eventName }: Props) {
     if (typeof window === "undefined") return;
 
     const verifyToken = async (token: string): Promise<ScanResult> => {
-      const base =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        (typeof window !== "undefined" ? window.location.origin : "");
-      const url = new URL(`/api/tickets/verify/${token}`, base);
-      url.searchParams.set("eventId", eventId);
-      const res = await fetch(url.toString(), {
-        cache: "no-store",
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      try {
+        const data = await browserApi.post<{
+          valid: boolean;
+          eventName?: string;
+          eventDatetime?: string;
+          addressLabel?: string;
+          attendeeName?: string | null;
+          alreadyScanned?: boolean;
+          previousScan?: { scannedAt: string; scannedByName: string };
+          error?: string;
+        }>(
+          `/api/tickets/verify/${encodeURIComponent(token)}`,
+          { eventId },
+          { cache: "no-store", credentials: "include" },
+        );
+        return {
+          id: crypto.randomUUID(),
+          valid: data.valid,
+          eventName: data.eventName,
+          eventDatetime: data.eventDatetime,
+          addressLabel: data.addressLabel,
+          attendeeName: data.attendeeName,
+          alreadyScanned: data.alreadyScanned,
+          previousScan: data.previousScan,
+          error: data.error,
+        };
+      } catch (error) {
+        const message =
+          error instanceof BrowserApiError ? error.message : "Verification failed";
         return {
           id: crypto.randomUUID(),
           valid: false,
-          error: data?.error ?? "Verification failed",
+          error: message,
         };
       }
-      return {
-        id: crypto.randomUUID(),
-        valid: data.valid,
-        eventName: data.eventName,
-        eventDatetime: data.eventDatetime,
-        addressLabel: data.addressLabel,
-        attendeeName: data.attendeeName,
-        alreadyScanned: data.alreadyScanned,
-        previousScan: data.previousScan,
-        error: data.error,
-      };
     };
 
     const handleScan = async (decodedText: string) => {

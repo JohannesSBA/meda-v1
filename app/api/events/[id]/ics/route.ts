@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-import { decodeEventLocation } from "@/app/helpers/locationCodec";
+import { resolveEventLocation } from "@/lib/location";
+import { eventIdParamSchema } from "@/lib/validations/events";
+import { parseParams, validationErrorResponse } from "@/lib/validations/http";
 
 function formatICSDate(d: Date): string {
   return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
@@ -18,16 +21,19 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  const parsed = parseParams(eventIdParamSchema, await params);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event id");
+  }
+  const { id } = parsed.data;
   const event = await prisma.event.findUnique({ where: { eventId: id } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://meda.app";
+  const baseUrl = getAppBaseUrl();
   const eventUrl = `${baseUrl}/events/${id}`;
-  const decoded = decodeEventLocation(event.eventLocation);
-  const location = decoded.addressLabel ?? event.eventLocation ?? "";
+  const location = resolveEventLocation(event).addressLabel ?? event.eventLocation ?? "";
 
   const start = new Date(event.eventDatetime);
   const end = new Date(event.eventEndtime);

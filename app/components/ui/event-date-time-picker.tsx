@@ -1,10 +1,23 @@
+/**
+ * EventDateTimePicker -- Combined date and time picker for event creation.
+ *
+ * Uses @rehookify/datepicker. Renders calendar grid and time slots in a popover.
+ */
+
 "use client";
 
 import { useDatePicker } from "@rehookify/datepicker";
-import type { DPDay, DPTime } from "@rehookify/datepicker";
+import type { DPTime } from "@rehookify/datepicker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import { cn } from "./cn";
+import {
+  parseDateTimeValue,
+  formatDateForInput,
+  formatTimeForInput,
+  getDayButtonClasses,
+  getTimeButtonClasses,
+} from "./date-time-helpers";
 
 type EventDateTimePickerProps = {
   id: string;
@@ -17,60 +30,6 @@ type EventDateTimePickerProps = {
   placeholder?: string;
   triggerClassName?: string;
 };
-
-const pad = (value: number) => String(value).padStart(2, "0");
-
-const normalizeTimeParts = (raw?: string) => {
-  const safe = raw && raw.includes(":") ? raw : "00:00";
-  const [hourPart = "0", minutePart = "0"] = safe.split(":");
-  const hours = Number(hourPart);
-  const minutes = Number(minutePart);
-  return {
-    hours: Number.isNaN(hours) ? 0 : hours,
-    minutes: Number.isNaN(minutes) ? 0 : minutes,
-  };
-};
-
-const parseDateTimeValue = (
-  dateValue?: string,
-  timeValue?: string,
-): Date | undefined => {
-  if (!dateValue) return undefined;
-
-  const [year, month, day] = dateValue.split("-").map((part) => Number(part));
-  if ([year, month, day].some((part) => Number.isNaN(part))) return undefined;
-
-  const { hours, minutes } = normalizeTimeParts(timeValue);
-  return new Date(year, month - 1, day, hours, minutes);
-};
-
-const formatDateForInput = (date: Date) =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
-const formatTimeForInput = (date: Date) =>
-  `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-
-const getDayButtonClasses = (day: DPDay) =>
-  cn(
-    "flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition",
-    day.selected
-      ? "bg-gradient-to-r from-[#7ccfff] to-[#8be8ff] text-[#062037] shadow"
-      : day.inCurrentMonth
-        ? "text-[#d7e9ff]"
-        : "text-[#6f8aa6]",
-    day.disabled
-      ? "cursor-not-allowed opacity-30"
-      : "hover:bg-[#18324b] hover:text-[#dff4ff]",
-  );
-
-const getTimeButtonClasses = (selected: boolean, disabled: boolean) =>
-  cn(
-    "w-full rounded-2xl border px-3 py-2 text-sm font-medium transition",
-    selected
-      ? "border-[#7ccfff]/60 bg-[#7ccfff]/18 text-[#e9f7ff] shadow-inner"
-      : "border-transparent bg-[#0f1f2d]/80 text-[#c1d9ef] hover:border-[#7ccfff]/35 hover:bg-[#14304b]",
-    disabled && "cursor-not-allowed opacity-30",
-  );
 
 export function EventDateTimePicker({
   id,

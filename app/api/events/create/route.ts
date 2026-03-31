@@ -1,92 +1,24 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { uploadEventImageUnified } from "@/lib/uploadEventImage";
-import { requireSessionUser } from "@/lib/auth/guards";
+import { requireAdminOrPitchOwnerUser } from "@/lib/auth/guards";
 import { checkRateLimit, getClientId } from "@/lib/ratelimit";
-
-const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB per supabase guidance
-const MAX_RECURRING_OCCURRENCES = 180;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-type RecurrenceFrequency = "daily" | "weekly" | "custom";
-
-type OccurrenceWindow = {
-  start: Date;
-  end: Date;
-  index: number;
-};
-
-function toDate(value: string) {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function normalizeMidnightUtc(date: Date) {
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-}
-
-function buildRecurringWindows(params: {
-  start: Date;
-  end: Date;
-  frequency: RecurrenceFrequency;
-  interval: number;
-  weekdays: number[];
-  until: Date;
-}): OccurrenceWindow[] {
-  const { start, end, frequency, interval, weekdays, until } = params;
-  const duration = end.getTime() - start.getTime();
-  const windows: OccurrenceWindow[] = [];
-
-  if (frequency === "daily" || frequency === "weekly") {
-    const stepMs = frequency === "daily" ? interval * DAY_MS : interval * 7 * DAY_MS;
-    for (
-      let cursor = new Date(start), idx = 0;
-      cursor.getTime() <= until.getTime() && idx < MAX_RECURRING_OCCURRENCES;
-      cursor = new Date(cursor.getTime() + stepMs), idx += 1
-    ) {
-      windows.push({ start: new Date(cursor), end: new Date(cursor.getTime() + duration), index: idx });
-    }
-    return windows;
-  }
-
-  // Custom weekly recurrence: every N weeks on selected weekdays.
-  const startDayAnchor = normalizeMidnightUtc(start);
-  let idx = 0;
-  for (
-    let cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-    cursor.getTime() <= until.getTime() && idx < MAX_RECURRING_OCCURRENCES;
-    cursor = new Date(cursor.getTime() + DAY_MS)
-  ) {
-    const weeksSinceStart = Math.floor((normalizeMidnightUtc(cursor) - startDayAnchor) / (7 * DAY_MS));
-    if (weeksSinceStart < 0 || weeksSinceStart % interval !== 0) continue;
-    if (!weekdays.includes(cursor.getUTCDay())) continue;
-
-    const startAt = new Date(
-      Date.UTC(
-        cursor.getUTCFullYear(),
-        cursor.getUTCMonth(),
-        cursor.getUTCDate(),
-        start.getUTCHours(),
-        start.getUTCMinutes(),
-        start.getUTCSeconds(),
-        start.getUTCMilliseconds()
-      )
-    );
-    if (startAt.getTime() < start.getTime()) continue;
-
-    windows.push({
-      start: startAt,
-      end: new Date(startAt.getTime() + duration),
-      index: idx,
-    });
-    idx += 1;
-  }
-  return windows;
-}
+import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
+import {
+  createEvent,
+  createEventWithClient,
+  encodeEventImage,
+} from "@/services/events";
+import {
+  initializeEventCreationCheckout,
+  recordWaivedEventCreation,
+} from "@/services/eventCreationFee";
+import { createEventFormSchema } from "@/lib/validations/events";
+import { parseFormData, validationErrorResponse } from "@/lib/validations/http";
+import { revalidateAdminStats, revalidateEventData } from "@/lib/revalidation";
+import { resolveCategoryIdWithFallback } from "@/lib/categoryDefaults";
 
 export async function POST(request: Request) {
-  const rl = checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
+  const rl = await checkRateLimit(`create-event:${getClientId(request)}`, 5, 60_000);
   if (rl.limited) {
     return NextResponse.json(
       { error: "Too many requests. Please wait before creating another event." },
@@ -94,157 +26,179 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await requireSessionUser();
+  const session = await requireAdminOrPitchOwnerUser();
   if (!session.user || session.response) return session.response!;
   const userId = session.user.id;
 
-  const form = await request.formData();
+  if (session.user.role === "pitch_owner") {
+    const payoutProfile = await prisma.pitchOwnerProfile.findUnique({
+      where: { userId },
+      select: {
+        chapaSubaccountId: true,
+        payoutSetupVerifiedAt: true,
+      },
+    });
 
-  const eventId = randomUUID();
-  const eventName = form.get("eventName")?.toString() ?? "";
-  const categoryId = form.get("categoryId")?.toString() ?? "";
-  const description = form.get("description")?.toString() ?? null;
-  const startDate = form.get("startDate")?.toString() ?? "";
-  const endDate = form.get("endDate")?.toString() ?? "";
-  const location = form.get("location")?.toString() ?? "";
-  const latitude = form.get("latitude")?.toString() ?? "";
-  const longitude = form.get("longitude")?.toString() ?? "";
-  const capacity = form.get("capacity")?.toString();
-  const price = form.get("price")?.toString();
-  const image = form.get("image") as File | null;
-  const recurrenceEnabled = form.get("recurrenceEnabled")?.toString() === "true";
-  const recurrenceFrequency = (form.get("recurrenceFrequency")?.toString() ?? "weekly") as RecurrenceFrequency;
-  const recurrenceIntervalRaw = form.get("recurrenceInterval")?.toString() ?? "1";
-  const recurrenceUntilRaw = form.get("recurrenceUntil")?.toString() ?? "";
-  const recurrenceWeekdaysRaw = form.get("recurrenceWeekdays")?.toString() ?? "";
-
-  if (!eventName || !categoryId || !startDate || !endDate || !location || !latitude || !longitude) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!payoutProfile?.chapaSubaccountId || !payoutProfile.payoutSetupVerifiedAt) {
+      return NextResponse.json(
+        { error: "Complete payout setup before creating events." },
+        { status: 403 },
+      );
+    }
   }
 
-  const startAt = toDate(startDate);
-  const endAt = toDate(endDate);
-  if (!startAt || !endAt) {
-    return NextResponse.json({ error: "Invalid start/end date" }, { status: 400 });
-  }
-  if (endAt.getTime() <= startAt.getTime()) {
-    return NextResponse.json({ error: "End time must be after start time" }, { status: 400 });
+  const parsed = await parseFormData(createEventFormSchema, request);
+  if (!parsed.success) {
+    return validationErrorResponse(parsed.error, "Invalid event payload");
   }
 
-  let pictureUrl: string | null = null;
+  const {
+    eventName,
+    categoryId: requestedCategoryId,
+    promoCode,
+    description,
+    startDate,
+    endDate,
+    location,
+    latitude,
+    longitude,
+    capacity,
+    price,
+    image,
+    recurrenceEnabled,
+    recurrenceFrequency,
+    recurrenceInterval,
+    recurrenceUntil,
+    recurrenceWeekdays,
+  } = parsed.data;
+
+  let imageData: { buffer: Buffer; mimeType: string; ext: string } | null = null;
+  if (image && image.size > 0) {
+    const arrayBuffer = await image.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const ext = image.type.split("/")[1] || "jpg";
+    imageData = { buffer, mimeType: image.type, ext };
+  }
+
+  const categoryId = await resolveCategoryIdWithFallback(requestedCategoryId);
+
+  const eventPayload = {
+    userId,
+    eventName,
+    categoryId,
+    description,
+    startDate,
+    endDate,
+    location,
+    latitude,
+    longitude,
+    capacity,
+    price,
+    pictureUrl: null,
+    recurrenceEnabled,
+    recurrenceFrequency,
+    recurrenceInterval,
+    recurrenceUntil,
+    recurrenceWeekdays,
+  };
 
   try {
-    if (image) {
-      const arrayBuffer = await image.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      if (buffer.byteLength > MAX_IMAGE_BYTES) {
-        return NextResponse.json({ error: "Image too large (max 6MB)" }, { status: 400 });
-      }
-      const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-      if (!ALLOWED_MIME_TYPES.includes(image.type)) {
-        return NextResponse.json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WEBP" }, { status: 400 });
-      }
-
-      const ext = image.type.split("/")[1] || "jpg";
-      pictureUrl = await uploadEventImageUnified(eventId, { buffer, mimeType: image.type, ext });
-    }
-
-    const capacityNum = capacity ? parseInt(capacity, 10) : null;
-    if (capacityNum !== null && (Number.isNaN(capacityNum) || capacityNum < 1)) {
-      return NextResponse.json({ error: "Capacity must be a positive integer" }, { status: 400 });
-    }
-    const priceNum = price ? parseInt(price, 10) : null;
-    if (priceNum !== null && (Number.isNaN(priceNum) || priceNum < 0)) {
-      return NextResponse.json({ error: "Price must be a non-negative integer" }, { status: 400 });
-    }
-
-    if (!recurrenceEnabled) {
-      const event = await prisma.event.create({
-        data: {
-          eventId,
-          eventName,
-          categoryId,
-          description,
-          eventDatetime: startAt,
-          eventEndtime: endAt,
-          eventLocation: `${location}!longitude=${longitude}&latitude=${latitude}`,
-          pictureUrl,
-          capacity: capacityNum,
-          priceField: priceNum,
-          userId,
+    if (session.user.role === "pitch_owner") {
+      const baseUrl = new URL(request.url).origin;
+      const callbackUrl =
+        process.env.CHAPA_CALLBACK_URL ??
+        `${baseUrl}/api/payments/chapa/callback`;
+      const result = await initializeEventCreationCheckout({
+        pitchOwnerUserId: userId,
+        email: session.user.email ?? `user-${session.user.id}@meda.app`,
+        firstName: session.user.name?.split(" ").at(0),
+        lastName: session.user.name?.split(" ").slice(1).join(" ") || undefined,
+        callbackUrl,
+        returnUrlBase: `${baseUrl}/create-events/status`,
+        promoCode,
+        eventPayload: {
+          ...eventPayload,
+          imageUpload: encodeEventImage(imageData),
         },
       });
-      return NextResponse.json({ event }, { status: 201 });
+
+      if (result.kind === "checkout") {
+        return NextResponse.json(
+          {
+            checkoutUrl: result.checkoutUrl,
+            txRef: result.txRef,
+            quote: result.quote,
+          },
+          { status: 202 },
+        );
+      }
+
+      const createdEvent = await prisma.$transaction(async (tx) => {
+        const eventResult = await createEventWithClient(tx, {
+          ...eventPayload,
+          image: imageData,
+        });
+        await recordWaivedEventCreation(
+          {
+            pitchOwnerUserId: userId,
+            eventId: eventResult.event.eventId,
+            quote: result.quote,
+          },
+          tx,
+        );
+        return eventResult;
+      });
+
+      revalidateEventData(createdEvent.event.eventId, [userId]);
+      revalidateAdminStats();
+
+      if (createdEvent.createdOccurrences != null) {
+        return NextResponse.json(
+          {
+            event: createdEvent.event,
+            createdOccurrences: createdEvent.createdOccurrences,
+            seriesId: createdEvent.seriesId,
+          },
+          { status: 201 },
+        );
+      }
+
+      return NextResponse.json({ event: createdEvent.event }, { status: 201 });
     }
 
-    const interval = Math.max(1, parseInt(recurrenceIntervalRaw, 10) || 1);
-    const until = toDate(recurrenceUntilRaw);
-    if (!until) {
-      return NextResponse.json({ error: "Recurrence end date is required" }, { status: 400 });
-    }
-    if (until.getTime() < startAt.getTime()) {
-      return NextResponse.json({ error: "Recurrence end must be after the start date" }, { status: 400 });
-    }
-    const validFrequencies: RecurrenceFrequency[] = ["daily", "weekly", "custom"];
-    if (!validFrequencies.includes(recurrenceFrequency)) {
-      return NextResponse.json({ error: "Invalid recurrence frequency" }, { status: 400 });
-    }
-    const weekdays = recurrenceWeekdaysRaw
-      .split(",")
-      .map((v) => parseInt(v.trim(), 10))
-      .filter((v) => Number.isInteger(v) && v >= 0 && v <= 6);
-    if (recurrenceFrequency === "custom" && weekdays.length === 0) {
-      return NextResponse.json({ error: "Choose at least one weekday for custom recurrence" }, { status: 400 });
-    }
-
-    const windows = buildRecurringWindows({
-      start: startAt,
-      end: endAt,
-      frequency: recurrenceFrequency,
-      interval,
-      weekdays,
-      until,
+    const result = await createEvent({
+      ...eventPayload,
+      image: imageData,
     });
 
-    if (windows.length === 0) {
-      return NextResponse.json({ error: "No valid occurrences generated for that recurrence setup" }, { status: 400 });
+    revalidateEventData(result.event.eventId, [userId]);
+    revalidateAdminStats();
+
+    if (result.createdOccurrences != null) {
+      return NextResponse.json(
+        { event: result.event, createdOccurrences: result.createdOccurrences, seriesId: result.seriesId },
+        { status: 201 },
+      );
     }
-
-    const seriesId = randomUUID();
-    const recurrenceWeekdays = recurrenceFrequency === "custom" ? weekdays.join(",") : null;
-    const masterEventId = randomUUID();
-    const rows = windows.map((window, index) => ({
-      eventId: index === 0 ? masterEventId : randomUUID(),
-      eventName,
-      categoryId,
-      description,
-      eventDatetime: window.start,
-      eventEndtime: window.end,
-      eventLocation: `${location}!longitude=${longitude}&latitude=${latitude}`,
-      pictureUrl,
-      capacity: capacityNum,
-      priceField: priceNum,
-      userId,
-      seriesId,
-      isRecurring: true,
-      recurrenceKind: recurrenceFrequency,
-      recurrenceInterval: interval,
-      recurrenceWeekdays,
-      recurrenceUntil: until,
-      occurrenceIndex: window.index,
-      isSeriesMaster: index === 0,
-    }));
-
-    await prisma.$transaction(async (tx) => {
-      await tx.event.createMany({ data: rows });
-    });
-
-    const event = await prisma.event.findUnique({ where: { eventId: masterEventId } });
-    return NextResponse.json({ event, createdOccurrences: rows.length, seriesId }, { status: 201 });
+    return NextResponse.json({ event: result.event }, { status: 201 });
   } catch (error) {
-    console.error("Create event failed", error);
     const message = error instanceof Error ? error.message : "Failed to create event";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const isValidationError =
+      message.includes("Missing required") ||
+      message.includes("Invalid") ||
+      message.includes("Capacity") ||
+      message.includes("Price") ||
+      message.includes("Recurrence") ||
+      message.includes("Image") ||
+      message.includes("End time") ||
+      message.includes("start time") ||
+      message.includes("date") ||
+      message.includes("weekday") ||
+      message.includes("occurrences");
+    if (isValidationError) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    logger.error("Create event failed", error);
+    return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
   }
 }
