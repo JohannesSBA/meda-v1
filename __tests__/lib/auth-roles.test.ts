@@ -86,6 +86,43 @@ describe("auth roles", () => {
     });
   });
 
+  it("treats authRole as source metadata and keeps role normalized for malformed payloads", async () => {
+    const { normalizeSessionUserContract } = await import("@/lib/auth/roles");
+
+    expect(
+      normalizeSessionUserContract({
+        id: "malformed-role",
+        role: "super_admin",
+        authRole: "legacy_staff",
+        parentPitchOwnerUserId: "owner-1",
+      }),
+    ).toEqual({
+      id: "malformed-role",
+      role: "user",
+      authRole: "legacy_staff",
+      parentPitchOwnerUserId: null,
+    });
+  });
+
+  it("uses authRole admin as the canonical admin override when role payload is inconsistent", async () => {
+    const { enrichSessionUser } = await import("@/lib/auth/roles");
+
+    const user = await enrichSessionUser({
+      id: "inconsistent-admin",
+      role: "user",
+      authRole: "admin",
+    });
+
+    expect(user).toEqual({
+      id: "inconsistent-admin",
+      role: "admin",
+      authRole: "admin",
+      parentPitchOwnerUserId: null,
+    });
+    expect(pitchOwnerProfileFindUniqueMock).not.toHaveBeenCalled();
+    expect(facilitatorFindUniqueMock).not.toHaveBeenCalled();
+  });
+
   it("provides helper predicates for event creation, management, and scan access", async () => {
     const { canCreateEvent, canManageEvent, canScanEvent } = await import(
       "@/lib/auth/roles"
@@ -94,6 +131,7 @@ describe("auth roles", () => {
     expect(canCreateEvent({ role: "admin" })).toBe(true);
     expect(canCreateEvent({ role: "pitch_owner" })).toBe(true);
     expect(canCreateEvent({ role: "facilitator" })).toBe(false);
+    expect(canCreateEvent({ role: "user" })).toBe(false);
 
     expect(
       canManageEvent({ id: "owner", role: "pitch_owner" }, "owner"),

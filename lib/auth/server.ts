@@ -9,6 +9,10 @@ import {
   isE2EAuthBypassEnabled,
   parseE2EUserCookie,
 } from "@/lib/env";
+import {
+  normalizeSessionUserContract,
+  type SessionUser,
+} from "@/lib/auth/session-contract";
 
 const neonAuth = createNeonAuth({
   baseUrl: getRequiredEnv("NEON_AUTH_BASE_URL"),
@@ -20,34 +24,13 @@ const neonAuth = createNeonAuth({
 const originalGetSession =
   neonAuth.getSession.bind(neonAuth) as typeof neonAuth.getSession;
 
-type BaseSessionUser = {
-  id: string;
-  role?: string | null;
-  authRole?: string | null;
-  email?: string | null;
-  name?: string | null;
-  image?: string | null;
-  parentPitchOwnerUserId?: string | null;
-};
-
-function normalizeSessionUser(user: BaseSessionUser) {
-  const authRole = user.authRole ?? user.role ?? null;
-
-  return {
-    ...user,
-    role: user.role ?? "user",
-    authRole,
-    parentPitchOwnerUserId: user.parentPitchOwnerUserId ?? null,
-  };
-}
-
 function isEdgeRuntime() {
   return typeof (globalThis as { EdgeRuntime?: string }).EdgeRuntime !== "undefined";
 }
 
-async function getEnrichedSessionUser(user: BaseSessionUser) {
+async function getEnrichedSessionUser(user: SessionUser) {
   if (isEdgeRuntime()) {
-    return normalizeSessionUser(user);
+    return normalizeSessionUserContract(user);
   }
 
   const { enrichSessionUser } = await import("@/lib/auth/roles");
@@ -65,7 +48,7 @@ neonAuth.getSession = (async (
       if (bypassUser) {
         return {
           data: {
-            user: normalizeSessionUser(bypassUser),
+            user: normalizeSessionUserContract(bypassUser),
           },
         };
       }
@@ -80,9 +63,11 @@ neonAuth.getSession = (async (
       session.data.user as {
         id: string;
         role?: string | null;
+        authRole?: string | null;
         email?: string | null;
         name?: string | null;
         image?: string | null;
+        parentPitchOwnerUserId?: string | null;
       },
     );
 
