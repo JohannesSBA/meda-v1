@@ -9,7 +9,10 @@ import {
   isE2EAuthBypassEnabled,
   parseE2EUserCookie,
 } from "@/lib/env";
-import { normalizeSessionUserContract, type SessionUser } from "@/lib/auth/roles";
+import {
+  normalizeSessionUserContract,
+  type SessionUser,
+} from "@/lib/auth/session-contract";
 
 const neonAuth = createNeonAuth({
   baseUrl: getRequiredEnv("NEON_AUTH_BASE_URL"),
