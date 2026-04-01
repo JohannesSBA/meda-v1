@@ -11,6 +11,7 @@ import { getAppBaseUrl } from "@/lib/env";
 import { auth } from "@/lib/auth/server";
 import { getEvent } from "./data";
 import { EventDetailContent } from "./EventDetailContent";
+import { getEventReviewStateForUser } from "@/services/hostReviews";
 
 export async function generateMetadata({
   params,
@@ -70,6 +71,9 @@ export default async function EventDetailPage({
   } | undefined) ?? null;
   const isSoldOut = event.spotsLeft != null && event.spotsLeft <= 0;
   const canScan = canScanEvent(sessionUser, event.userId);
+  const reviewState = sessionUser?.id
+    ? await getEventReviewStateForUser({ eventId: event.eventId, reviewerId: sessionUser.id })
+    : null;
 
   const priceLabel =
     event.priceField == null || event.priceField === 0
@@ -89,6 +93,7 @@ export default async function EventDetailPage({
       startDate={startDate}
       endDate={endDate}
       locationLabel={locationLabel}
+      reviewState={reviewState}
     />
   );
 }

@@ -86,6 +86,12 @@ export const pitchCreateSchema = z.object({
       const normalized = trimNullable(value);
       return normalized || null;
     }),
+  pictureUrl: z
+    .union([z.string(), z.undefined(), z.null()])
+    .transform((value) => {
+      const normalized = trimNullable(value);
+      return normalized || null;
+    }),
   addressLabel: z
     .union([z.string(), z.undefined(), z.null()])
     .transform((value) => {
@@ -103,6 +109,13 @@ export const pitchCreateSchema = z.object({
 export const pitchPatchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   description: z
+    .union([z.string(), z.undefined(), z.null()])
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      const normalized = trimNullable(value);
+      return normalized || null;
+    }),
+  pictureUrl: z
     .union([z.string(), z.undefined(), z.null()])
     .transform((value) => {
       if (value === undefined) return undefined;

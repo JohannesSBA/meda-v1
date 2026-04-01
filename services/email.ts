@@ -12,3 +12,4 @@ export { sendWaitlistSpotAvailableEmail } from "./emails/waitlistNotification";
 export { sendBookingTicketInviteEmail } from "./emails/bookingTicketInvite";
 export { sendActionNotificationEmail } from "./emails/actionNotification";
 export { sendSubscriptionNoticeEmail } from "./emails/subscriptionNotice";
+export { sendHostReviewReminderEmail } from "./emails/reviewReminder";

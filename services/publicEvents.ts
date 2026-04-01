@@ -50,6 +50,10 @@ type ListedEventRow = {
   reservedCount: number;
   spotsLeft: number | null;
   recurringCount: number;
+  hostAverageRating: number | null;
+  hostReviewCount: number | null;
+  hostTrustBadge: "NEW_HOST" | "RELIABLE_HOST" | "HIGHLY_RATED" | "NEEDS_IMPROVEMENT" | null;
+  hostTrustScore: number | null;
 };
 
 type EventListResponse = {
@@ -196,6 +200,10 @@ function buildListingBaseSql(whereClause: Prisma.Sql) {
             0
           )
         END AS "spotsLeft",
+        htm.avg_rating::float AS "hostAverageRating",
+        htm.review_count::int AS "hostReviewCount",
+        htm.trust_badge::text AS "hostTrustBadge",
+        htm.trust_score::float AS "hostTrustScore",
         COALESCE(
           e.series_id::text,
           e.event_id::text
@@ -204,6 +212,7 @@ function buildListingBaseSql(whereClause: Prisma.Sql) {
       LEFT JOIN categories c ON c.category_id = e.category_id
       LEFT JOIN attendee_counts ON attendee_counts.event_id = e.event_id
       LEFT JOIN reservation_counts ON reservation_counts.event_id = e.event_id
+      LEFT JOIN host_trust_metrics htm ON htm.host_id = e.user_id
       WHERE ${whereClause}
     ),
     grouped AS (
@@ -250,6 +259,10 @@ function mapEventRow(row: ListedEventRow): EventResponse {
     recurringCount: row.recurringCount,
     nextOccurrence: row.eventDatetime.toISOString(),
     myTickets: null,
+    hostAverageRating: row.hostAverageRating,
+    hostReviewCount: row.hostReviewCount,
+    hostTrustBadge: row.hostTrustBadge,
+    hostTrustScore: row.hostTrustScore,
   };
 }
 
@@ -265,7 +278,10 @@ const getCachedPublicEventDetail = unstable_cache(
 
     if (!event) return null;
 
-    const reservationCounts = await getActiveReservationCountMap([event.eventId]);
+    const [reservationCounts, hostTrust] = await Promise.all([
+      getActiveReservationCountMap([event.eventId]),
+      prisma.hostTrustMetrics.findUnique({ where: { hostId: event.userId } }),
+    ]);
 
     let occurrences: EventOccurrence[] | undefined;
     if (event.seriesId) {
@@ -302,6 +318,10 @@ const getCachedPublicEventDetail = unstable_cache(
         reservedCount: reservationCounts.get(event.eventId) ?? 0,
         myTickets: null,
       }),
+      hostAverageRating: hostTrust ? Number(hostTrust.avgRating) : null,
+      hostReviewCount: hostTrust?.reviewCount ?? null,
+      hostTrustBadge: hostTrust?.trustBadge ?? null,
+      hostTrustScore: hostTrust ? Number(hostTrust.trustScore) : null,
       occurrences,
     };
   },

@@ -65,6 +65,10 @@ export function EventCard({
   const priceLabel = event.priceField == null || event.priceField === 0 ? "Free" : `ETB ${event.priceField}`;
   const categoryLabel = event.categoryName ?? (event.categoryId ? "Featured" : "Community");
   const spotsLabel = event.spotsLeft ?? event.capacity ?? null;
+  const hostSummaryLabel =
+    event.hostReviewCount && event.hostReviewCount > 0 && event.hostAverageRating
+      ? `${event.hostAverageRating.toFixed(1)}★ (${event.hostReviewCount})`
+      : "New host";
   const fitLine = [dateLabel, locationLabel, priceLabel, spotsLabel != null ? `${spotsLabel} spots left` : null]
     .filter(Boolean)
     .join(" · ");
@@ -115,10 +119,16 @@ export function EventCard({
           </div>
 
           <div className="mt-auto flex items-center justify-between gap-3 pt-1 text-sm">
-            <span className="font-medium text-[#c9ffea]">
-              {spotsLabel != null && spotsLabel > 0
-                ? `${spotsLabel} spots left`
-                : `${event.attendeeCount ?? 0} attending`}
+            <div className="flex flex-col gap-1">
+              <span className="font-medium text-[#c9ffea]">
+                {spotsLabel != null && spotsLabel > 0
+                  ? `${spotsLabel} spots left`
+                  : `${event.attendeeCount ?? 0} attending`}
+              </span>
+              <span className="text-xs text-[var(--color-text-muted)]">{hostSummaryLabel}</span>
+            </div>
+            <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-text-secondary)]">
+              {(event.hostTrustBadge ?? "NEW_HOST").replaceAll("_", " ")}
             </span>
             <span className="font-medium text-[var(--color-text-secondary)] transition group-hover:text-[var(--color-text-primary)]">
               View details

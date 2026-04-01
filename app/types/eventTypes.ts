@@ -4,6 +4,13 @@
 
 import { z } from "zod";
 
+export const HostTrustBadgeSchema = z.enum([
+  "NEW_HOST",
+  "RELIABLE_HOST",
+  "HIGHLY_RATED",
+  "NEEDS_IMPROVEMENT",
+]);
+
 export const EventSchema = z.object({
   eventId: z.string(),
   eventName: z.string(),
@@ -41,6 +48,10 @@ export const EventSchema = z.object({
   addressLabel: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
+  hostAverageRating: z.number().nullable().optional(),
+  hostReviewCount: z.number().int().nonnegative().nullable().optional(),
+  hostTrustBadge: HostTrustBadgeSchema.nullable().optional(),
+  hostTrustScore: z.number().nullable().optional(),
 });
 
 export type EventResponse = z.infer<typeof EventSchema>;

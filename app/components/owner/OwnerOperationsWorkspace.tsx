@@ -49,6 +49,7 @@ type PitchSummary = {
   id: string;
   name: string;
   description: string | null;
+  pictureUrl: string | null;
   addressLabel: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -137,6 +138,7 @@ type OwnerOperationsWorkspaceProps = {
 type PitchFormState = {
   name: string;
   description: string;
+  pictureUrl: string;
   addressLabel: string;
   latitude: string;
   longitude: string;
@@ -438,6 +440,7 @@ export function OwnerOperationsWorkspace({
   const [pitchForm, setPitchForm] = useState<PitchFormState>({
     name: "",
     description: "",
+    pictureUrl: "",
     addressLabel: "",
     latitude: DEFAULT_PITCH_COORDINATES.latitude,
     longitude: DEFAULT_PITCH_COORDINATES.longitude,
@@ -676,6 +679,7 @@ export function OwnerOperationsWorkspace({
     setPitchForm({
       name: "",
       description: "",
+      pictureUrl: "",
       addressLabel: "",
       latitude: DEFAULT_PITCH_COORDINATES.latitude,
       longitude: DEFAULT_PITCH_COORDINATES.longitude,
@@ -690,6 +694,7 @@ export function OwnerOperationsWorkspace({
     setPitchForm({
       name: pitch.name,
       description: pitch.description ?? "",
+      pictureUrl: pitch.pictureUrl ?? "",
       addressLabel: pitch.addressLabel ?? "",
       latitude:
         typeof pitch.latitude === "number" && Number.isFinite(pitch.latitude)
@@ -1266,6 +1271,17 @@ export function OwnerOperationsWorkspace({
                     setPitchForm((prev) => ({ ...prev, description: event.target.value }))
                   }
                     placeholder="Indoor five-a-side place with evening lighting."
+                />
+              </label>
+
+              <label className="block">
+                <span className="field-label">Place image URL (optional)</span>
+                <Input
+                  value={pitchForm.pictureUrl}
+                  onChange={(event) =>
+                    setPitchForm((prev) => ({ ...prev, pictureUrl: event.target.value }))
+                  }
+                  placeholder="https://..."
                 />
               </label>
 

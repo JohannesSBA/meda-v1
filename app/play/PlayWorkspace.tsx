@@ -45,8 +45,8 @@ export function PlayWorkspace() {
       <Stack gap="xl">
         <AppPageHeader
           kicker={uiCopy.nav.play}
-          title="Find somewhere to play, or join a match that is already happening."
-          description="Use one screen for both paths. Book a time to play right away, or switch to matches if you want a more social or organized game."
+          title="Book a pitch or join a match."
+          description="Choose one path and keep moving."
           primaryAction={
             <Link
               href={modeLinks.slots}

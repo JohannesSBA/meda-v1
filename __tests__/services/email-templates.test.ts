@@ -137,8 +137,11 @@ describe("email templates", () => {
     );
   });
 
-  it("sends event reminders and waitlist notifications", async () => {
+  it("sends event reminders, review reminders, and waitlist notifications", async () => {
     const { sendEventReminderEmail } = await import("@/services/emails/reminder");
+    const { sendHostReviewReminderEmail } = await import(
+      "@/services/emails/reviewReminder"
+    );
     const { sendWaitlistSpotAvailableEmail } = await import(
       "@/services/emails/waitlistNotification"
     );
@@ -152,6 +155,16 @@ describe("email templates", () => {
       locationLabel: "Addis Arena",
       hoursUntil: 2,
       eventUrl: "https://meda.test/events/event-1",
+    });
+
+    await sendHostReviewReminderEmail({
+      to: "user@example.com",
+      attendeeName: "Abel",
+      eventName: "Sunday 5v5",
+      eventDateTime: new Date("2099-01-01T18:00:00.000Z"),
+      eventEndTime: new Date("2099-01-01T20:00:00.000Z"),
+      locationLabel: "Addis Arena",
+      reviewUrl: "https://meda.test/events/event-1",
     });
 
     await sendWaitlistSpotAvailableEmail({
@@ -172,6 +185,13 @@ describe("email templates", () => {
     );
     expect(sendMock).toHaveBeenNthCalledWith(
       2,
+      expect.objectContaining({
+        subject: "How was Sunday 5v5? Rate the host",
+        html: expect.stringContaining("Leave a host review"),
+      }),
+    );
+    expect(sendMock).toHaveBeenNthCalledWith(
+      3,
       expect.objectContaining({
         subject: "A spot opened up for Sunday 5v5!",
         html: expect.stringContaining("Register now"),
