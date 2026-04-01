@@ -165,6 +165,30 @@ export async function setAdminUserRoleInStore(userId: string, role: string) {
   return rows[0] ? normalizeUser(rows[0]) : null;
 }
 
+export async function getAdminUserFromStore(userId: string) {
+  const rows = await prisma.$queryRawUnsafe<AuthAdminUserRow[]>(
+    `
+      SELECT
+        id,
+        email,
+        name,
+        role,
+        role AS "authRole",
+        banned,
+        "banReason",
+        "banExpires",
+        "createdAt",
+        "updatedAt"
+      FROM ${getQualifiedAuthUserTable()}
+      WHERE id = $1::uuid
+      LIMIT 1
+    `,
+    userId,
+  );
+
+  return rows[0] ? normalizeUser(rows[0]) : null;
+}
+
 export async function banAdminUserInStore(args: {
   userId: string;
   banReason?: string;

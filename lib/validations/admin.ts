@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ADMIN_MUTABLE_AUTH_ROLES } from "@/lib/auth/adminRoleTransitions";
 import { uuidSchema } from "./events";
 
 export const adminListUsersQuerySchema = z.object({
@@ -14,7 +15,7 @@ export const adminEventListQuerySchema = z.object({
 });
 
 export const adminRoleUpdateSchema = z.object({
-  role: z.enum(["admin", "user", "pitch_owner"]),
+  role: z.enum(ADMIN_MUTABLE_AUTH_ROLES),
 });
 
 export const adminBanUpdateSchema = z.object({
