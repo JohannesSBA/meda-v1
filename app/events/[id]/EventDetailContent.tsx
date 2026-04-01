@@ -14,6 +14,8 @@ import { buttonVariants } from "@/app/components/ui/button";
 import { cn } from "@/app/components/ui/cn";
 import type { EventDetailResponse } from "./data";
 import { buildDirectionsUrl } from "./data";
+import type { EventReviewState } from "@/services/hostReviews";
+import { HostReviewPanel } from "./HostReviewPanel";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -31,6 +33,7 @@ type EventDetailContentProps = {
   startDate: Date;
   endDate: Date;
   locationLabel: string;
+  reviewState: EventReviewState | null;
 };
 
 export function EventDetailContent({
@@ -41,6 +44,7 @@ export function EventDetailContent({
   startDate,
   endDate,
   locationLabel,
+  reviewState,
 }: EventDetailContentProps) {
   const directionsUrl = buildDirectionsUrl(event);
 
@@ -175,7 +179,15 @@ export function EventDetailContent({
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-white">Event Organizer</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {event.hostReviewCount && event.hostAverageRating
+                        ? `${event.hostAverageRating.toFixed(1)}★ from ${event.hostReviewCount} reviews`
+                        : "New host"}
+                    </p>
                   </div>
+                  <span className="rounded-full border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold tracking-wide text-[var(--color-text-secondary)]">
+                    {(event.hostTrustBadge ?? "NEW_HOST").replaceAll("_", " ")}
+                  </span>
                   <Link
                     href={`/hosts/${event.userId}`}
                     className="text-sm font-medium text-[var(--color-brand)] active:opacity-70"
@@ -183,6 +195,7 @@ export function EventDetailContent({
                     View profile
                   </Link>
                 </div>
+                <HostReviewPanel eventId={event.eventId} reviewState={reviewState} />
               </section>
             ) : null}
 
