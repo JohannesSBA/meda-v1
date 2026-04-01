@@ -247,7 +247,7 @@ describe.sequential("marketplace lifecycle integration", () => {
 
     await prisma.eventWaitlist.create({
       data: {
-        id: "550e8400-e29b-41d4-a716-446655440416",
+        waitlistId: "550e8400-e29b-41d4-a716-446655440416",
         eventId,
         userId: waitlistUserId,
       },
