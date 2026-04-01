@@ -5,6 +5,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 import { getRequiredEnv, isE2EAuthBypassEnabled } from "@/lib/env";
+import { AUTH_PROTECTED_MATCHER, isAuthProtectedPath } from "@/lib/auth/protected-routes";
 
 const auth = createNeonAuth({
   baseUrl: getRequiredEnv("NEON_AUTH_BASE_URL"),
@@ -18,22 +19,10 @@ const authMiddleware = auth.middleware({
   loginUrl: "/auth/sign-in",
 });
 
-function isProtectedRoute(pathname: string) {
-  return (
-    pathname.startsWith("/account/") ||
-    pathname === "/profile" ||
-    pathname.startsWith("/profile/") ||
-    pathname === "/create-events" ||
-    pathname.startsWith("/create-events/") ||
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/")
-  );
-}
-
 export default async function middleware(request: NextRequest) {
   if (
     isE2EAuthBypassEnabled() &&
-    isProtectedRoute(request.nextUrl.pathname) &&
+    isAuthProtectedPath(request.nextUrl.pathname) &&
     request.cookies.has("meda_e2e_user")
   ) {
     return NextResponse.next();
@@ -50,23 +39,12 @@ export default async function middleware(request: NextRequest) {
     return response;
   }
 
-  redirectUrl.searchParams.set(
-    "redirect",
-    `${request.nextUrl.pathname}${request.nextUrl.search}`,
-  );
+  redirectUrl.searchParams.set("redirect", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   response.headers.set("location", redirectUrl.toString());
 
   return response;
 }
 
 export const config = {
-  matcher: [
-    "/account/:path*",
-    "/profile",
-    "/profile/:path*",
-    "/create-events",
-    "/create-events/:path*",
-    "/admin",
-    "/admin/:path*",
-  ],
+  matcher: AUTH_PROTECTED_MATCHER,
 };

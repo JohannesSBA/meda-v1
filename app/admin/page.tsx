@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth/server";
 import { normalizeAppUserRole } from "@/lib/auth/roles";
+import { buildSignInRedirect } from "@/lib/auth/protected-routes";
 import { PageShell } from "@/app/components/ui/page-shell";
 import AdminDashboard from "@/app/components/admin/AdminDashboard";
 
@@ -8,18 +9,16 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const { data } = await auth.getSession();
-  const user = (data?.user ?? null) as
-    | {
-        id?: string;
-        name?: string | null;
-        email?: string | null;
-        role?: string | null;
-        image?: string | null;
-      }
-    | null;
+  const user = (data?.user ?? null) as {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    image?: string | null;
+  } | null;
 
   if (!user?.id) {
-    redirect("/auth/sign-in?redirect=%2Fadmin");
+    redirect(buildSignInRedirect("/admin"));
   }
 
   if (normalizeAppUserRole(user.role) !== "admin") {
