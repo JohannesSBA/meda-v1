@@ -110,6 +110,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
           setUserSearch={data.setUserSearch}
           onSearch={data.loadAdminUsers}
           onSetRole={data.handleSetRole}
+          onPromotePitchOwner={data.handlePromotePitchOwner}
           onBanToggle={data.handleBanToggle}
           onRetry={data.loadAdminUsers}
         />

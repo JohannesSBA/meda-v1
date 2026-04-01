@@ -222,7 +222,7 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
   const handleSetRole = useCallback(
     async (
       targetUserId: string,
-      role: "admin" | "user" | "pitch_owner",
+      role: "admin" | "user",
     ) => {
       try {
         await browserApi.patch(`/api/admin/users/${targetUserId}/role`, { role });
@@ -230,6 +230,19 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
         await loadAdminUsers();
       } catch (error) {
         toast.error(getErrorMessage(error) || "Role update failed");
+      }
+    },
+    [loadAdminUsers],
+  );
+
+  const handlePromotePitchOwner = useCallback(
+    async (targetUserId: string) => {
+      try {
+        await browserApi.post("/api/admin/pitch-owners", { userId: targetUserId });
+        toast.success("Host access granted");
+        await loadAdminUsers();
+      } catch (error) {
+        toast.error(getErrorMessage(error) || "Failed to grant host access");
       }
     },
     [loadAdminUsers],
@@ -538,6 +551,7 @@ export function useProfileAdminData(isAdmin: boolean, adminTab: AdminTab) {
     savingEvent,
     adminUserNameById,
     handleSetRole,
+    handlePromotePitchOwner,
     handleBanToggle,
     handleDeleteEvent,
     startEditEvent,

@@ -21,8 +21,9 @@ type AdminUsersTabProps = {
   onSearch: () => void;
   onSetRole: (
     userId: string,
-    role: "admin" | "user" | "pitch_owner",
+    role: "admin" | "user",
   ) => void;
+  onPromotePitchOwner: (userId: string) => void;
   onBanToggle: (userId: string, banned: boolean) => void;
   onRetry?: () => void;
 };
@@ -35,6 +36,7 @@ export function AdminUsersTab({
   setUserSearch,
   onSearch,
   onSetRole,
+  onPromotePitchOwner,
   onBanToggle,
   onRetry,
 }: AdminUsersTabProps) {
@@ -46,7 +48,12 @@ export function AdminUsersTab({
       className="space-y-4 rounded-2xl border border-white/10 bg-[#0c1d2e]/80 p-4 sm:p-5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold text-white">User administration</h2>
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-white">User administration</h2>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Auth role changes here only toggle admin access. Host access is granted separately.
+          </p>
+        </div>
         <div className="flex gap-2">
           <Input
             value={userSearch}
@@ -92,6 +99,7 @@ export function AdminUsersTab({
                       <UserRowActions
                         row={row}
                         onSetRole={onSetRole}
+                        onPromotePitchOwner={onPromotePitchOwner}
                         onBanToggle={onBanToggle}
                       />
                     </td>
@@ -114,7 +122,12 @@ export function AdminUsersTab({
                 <p>Status: {row.banned ? "Banned" : "Active"}</p>
               </div>
               <div className="mt-4">
-                <UserRowActions row={row} onSetRole={onSetRole} onBanToggle={onBanToggle} />
+                <UserRowActions
+                  row={row}
+                  onSetRole={onSetRole}
+                  onPromotePitchOwner={onPromotePitchOwner}
+                  onBanToggle={onBanToggle}
+                />
               </div>
             </div>
           ))}
@@ -127,10 +140,12 @@ export function AdminUsersTab({
 function UserRowActions({
   row,
   onSetRole,
+  onPromotePitchOwner,
   onBanToggle,
 }: {
   row: AdminUserRow;
-  onSetRole: (userId: string, role: "admin" | "user" | "pitch_owner") => void;
+  onSetRole: (userId: string, role: "admin" | "user") => void;
+  onPromotePitchOwner: (userId: string) => void;
   onBanToggle: (userId: string, banned: boolean) => void;
 }) {
   return (
@@ -150,9 +165,9 @@ function UserRowActions({
           type="button"
           size="sm"
           variant="secondary"
-          onClick={() => void onSetRole(row.id, "pitch_owner")}
+          onClick={() => void onPromotePitchOwner(row.id)}
         >
-          Make pitch owner
+          Grant host access
         </Button>
       ) : null}
       <Button

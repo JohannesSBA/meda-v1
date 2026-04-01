@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { callNeonAdminPost } from "@/lib/auth/neonAdmin";
 import { requireAdminUser } from "@/lib/auth/guards";
 import {
+  isAllowedAdminRoleTransition,
+  type AdminMutableAuthRole,
+} from "@/lib/auth/adminRoleTransitions";
+import { getAdminUserFromStore } from "@/lib/auth/adminUserStore";
+import {
   parseJsonBody,
   parseParams,
   validationErrorResponse,
 } from "@/lib/validations/http";
 import { adminRoleUpdateSchema, adminUserIdParamSchema } from "@/lib/validations/admin";
-import { ensurePitchOwnerProfile } from "@/services/pitchOwner";
 
 export async function PATCH(
   request: Request,
@@ -26,18 +30,21 @@ export async function PATCH(
     return validationErrorResponse(bodyParse.error, "Invalid role payload");
   }
 
+  const targetUser = await getAdminUserFromStore(paramParse.data.userId);
+  if (!targetUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
 
-  if (bodyParse.data.role === "pitch_owner") {
-    try {
-      await ensurePitchOwnerProfile({ userId: paramParse.data.userId });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to prepare pitch owner profile";
-      return NextResponse.json(
-        { error: message },
-        { status: message === "User not found" ? 404 : 400 },
-      );
-    }
+  const currentRole: AdminMutableAuthRole =
+    targetUser.authRole === "admin" ? "admin" : "user";
+
+  if (!isAllowedAdminRoleTransition(currentRole, bodyParse.data.role)) {
+    return NextResponse.json(
+      {
+        error: `Transition ${currentRole} -> ${bodyParse.data.role} is not allowed`,
+      },
+      { status: 400 },
+    );
   }
 
   const result = await callNeonAdminPost(request, "admin/set-role", {
