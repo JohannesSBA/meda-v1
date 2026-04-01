@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_ROLE_TRANSITION_POLICY_NOTE,
   isAllowedAdminRoleTransition,
+  isAllowedAdminRoleTransitionFromStoredRole,
 } from "@/lib/auth/adminRoleTransitions";
 
 describe("admin role transitions", () => {
@@ -15,5 +16,17 @@ describe("admin role transitions", () => {
     expect(isAllowedAdminRoleTransition("admin", "user")).toBe(true);
     expect(isAllowedAdminRoleTransition("user", "user")).toBe(false);
     expect(isAllowedAdminRoleTransition("admin", "admin")).toBe(false);
+  });
+
+  it("allows legacy stored roles to normalize to user only", () => {
+    expect(
+      isAllowedAdminRoleTransitionFromStoredRole("pitch_owner", "user"),
+    ).toBe(true);
+    expect(
+      isAllowedAdminRoleTransitionFromStoredRole("facilitator", "user"),
+    ).toBe(true);
+    expect(
+      isAllowedAdminRoleTransitionFromStoredRole("pitch_owner", "admin"),
+    ).toBe(false);
   });
 });

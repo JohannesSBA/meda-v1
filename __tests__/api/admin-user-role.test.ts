@@ -116,4 +116,24 @@ describe("PATCH /api/admin/users/[userId]/role", () => {
     expect(body.error).toMatch(/not allowed/i);
     expect(callNeonAdminPostMock).not.toHaveBeenCalled();
   });
+
+  it("allows legacy auth roles to normalize back to user", async () => {
+    getAdminUserFromStoreMock.mockResolvedValue({
+      id: "11111111-1111-1111-1111-111111111111",
+      authRole: "pitch_owner",
+    });
+
+    const PATCH = await importHandler();
+    const res = await PATCH(makeRequest("user"), { params });
+
+    expect(res.status).toBe(200);
+    expect(callNeonAdminPostMock).toHaveBeenCalledWith(
+      expect.any(Request),
+      "admin/set-role",
+      {
+        userId: "11111111-1111-1111-1111-111111111111",
+        role: "user",
+      },
+    );
+  });
 });

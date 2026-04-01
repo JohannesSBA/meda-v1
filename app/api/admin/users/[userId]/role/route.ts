@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { callNeonAdminPost } from "@/lib/auth/neonAdmin";
 import { requireAdminUser } from "@/lib/auth/guards";
 import {
-  isAllowedAdminRoleTransition,
-  type AdminMutableAuthRole,
+  isAllowedAdminRoleTransitionFromStoredRole,
 } from "@/lib/auth/adminRoleTransitions";
 import { getAdminUserFromStore } from "@/lib/auth/adminUserStore";
 import {
@@ -35,13 +34,17 @@ export async function PATCH(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const currentRole: AdminMutableAuthRole =
-    targetUser.authRole === "admin" ? "admin" : "user";
-
-  if (!isAllowedAdminRoleTransition(currentRole, bodyParse.data.role)) {
+  const currentStoredRole = targetUser.authRole;
+  const effectiveCurrentRole = currentStoredRole ?? "unknown";
+  if (
+    !isAllowedAdminRoleTransitionFromStoredRole(
+      currentStoredRole,
+      bodyParse.data.role,
+    )
+  ) {
     return NextResponse.json(
       {
-        error: `Transition ${currentRole} -> ${bodyParse.data.role} is not allowed`,
+        error: `Transition ${effectiveCurrentRole} -> ${bodyParse.data.role} is not allowed`,
       },
       { status: 400 },
     );
