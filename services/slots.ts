@@ -629,7 +629,24 @@ export async function getPublicSlotById(slotId: string) {
     throw new Error("Slot not found");
   }
 
-  return serializeSlot(slot as SlotRecord);
+  const serialized = serializeSlot(slot as SlotRecord);
+  const trust = await prisma.hostTrustMetrics.findUnique({
+    where: { hostId: slot.pitch.ownerId },
+    select: {
+      avgRating: true,
+      reviewCount: true,
+      trustBadge: true,
+    },
+  });
+
+  if (!trust) return serialized;
+
+  return {
+    ...serialized,
+    hostAverageRating: Number(trust.avgRating),
+    hostReviewCount: trust.reviewCount,
+    hostTrustBadge: trust.trustBadge,
+  };
 }
 
 export async function createSlot(args: {

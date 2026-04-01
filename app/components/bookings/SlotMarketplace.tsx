@@ -696,6 +696,15 @@ export function SlotMarketplace() {
                             Choose a day, then pick a 2-hour time
                           </span>
                           <div className="flex flex-wrap gap-2">
+                            {selectedOfferSlot ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => router.push(`/play/slots/${selectedOfferSlot.id}`)}
+                              >
+                                Book this pitch
+                              </Button>
+                            ) : null}
                             {buildGoogleMapsUrl({
                               addressLabel: offer.addressLabel,
                               latitude: offer.latitude,
@@ -897,182 +906,17 @@ export function SlotMarketplace() {
                   </p>
                 ) : null}
               </div>
-
-              {selectedSlot.productType === "DAILY" ? (
-                <>
-                  <label className="block">
-                    <span className="field-label">How many spots do you want?</span>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={String(Math.max(1, selectedSlot.remainingCapacity))}
-                      value={quantity}
-                      onChange={(event) => setQuantity(event.target.value)}
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="field-label">How do you want to pay?</span>
-                    <Select
-                      value={paymentMethod}
-                      onChange={(event) =>
-                        setPaymentMethod(event.target.value as "balance" | "chapa")
-                      }
-                    >
-                      <option value="chapa">Chapa</option>
-                      <option value="balance">Meda balance</option>
-                    </Select>
-                  </label>
-
-                  {dailyPreview ? (
-                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-3 sm:p-4 text-sm text-[var(--color-text-secondary)]">
-                      <p className="font-semibold text-[var(--color-text-primary)]">
-                        Price breakdown
-                      </p>
-                      <div className="mt-3 grid gap-2">
-                        <p>
-                          Ticket price{" "}
-                          {formatCurrency(dailyPreview.ticketSubtotalEtb, selectedSlot.currency)}
-                        </p>
-                        <p>
-                          Platform fee{" "}
-                          {formatCurrency(dailyPreview.surchargeTotalEtb, selectedSlot.currency)}
-                        </p>
-                        <p className="font-semibold text-[var(--color-text-primary)]">
-                          Total now{" "}
-                          {formatCurrency(dailyPreview.totalAmountEtb, selectedSlot.currency)}
-                        </p>
-                      </div>
-                      <p className="mt-3 text-xs leading-6 text-[var(--color-text-muted)]">
-                        The ETB 15 fee per ticket stays with Meda&apos;s Chapa account and does not
-                        go to the host.
-                      </p>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <label className="block">
-                    <span className="field-label">Use an existing group</span>
-                    <Select
-                      value={selectedGroupId}
-                      onChange={(event) => setSelectedGroupId(event.target.value)}
-                    >
-                      <option value="">Start a new group</option>
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name ?? `Group ${group.id.slice(0, 8)}`} ({group.members.length}{" "}
-                          members)
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-
-                  {!selectedGroupId ? (
-                    <>
-                      <label className="block">
-                        <span className="field-label">Group name</span>
-                        <Input
-                          value={groupName}
-                          onChange={(event) => setGroupName(event.target.value)}
-                          placeholder="Friday monthly squad"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="field-label">Player emails</span>
-                        <Textarea
-                          rows={5}
-                          value={memberEmails}
-                          onChange={(event) => setMemberEmails(event.target.value)}
-                          placeholder="friend1@example.com, friend2@example.com"
-                        />
-                        <p className="mt-2 text-xs leading-6 text-[var(--color-text-muted)]">
-                          Add emails only for people who should get their own Meda account and pay
-                          their own share. If you are bringing a child or dependent under your own
-                          account, add them later in Tickets by saving just their name.
-                        </p>
-                      </label>
-                    </>
-                  ) : (
-                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-3 sm:p-4 text-sm text-[var(--color-text-secondary)]">
-                      <p>
-                        This group is already saved. The payment will split across those members,
-                        and the total will still cover the whole pitch.
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {selectedGroup?.members.map((member) => (
-                          <Badge key={member.id} variant="default">
-                            {member.displayName}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {monthlyPreview ? (
-                <div className="rounded-[var(--radius-md)] border border-[rgba(125,211,252,0.22)] bg-[var(--color-accent-soft)] p-3 sm:p-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="accent">Monthly group preview</Badge>
-                    <Badge variant="default">{monthlyPreview.memberCount} members</Badge>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <p>
-                      Ticket price{" "}
-                      {formatCurrency(monthlyPreview.ticketSubtotal, selectedSlot.currency)}
-                    </p>
-                    <p>
-                      Platform fee{" "}
-                      {formatCurrency(monthlyPreview.surchargeTotal, selectedSlot.currency)}
-                    </p>
-                    <p>
-                      Total booking{" "}
-                      {formatCurrency(monthlyPreview.totalAmount, selectedSlot.currency)}
-                    </p>
-                    <p>
-                      Organizer pays{" "}
-                      {formatCurrency(monthlyPreview.organizerAmount, selectedSlot.currency)}
-                    </p>
-                    <p>
-                      Each added member pays{" "}
-                      {formatCurrency(monthlyPreview.perAddedMemberAmount, selectedSlot.currency)}
-                    </p>
-                    <p>The full pitch is reserved for this group for the whole 2-hour booking.</p>
-                    <p className="text-xs leading-6 text-[var(--color-text-muted)]">
-                      Each added member pays one full player share, which is ticket price plus the
-                      ETB 15 platform fee.
-                    </p>
-                    {monthlyPreview.isTooLarge ? (
-                      <p className="font-semibold text-[var(--color-danger)]">
-                        This group is larger than the pitch capacity.
-                      </p>
-                    ) : null}
-                    <p>Group payment deadline {monthlyPreview.deadlineLabel}</p>
-                  </div>
-                </div>
-              ) : null}
-
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Group setup and checkout now happen on a dedicated step-by-step booking page.
+              </p>
               <Button
                 type="button"
                 variant="primary"
                 className="w-full"
-                disabled={submitting || Boolean(monthlyPreview?.isTooLarge)}
-                onClick={() => void handleSubmitBooking()}
+                onClick={() => router.push(`/play/slots/${selectedSlot.id}`)}
               >
-                {submitting
-                  ? "Processing..."
-                  : selectedSlot.productType === "MONTHLY"
-                    ? "Create group booking"
-                    : "Book this time"}
+                Continue to booking steps
               </Button>
-
-              <p className="text-xs leading-6 text-[var(--color-text-muted)]">
-                Single visits create one ticket per spot. Monthly group bookings reserve the whole
-                pitch and create a one-hour group payment window before they become active. If one
-                of the tickets is for your child or another dependent, you can keep that ticket
-                under your own account later by saving their name without adding an email.
-              </p>
             </div>
           )}
         </Card>
@@ -1083,11 +927,10 @@ export function SlotMarketplace() {
             type="button"
             className="h-12 w-full rounded-full"
             onClick={() => {
-              const target = document.getElementById("booking-checkout");
-              target?.scrollIntoView({ behavior: "smooth", block: "start" });
+              router.push(`/play/slots/${selectedSlot.id}`);
             }}
           >
-            Continue booking · {selectedSlotSummaryLabel}
+            Continue to booking steps · {selectedSlotSummaryLabel}
           </Button>
         </div>
       ) : null}
