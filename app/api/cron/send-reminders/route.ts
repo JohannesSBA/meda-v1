@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { resolveEventLocation } from "@/lib/location";
-import { sendEventReminderEmail } from "@/services/email";
+import { sendEventReminderEmail, sendHostReviewReminderEmail } from "@/services/email";
 import { logger } from "@/lib/logger";
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
 
@@ -10,6 +10,8 @@ const REMINDER_WINDOWS = [
   { hours: 24, label: "24h" },
   { hours: 1, label: "1h" },
 ] as const;
+
+const REVIEW_REMINDER_WINDOW = { hoursAfterEnd: 24, label: "review_24h" } as const;
 
 async function getAlreadySent(
   eventIds: string[],
@@ -132,6 +134,107 @@ export async function GET(request: Request) {
           sent++;
         } else {
           logger.error("Reminder batch item failed", result.reason);
+          errors++;
+        }
+      }
+    }
+  }
+
+  {
+    const now = new Date();
+    const windowStart = new Date(
+      now.getTime() - (REVIEW_REMINDER_WINDOW.hoursAfterEnd + 0.5) * 60 * 60 * 1000,
+    );
+    const windowEnd = new Date(
+      now.getTime() - (REVIEW_REMINDER_WINDOW.hoursAfterEnd - 0.5) * 60 * 60 * 1000,
+    );
+
+    const events = await prisma.event.findMany({
+      where: {
+        eventEndtime: {
+          gte: windowStart,
+          lte: windowEnd,
+        },
+      },
+      include: {
+        attendees: {
+          where: {
+            ticketScan: {
+              isNot: null,
+            },
+          },
+          select: { userId: true },
+        },
+      },
+    });
+
+    const eventIds = events.map((event) => event.eventId);
+    const allUserIds = [
+      ...new Set(events.flatMap((event) => event.attendees.map((attendee) => attendee.userId))),
+    ];
+    const userMap = await getAuthUserEmails(allUserIds);
+    const alreadySent = await getAlreadySent(eventIds, allUserIds, REVIEW_REMINDER_WINDOW.label);
+
+    const existingReviews = eventIds.length
+      ? await prisma.hostReview.findMany({
+          where: {
+            eventId: { in: eventIds },
+            reviewerId: { in: allUserIds },
+          },
+          select: { eventId: true, reviewerId: true },
+        })
+      : [];
+    const reviewedSet = new Set(
+      existingReviews.map((review) => `${review.eventId}:${review.reviewerId}`),
+    );
+
+    const BATCH_SIZE = 10;
+    const tasks: Array<{
+      event: typeof events[number];
+      userId: string;
+      locationLabel: string | null;
+    }> = [];
+
+    for (const event of events) {
+      const location = resolveEventLocation(event);
+      for (const attendee of event.attendees) {
+        const key = `${event.eventId}:${attendee.userId}`;
+        if (alreadySent.has(key) || reviewedSet.has(key)) continue;
+        const authUser = userMap.get(attendee.userId);
+        if (!authUser?.email) continue;
+        tasks.push({
+          event,
+          userId: attendee.userId,
+          locationLabel: location.addressLabel,
+        });
+      }
+    }
+
+    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+      const batch = tasks.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async ({ event, userId, locationLabel }) => {
+          const authUser = userMap.get(userId)!;
+          const reviewUrl = `${baseUrl}/events/${event.eventId}`;
+          await sendHostReviewReminderEmail({
+            to: authUser.email!,
+            attendeeName: authUser.name,
+            eventName: event.eventName,
+            eventDateTime: event.eventDatetime,
+            eventEndTime: event.eventEndtime,
+            locationLabel,
+            reviewUrl,
+          });
+          await logReminderSent(event.eventId, userId, REVIEW_REMINDER_WINDOW.label);
+          return { eventId: event.eventId, userId };
+        }),
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          sent++;
+        } else {
+          logger.error("Review reminder batch item failed", result.reason);
           errors++;
         }
       }
