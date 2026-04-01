@@ -8,6 +8,7 @@ import { InvitationStatus } from "@/generated/prisma/client";
 import { MAX_TICKETS_PER_USER_PER_EVENT } from "@/lib/constants";
 import { resolveEventLocation } from "@/lib/location";
 import { prisma } from "@/lib/prisma";
+import { getAuthUserEmails } from "@/lib/auth/userLookup";
 import { generateShareToken, hashShareToken } from "@/lib/tickets/shareTokens";
 
 type CreateShareLinkPayload = {
@@ -148,6 +149,13 @@ export async function getShareLinkDetails(token: string) {
   const status = isTimeExpired ? InvitationStatus.Expired : invitation.status;
   const remainingClaims = Math.max(0, invitation.maxClaims - invitation.claimedCount);
   const location = resolveEventLocation(invitation.event);
+  const claimStats = await prisma.invitationClaim.groupBy({
+    by: ["claimedByUserId"],
+    where: { invitationId: invitation.invitationId },
+    _count: { _all: true },
+  });
+  const claimantIds = claimStats.map((entry) => entry.claimedByUserId);
+  const claimants = claimantIds.length ? await getAuthUserEmails(claimantIds) : new Map();
 
   return {
     invitationId: invitation.invitationId,
@@ -155,6 +163,11 @@ export async function getShareLinkDetails(token: string) {
     remainingClaims,
     maxClaims: invitation.maxClaims,
     claimedCount: invitation.claimedCount,
+    claimsByUser: claimStats.map((entry) => ({
+      userId: entry.claimedByUserId,
+      email: claimants.get(entry.claimedByUserId)?.email ?? null,
+      claimCount: entry._count._all,
+    })),
     event: {
       eventId: invitation.event.eventId,
       eventName: invitation.event.eventName,
@@ -207,18 +220,6 @@ export async function claimShareLink({
       throw new Error("No tickets left to claim on this link");
     }
 
-    const alreadyClaimed = await tx.invitationClaim.findUnique({
-      where: {
-        invitationId_claimedByUserId: {
-          invitationId: invitation.invitationId,
-          claimedByUserId: claimantUserId,
-        },
-      },
-    });
-    if (alreadyClaimed) {
-      throw new Error("You already claimed a ticket from this link");
-    }
-
     const claimantTicketCount = await tx.eventAttendee.count({
       where: {
         eventId: invitation.eventId,
@@ -227,7 +228,7 @@ export async function claimShareLink({
     });
     if (claimantTicketCount >= MAX_TICKETS_PER_USER_PER_EVENT) {
       throw new Error(
-        `You can hold at most ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
+        `You already hold ${MAX_TICKETS_PER_USER_PER_EVENT} tickets for this event`,
       );
     }
 

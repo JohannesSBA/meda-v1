@@ -248,7 +248,7 @@ model InvitationClaim {
   // Relations
   invitation Invitation @relation(fields: [invitationId], references: [invitationId], onDelete: Cascade)
 
-  @@unique([invitationId, claimedByUserId])
+  @@index([invitationId, claimedByUserId])
   @@map("invitation_claims")
 }
 
@@ -312,6 +312,7 @@ model Pitch {
   ownerId      String   @map("owner_id") @db.Uuid
   name         String   @db.VarChar(120)
   description  String?  @db.Text
+  pictureUrl   String?  @map("picture_url") @db.VarChar(255)
   addressLabel String?  @map("address_label") @db.VarChar(255)
   latitude     Float?
   longitude    Float?

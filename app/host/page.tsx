@@ -368,6 +368,17 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           </>
         ) : null}
       </Stack>
+      <Link
+        href={`${appRoutes.host}?view=places`}
+        className={cn(
+          buttonVariants("primary", "lg"),
+          "fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full p-0 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
+        )}
+        aria-label="Create new place or booking"
+        title="Create new place or booking"
+      >
+        +
+      </Link>
     </PageShell>
   );
 }

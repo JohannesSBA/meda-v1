@@ -39,6 +39,7 @@ type SlotRecord = {
     id: string;
     ownerId: string;
     name: string;
+    pictureUrl: string | null;
     addressLabel: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -77,6 +78,7 @@ type OwnerSlotRecord = {
     id: string;
     ownerId: string;
     name: string;
+    pictureUrl: string | null;
     addressLabel: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -159,6 +161,7 @@ function serializeSlot(slot: SlotRecord) {
     id: slot.id,
     pitchId: slot.pitchId,
     pitchName: slot.pitch.name,
+    pitchImageUrl: slot.pitch.pictureUrl ?? null,
     addressLabel: slot.pitch.addressLabel ?? null,
     latitude: slot.pitch.latitude ?? null,
     longitude: slot.pitch.longitude ?? null,
@@ -363,6 +366,7 @@ export async function listOwnerSlots(args: {
           id: true,
           ownerId: true,
           name: true,
+          pictureUrl: true,
           addressLabel: true,
           latitude: true,
           longitude: true,
@@ -435,6 +439,7 @@ export async function listPublicSlots(args: {
           id: true,
           ownerId: true,
           name: true,
+          pictureUrl: true,
           addressLabel: true,
           latitude: true,
           longitude: true,
@@ -521,6 +526,7 @@ export async function getSlotByIdForOwner(ownerId: string, slotId: string) {
           id: true,
           ownerId: true,
           name: true,
+          pictureUrl: true,
           addressLabel: true,
           latitude: true,
           longitude: true,
@@ -590,6 +596,7 @@ export async function getPublicSlotById(slotId: string) {
           id: true,
           ownerId: true,
           name: true,
+          pictureUrl: true,
           addressLabel: true,
           latitude: true,
           longitude: true,

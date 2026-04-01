@@ -11,6 +11,7 @@ type PitchRecord = {
   ownerId: string;
   name: string;
   description: string | null;
+  pictureUrl: string | null;
   addressLabel: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -40,6 +41,7 @@ function serializePitch(pitch: PitchRecord) {
     ownerId: pitch.ownerId,
     name: pitch.name,
     description: pitch.description ?? null,
+    pictureUrl: pitch.pictureUrl ?? null,
     addressLabel: pitch.addressLabel ?? null,
     latitude: pitch.latitude ?? null,
     longitude: pitch.longitude ?? null,
@@ -120,6 +122,7 @@ export async function createPitch(args: {
   ownerId: string;
   name: string;
   description?: string | null;
+  pictureUrl?: string | null;
   addressLabel?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -132,6 +135,7 @@ export async function createPitch(args: {
       ownerId: args.ownerId,
       name: args.name.trim(),
       description: args.description ?? null,
+      pictureUrl: args.pictureUrl ?? null,
       addressLabel: args.addressLabel ?? null,
       latitude: args.latitude ?? null,
       longitude: args.longitude ?? null,
@@ -178,6 +182,7 @@ export async function updatePitch(args: {
   pitchId: string;
   name?: string;
   description?: string | null;
+  pictureUrl?: string | null;
   addressLabel?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -209,6 +214,7 @@ export async function updatePitch(args: {
     data: {
       name: args.name?.trim(),
       description: args.description,
+      pictureUrl: args.pictureUrl,
       addressLabel: args.addressLabel,
       latitude: args.latitude,
       longitude: args.longitude,

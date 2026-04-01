@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { getErrorMessage } from "@/lib/errorMessage";
 type SlotPayload = {
   id: string;
   pitchName: string;
+  pitchImageUrl: string | null;
   addressLabel: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -91,6 +93,9 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
 
       <Card className="overflow-hidden p-0">
         <div className="relative h-44 bg-[radial-gradient(circle_at_20%_20%,rgba(125,211,252,0.28),transparent_35%),linear-gradient(135deg,#102033,#0b1724)]">
+          {slot.pitchImageUrl ? (
+            <Image src={slot.pitchImageUrl} alt={slot.pitchName} fill className="object-cover" />
+          ) : null}
           <div className="absolute inset-0 bg-gradient-to-t from-[rgba(6,17,27,0.82)] to-transparent" />
           <div className="absolute bottom-3 left-3 right-3">
             <p className="text-lg font-semibold text-white">{slot.pitchName}</p>
