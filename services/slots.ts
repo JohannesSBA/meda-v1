@@ -185,6 +185,9 @@ function serializeSlot(slot: SlotRecord) {
     utilization:
       slot.capacity > 0 ? Number((soldQuantity / slot.capacity).toFixed(4)) : 0,
     revenueSummaryEtb,
+    hostAverageRating: 0,
+    hostReviewCount: 0,
+    hostTrustBadge: "NEW_HOST",
   };
 }
 
@@ -468,7 +471,40 @@ export async function listPublicSlots(args: {
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
   });
 
-  return slots.map((slot) => serializeSlot(slot as SlotRecord));
+  const ownerIds = [...new Set(slots.map((slot) => slot.pitch.ownerId))];
+  const trustMetrics = ownerIds.length
+    ? await prisma.hostTrustMetrics.findMany({
+        where: { hostId: { in: ownerIds } },
+        select: {
+          hostId: true,
+          avgRating: true,
+          reviewCount: true,
+          trustBadge: true,
+        },
+      })
+    : [];
+  const trustByOwner = new Map(
+    trustMetrics.map((item) => [
+      item.hostId,
+      {
+        avgRating: Number(item.avgRating),
+        reviewCount: item.reviewCount,
+        trustBadge: item.trustBadge,
+      },
+    ]),
+  );
+
+  return slots.map((slot) => {
+    const serialized = serializeSlot(slot as SlotRecord);
+    const trust = trustByOwner.get(slot.pitch.ownerId);
+    if (!trust) return serialized;
+    return {
+      ...serialized,
+      hostAverageRating: trust.avgRating,
+      hostReviewCount: trust.reviewCount,
+      hostTrustBadge: trust.trustBadge,
+    };
+  });
 }
 
 export async function getSlotByIdForOwner(ownerId: string, slotId: string) {

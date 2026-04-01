@@ -43,6 +43,9 @@ type SlotSummary = {
   bookingCount: number;
   soldQuantity: number;
   remainingCapacity: number;
+  hostAverageRating: number;
+  hostReviewCount: number;
+  hostTrustBadge: string;
 };
 
 type PartySummary = {
@@ -219,6 +222,11 @@ function getOfferPriceLabel(
   return `${formatCurrency(pricing.totalAmountEtb, offer.currency)} per spot`;
 }
 
+function renderStars(rating: number) {
+  const rounded = Math.max(0, Math.min(5, Math.round(rating)));
+  return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
+}
+
 function getOfferNextAvailableLabel(offer: Pick<SlotOffer, "slots">) {
   const nextSlot = [...offer.slots].sort(
     (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
@@ -275,6 +283,9 @@ export function SlotMarketplace() {
     filteredSlots.find((slot) => slot.id === selectedSlotId) ??
     discoverableSlots.find((slot) => slot.id === selectedSlotId) ??
     null;
+  const selectedSlotSummaryLabel = selectedSlot
+    ? `${selectedSlot.pitchName} · ${new Date(selectedSlot.startsAt).toLocaleDateString()}`
+    : null;
   const selectedOffer =
     offerCards.find((offer) => offer.slots.some((slot) => slot.id === selectedSlotId)) ??
     offerCards[0] ??
@@ -582,7 +593,7 @@ export function SlotMarketplace() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-sm text-[var(--color-text-secondary)]">
+          <div className="hidden flex-wrap gap-2 text-sm text-[var(--color-text-secondary)] sm:flex">
             <StepChip index={1} label="Choose a place" active />
             <StepChip index={2} label="Choose a day" active={Boolean(selectedOffer)} />
             <StepChip index={3} label="Pick a 2-hour time" active={Boolean(selectedSlot)} />
@@ -636,6 +647,15 @@ export function SlotMarketplace() {
                           <div className="space-y-1">
                             <p className="text-lg font-semibold text-[var(--color-text-primary)]">
                               {offer.pitchName}
+                            </p>
+                            <p className="text-sm text-[var(--color-text-secondary)]">
+                              {renderStars(selectedOfferSlot?.hostAverageRating ?? 0)}{" "}
+                              {(selectedOfferSlot?.hostAverageRating ?? 0).toFixed(1)} ·{" "}
+                              {(selectedOfferSlot?.hostReviewCount ?? 0) > 0
+                                ? `${selectedOfferSlot?.hostReviewCount ?? 0} review${
+                                    (selectedOfferSlot?.hostReviewCount ?? 0) === 1 ? "" : "s"
+                                  }`
+                                : "No reviews yet"}
                             </p>
                             <p className="text-sm text-[var(--color-text-secondary)]">
                               {offer.slots.length} open 2-hour time
@@ -771,7 +791,7 @@ export function SlotMarketplace() {
           )}
         </Card>
 
-        <Card className="space-y-4 p-3 sm:p-6 xl:sticky xl:top-[calc(var(--header-height)+24px)]">
+        <Card id="booking-checkout" className="space-y-4 p-3 sm:p-6 xl:sticky xl:top-[calc(var(--header-height)+24px)]">
           <div className="space-y-2">
             <p className="heading-kicker">Next step</p>
             <h2 className="section-title">
@@ -1057,6 +1077,20 @@ export function SlotMarketplace() {
           )}
         </Card>
       </div>
+      {selectedSlot ? (
+        <div className="fixed inset-x-0 bottom-3 z-40 px-3 sm:hidden">
+          <Button
+            type="button"
+            className="h-12 w-full rounded-full"
+            onClick={() => {
+              const target = document.getElementById("booking-checkout");
+              target?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          >
+            Continue booking · {selectedSlotSummaryLabel}
+          </Button>
+        </div>
+      ) : null}
       {isMapOpen
         ? (
           <OverlayPortal>

@@ -416,8 +416,8 @@ export function TicketsHubWorkspace() {
     <div className="space-y-8">
       <AppPageHeader
         kicker={uiCopy.nav.tickets}
-        title="Everything you booked or joined lives in one timeline."
-        description="See what needs your attention first, what is coming up next, and what is already finished, without bouncing between separate booking and ticket pages."
+        title="Your tickets in one place."
+        description="Start with needs action, then check what is coming up."
         primaryAction={
           <Link
             href="/play"
@@ -459,15 +459,17 @@ export function TicketsHubWorkspace() {
         />
       ) : null}
 
-      <InlineStatusBanner
-        title="Families can keep extra tickets under one account."
-        description="For a child or dependent, save the player name and leave the email blank. Use an email or claim link only when that person should sign in and hold their own ticket."
-        tone="info"
-      />
+      {playerNameItems.length > 0 ? (
+        <InlineStatusBanner
+          title="Tip for family/dependent tickets"
+          description="Save only a player name when the ticket should stay under your account."
+          tone="info"
+        />
+      ) : null}
 
       <TicketsSection
         title="Needs action"
-        description="Do these first so your tickets and group bookings stay on track."
+        description="Handle these first."
         items={hub?.sections.needsAction ?? []}
         emptyMessage="Nothing needs your attention right now."
         expandedBookings={expandedBookings}
@@ -495,7 +497,7 @@ export function TicketsHubWorkspace() {
 
       <TicketsSection
         title="Up next"
-        description="These are ready for your next game."
+        description="Ready for your next game."
         items={hub?.sections.upNext ?? []}
         emptyMessage={allItems.length === 0 ? "You do not have any tickets yet." : "Nothing upcoming right now."}
         expandedBookings={expandedBookings}
@@ -523,7 +525,7 @@ export function TicketsHubWorkspace() {
 
       <TicketsSection
         title="Past"
-        description="Your finished matches and bookings stay here for reference."
+        description="Completed bookings and matches."
         items={hub?.sections.past ?? []}
         emptyMessage="No past tickets yet."
         expandedBookings={expandedBookings}
