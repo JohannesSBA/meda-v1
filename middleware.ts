@@ -5,7 +5,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 import { getRequiredEnv, isE2EAuthBypassEnabled } from "@/lib/env";
-import { AUTH_PROTECTED_MATCHER, isAuthProtectedPath } from "@/lib/auth/protected-routes";
+import { isAuthProtectedPath } from "@/lib/auth/protected-routes";
 
 const auth = createNeonAuth({
   baseUrl: getRequiredEnv("NEON_AUTH_BASE_URL"),
@@ -46,5 +46,14 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: AUTH_PROTECTED_MATCHER,
+  // Keep matcher entries as literals so Next.js can statically analyze middleware scope.
+  matcher: [
+    "/account/:path*",
+    "/profile",
+    "/profile/:path*",
+    "/create-events",
+    "/create-events/:path*",
+    "/admin",
+    "/admin/:path*",
+  ],
 };
