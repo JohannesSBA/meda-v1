@@ -10,17 +10,14 @@ import { Card } from "@/app/components/ui/card";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { normalizeAppUserRole, type SessionUser } from "@/lib/auth/roles";
 import { auth } from "@/lib/auth/server";
+import { buildSignInRedirect } from "@/lib/auth/protected-routes";
 import { getAccountWorkspaceOverview } from "@/services/accountOverview";
 
 const knownAccountPaths = new Set(Object.values(accountViewPaths));
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage({
-  params,
-}: {
-  params: Promise<{ path: string }>;
-}) {
+export default async function AccountPage({ params }: { params: Promise<{ path: string }> }) {
   const { path } = await params;
 
   if (!knownAccountPaths.has(path as (typeof accountViewPaths)[keyof typeof accountViewPaths])) {
@@ -33,7 +30,7 @@ export default async function AccountPage({
     const rawUser = (data?.user ?? null) as SessionUser | null;
 
     if (!rawUser) {
-      redirect(`/auth/sign-in?redirect=/account/${path}`);
+      redirect(buildSignInRedirect(`/account/${path}`));
     }
 
     const overview = await getAccountWorkspaceOverview({
@@ -43,10 +40,7 @@ export default async function AccountPage({
 
     return (
       <PageShell containerClassName="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <AccountWorkspace
-          section={section}
-          overview={overview}
-        />
+        <AccountWorkspace section={section} overview={overview} />
       </PageShell>
     );
   }

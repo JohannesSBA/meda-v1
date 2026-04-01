@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth/server";
 import { canCreateEvent } from "@/lib/auth/roles";
+import { buildSignInRedirect } from "@/lib/auth/protected-routes";
 import { prisma } from "@/lib/prisma";
 import CreateEventForm from "../components/CreateEventForm";
 import { PageShell } from "../components/ui/page-shell";
@@ -24,7 +25,7 @@ export default async function CreateEventsPage() {
   const { data } = await auth.getSession();
   const user = (data?.user as { id?: string; role?: string | null } | null) ?? null;
   if (!user?.id) {
-    redirect("/auth/sign-in?redirect=%2Fcreate-events");
+    redirect(buildSignInRedirect("/create-events"));
   }
   if (!canCreateEvent(user)) {
     redirect("/profile");
@@ -45,10 +46,7 @@ export default async function CreateEventsPage() {
 
   const payoutReady =
     user.role !== "pitch_owner" ||
-    Boolean(
-      payoutProfile?.chapaSubaccountId &&
-        payoutProfile.payoutSetupVerifiedAt,
-    );
+    Boolean(payoutProfile?.chapaSubaccountId && payoutProfile.payoutSetupVerifiedAt);
 
   return (
     <PageShell containerClassName="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -83,13 +81,18 @@ export default async function CreateEventsPage() {
         >
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-              <p className="text-base font-semibold text-[var(--color-text-primary)]">Use booking times when</p>
+              <p className="text-base font-semibold text-[var(--color-text-primary)]">
+                Use booking times when
+              </p>
               <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-                You want to open playable 2-hour windows on the host calendar and let people reserve them.
+                You want to open playable 2-hour windows on the host calendar and let people reserve
+                them.
               </p>
             </div>
             <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-              <p className="text-base font-semibold text-[var(--color-text-primary)]">Use create match when</p>
+              <p className="text-base font-semibold text-[var(--color-text-primary)]">
+                Use create match when
+              </p>
               <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
                 You are running a specific match with its own story, image, level, and event page.
               </p>
@@ -106,7 +109,8 @@ export default async function CreateEventsPage() {
                 <p className="heading-kicker">Payout required</p>
                 <h2 className="section-title">Complete payout setup first</h2>
                 <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
-                  Pitch owners must verify a Chapa payout account before creating events. That setup enables ticket settlement and split payments.
+                  Pitch owners must verify a Chapa payout account before creating events. That setup
+                  enables ticket settlement and split payments.
                 </p>
               </div>
               <Link
