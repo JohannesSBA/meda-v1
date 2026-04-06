@@ -4,8 +4,19 @@ import { requirePitchOwnerUser } from "@/lib/auth/guards";
 import { formatUnknownError } from "@/lib/apiResponse";
 import { logger } from "@/lib/logger";
 import { pitchCreateSchema } from "@/lib/validations/bookingInventory";
-import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
-import { createPitch, listOwnerPitches } from "@/services/pitches";
+import { parseFormData, validationErrorResponse } from "@/lib/validations/http";
+import { createPitch, listOwnerPitches, type PitchImageInput } from "@/services/pitches";
+
+async function parsePitchImage(image: File | null | undefined): Promise<PitchImageInput | null> {
+  if (!image || image.size === 0) return null;
+
+  const arrayBuffer = await image.arrayBuffer();
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    mimeType: image.type,
+    ext: image.type.split("/")[1] || "jpg",
+  };
+}
 
 export async function GET() {
   const sessionCheck = await requirePitchOwnerUser();
@@ -16,10 +27,7 @@ export async function GET() {
     return NextResponse.json({ pitches }, { status: 200 });
   } catch (error) {
     logger.error("Failed to list owner pitches", error);
-    return NextResponse.json(
-      { error: formatUnknownError(error) },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: formatUnknownError(error) }, { status: 500 });
   }
 }
 
@@ -27,23 +35,22 @@ export async function POST(request: Request) {
   const sessionCheck = await requirePitchOwnerUser();
   if (sessionCheck.response) return sessionCheck.response;
 
-  const parsed = await parseJsonBody(pitchCreateSchema, request);
+  const parsed = await parseFormData(pitchCreateSchema, request);
   if (!parsed.success) {
     return validationErrorResponse(parsed.error, "Invalid pitch payload");
   }
 
   try {
+    const { image, ...payload } = parsed.data;
     const pitch = await createPitch({
       ownerId: sessionCheck.user!.id,
-      ...parsed.data,
+      ...payload,
+      image: await parsePitchImage(image),
     });
     revalidatePath("/host");
     return NextResponse.json({ pitch }, { status: 201 });
   } catch (error) {
     logger.error("Failed to create pitch", error);
-    return NextResponse.json(
-      { error: formatUnknownError(error) },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: formatUnknownError(error) }, { status: 400 });
   }
 }

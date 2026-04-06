@@ -20,18 +20,12 @@ function parseNullableNumber(value: unknown) {
 const nullableLatitudeSchema = z
   .union([z.number(), z.string(), z.null(), z.undefined()])
   .transform((value) => parseNullableNumber(value))
-  .refine(
-    (value) => value === null || (value >= -90 && value <= 90),
-    "Invalid latitude",
-  );
+  .refine((value) => value === null || (value >= -90 && value <= 90), "Invalid latitude");
 
 const nullableLongitudeSchema = z
   .union([z.number(), z.string(), z.null(), z.undefined()])
   .transform((value) => parseNullableNumber(value))
-  .refine(
-    (value) => value === null || (value >= -180 && value <= 180),
-    "Invalid longitude",
-  );
+  .refine((value) => value === null || (value >= -180 && value <= 180), "Invalid longitude");
 
 export const pitchIdParamSchema = z.object({
   id: uuidSchema,
@@ -59,18 +53,14 @@ export const ticketIdParamSchema = z.object({
 
 export const subscriptionMutationSchema = z.object({
   pitchId: uuidSchema.optional(),
-  planCode: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || OWNER_SUBSCRIPTION_PLAN_CODE;
-    }),
-  providerRef: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  planCode: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || OWNER_SUBSCRIPTION_PLAN_CODE;
+  }),
+  providerRef: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
   paymentMethod: z.enum(["balance", "chapa"]).default("balance"),
 });
 
@@ -80,24 +70,19 @@ export const subscriptionConfirmSchema = z.object({
 
 export const pitchCreateSchema = z.object({
   name: z.string().trim().min(1, "Pitch name is required").max(120),
-  description: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
-  pictureUrl: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
-  addressLabel: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  description: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
+  pictureUrl: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
+  image: z.instanceof(File).optional().nullable(),
+  addressLabel: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
   latitude: nullableLatitudeSchema,
   longitude: nullableLongitudeSchema,
   categoryId: z
@@ -108,55 +93,40 @@ export const pitchCreateSchema = z.object({
 
 export const pitchPatchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
-  description: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
-  pictureUrl: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
-  addressLabel: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  description: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
+  pictureUrl: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
+  image: z.instanceof(File).optional().nullable(),
+  addressLabel: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
   latitude: z
     .union([z.number(), z.string(), z.null(), z.undefined()])
-    .transform((value) =>
-      value === undefined ? undefined : parseNullableNumber(value),
-    )
+    .transform((value) => (value === undefined ? undefined : parseNullableNumber(value)))
     .refine(
-      (value) =>
-        value === undefined || value === null || (value >= -90 && value <= 90),
+      (value) => value === undefined || value === null || (value >= -90 && value <= 90),
       "Invalid latitude",
     ),
   longitude: z
     .union([z.number(), z.string(), z.null(), z.undefined()])
-    .transform((value) =>
-      value === undefined ? undefined : parseNullableNumber(value),
-    )
+    .transform((value) => (value === undefined ? undefined : parseNullableNumber(value)))
     .refine(
-      (value) =>
-        value === undefined ||
-        value === null ||
-        (value >= -180 && value <= 180),
+      (value) => value === undefined || value === null || (value >= -180 && value <= 180),
       "Invalid longitude",
     ),
-  categoryId: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      return trimNullable(value);
-    }),
+  categoryId: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    return trimNullable(value);
+  }),
   isActive: z.coerce.boolean().optional(),
 });
 
@@ -183,21 +153,17 @@ export const slotCreateSchema = z
     windows: z.array(slotWindowSchema).min(1).max(1000).optional(),
     capacity: z.coerce.number().int().min(1).max(500),
     price: z.coerce.number().min(0).max(100000),
-    currency: z
-      .union([z.string(), z.undefined(), z.null()])
-      .transform((value) => {
-        const normalized = trimNullable(value);
-        return (normalized || "ETB").toUpperCase();
-      }),
+    currency: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+      const normalized = trimNullable(value);
+      return (normalized || "ETB").toUpperCase();
+    }),
     productType: z.enum(["DAILY", "MONTHLY"]),
     requiresParty: z.coerce.boolean().optional().default(false),
     status: z.enum(["OPEN", "BLOCKED"]).optional().default("OPEN"),
-    notes: z
-      .union([z.string(), z.undefined(), z.null()])
-      .transform((value) => {
-        const normalized = trimNullable(value);
-        return normalized || null;
-      }),
+    notes: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+      const normalized = trimNullable(value);
+      return normalized || null;
+    }),
   })
   .superRefine((value, ctx) => {
     const hasSingleWindow = Boolean(value.startsAt && value.endsAt);
@@ -237,33 +203,27 @@ export const slotCreateSchema = z
   });
 
 export const slotPatchSchema = z.object({
-  categoryId: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      return trimNullable(value);
-    }),
+  categoryId: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    return trimNullable(value);
+  }),
   startsAt: isoDateTimeSchema.optional(),
   endsAt: isoDateTimeSchema.optional(),
   capacity: z.coerce.number().int().min(1).max(500).optional(),
   price: z.coerce.number().min(0).max(100000).optional(),
-  currency: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return (normalized || "ETB").toUpperCase();
-    }),
+  currency: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return (normalized || "ETB").toUpperCase();
+  }),
   productType: z.enum(["DAILY", "MONTHLY"]).optional(),
   requiresParty: z.coerce.boolean().optional(),
   status: z.enum(["OPEN", "RESERVED", "BOOKED", "BLOCKED", "CANCELLED"]).optional(),
-  notes: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  notes: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
 });
 
 export const slotListQuerySchema = z.object({
@@ -293,16 +253,11 @@ export const dailyBookingCreateSchema = z.object({
 export const monthlyBookingCreateSchema = z.object({
   slotId: uuidSchema,
   partyId: uuidSchema.optional(),
-  partyName: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
-  memberEmails: z
-    .array(z.string().trim().email())
-    .optional()
-    .default([]),
+  partyName: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
+  memberEmails: z.array(z.string().trim().email()).optional().default([]),
 });
 
 export const bookingConfirmSchema = z.object({
@@ -310,12 +265,10 @@ export const bookingConfirmSchema = z.object({
 });
 
 export const partyCreateSchema = z.object({
-  name: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  name: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
 });
 
 export const partyInviteSchema = z.object({
@@ -323,13 +276,11 @@ export const partyInviteSchema = z.object({
 });
 
 export const partyPatchSchema = z.object({
-  name: z
-    .union([z.string(), z.undefined(), z.null()])
-    .transform((value) => {
-      if (value === undefined) return undefined;
-      const normalized = trimNullable(value);
-      return normalized || null;
-    }),
+  name: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+    if (value === undefined) return undefined;
+    const normalized = trimNullable(value);
+    return normalized || null;
+  }),
   status: z.enum(["FORMING", "PENDING_PAYMENT", "ACTIVE", "EXPIRED", "CANCELLED"]).optional(),
 });
 
@@ -354,12 +305,10 @@ export const ticketAssignSchema = z
         if (value == null) return null;
         return value.trim().toLowerCase();
       }),
-    assignedName: z
-      .union([z.string(), z.undefined(), z.null()])
-      .transform((value) => {
-        const normalized = trimNullable(value);
-        return normalized || null;
-      }),
+    assignedName: z.union([z.string(), z.undefined(), z.null()]).transform((value) => {
+      const normalized = trimNullable(value);
+      return normalized || null;
+    }),
   })
   .superRefine((value, ctx) => {
     if (!value.assignedUserId && !value.assignedEmail && !value.assignedName) {

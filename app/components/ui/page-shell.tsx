@@ -11,15 +11,11 @@ type PageShellProps = {
   containerClassName?: string;
 };
 
-export function PageShell({
-  children,
-  className,
-  containerClassName,
-}: PageShellProps) {
+export function PageShell({ children, className, containerClassName }: PageShellProps) {
   return (
     <main
       className={cn(
-        "app-shell relative min-h-screen overflow-x-clip overflow-y-visible pt-[calc(var(--header-height)+env(safe-area-inset-top,0px)+10px)] sm:pt-[calc(var(--header-height)+env(safe-area-inset-top,0px)+14px)]",
+        "app-shell relative min-h-screen overflow-x-clip overflow-y-visible pt-[calc(var(--header-height)+env(safe-area-inset-top,0px)+8px)] sm:pt-[calc(var(--header-height)+env(safe-area-inset-top,0px)+12px)]",
         "has-bottom-nav",
         className,
       )}

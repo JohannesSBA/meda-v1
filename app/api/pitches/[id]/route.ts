@@ -3,21 +3,22 @@ import { NextResponse } from "next/server";
 import { formatUnknownError } from "@/lib/apiResponse";
 import { requirePitchOwnerUser } from "@/lib/auth/guards";
 import { logger } from "@/lib/logger";
-import {
-  pitchIdParamSchema,
-  pitchPatchSchema,
-} from "@/lib/validations/bookingInventory";
-import {
-  parseJsonBody,
-  parseParams,
-  validationErrorResponse,
-} from "@/lib/validations/http";
-import { getPitchByIdForOwner, updatePitch } from "@/services/pitches";
+import { pitchIdParamSchema, pitchPatchSchema } from "@/lib/validations/bookingInventory";
+import { parseFormData, parseParams, validationErrorResponse } from "@/lib/validations/http";
+import { getPitchByIdForOwner, updatePitch, type PitchImageInput } from "@/services/pitches";
 
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
+async function parsePitchImage(image: File | null | undefined): Promise<PitchImageInput | null> {
+  if (!image || image.size === 0) return null;
+
+  const arrayBuffer = await image.arrayBuffer();
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    mimeType: image.type,
+    ext: image.type.split("/")[1] || "jpg",
+  };
+}
+
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const sessionCheck = await requirePitchOwnerUser();
   if (sessionCheck.response) return sessionCheck.response;
 
@@ -27,24 +28,15 @@ export async function GET(
   }
 
   try {
-    const pitch = await getPitchByIdForOwner(
-      sessionCheck.user!.id,
-      parsedParams.data.id,
-    );
+    const pitch = await getPitchByIdForOwner(sessionCheck.user!.id, parsedParams.data.id);
     return NextResponse.json({ pitch }, { status: 200 });
   } catch (error) {
     logger.error("Failed to load pitch", error);
-    return NextResponse.json(
-      { error: formatUnknownError(error) },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: formatUnknownError(error) }, { status: 404 });
   }
 }
 
-export async function PATCH(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const sessionCheck = await requirePitchOwnerUser();
   if (sessionCheck.response) return sessionCheck.response;
 
@@ -53,24 +45,23 @@ export async function PATCH(
     return validationErrorResponse(parsedParams.error, "Invalid pitch id");
   }
 
-  const parsedBody = await parseJsonBody(pitchPatchSchema, request);
+  const parsedBody = await parseFormData(pitchPatchSchema, request);
   if (!parsedBody.success) {
     return validationErrorResponse(parsedBody.error, "Invalid pitch update");
   }
 
   try {
+    const { image, ...payload } = parsedBody.data;
     const pitch = await updatePitch({
       ownerId: sessionCheck.user!.id,
       pitchId: parsedParams.data.id,
-      ...parsedBody.data,
+      ...payload,
+      image: await parsePitchImage(image),
     });
     revalidatePath("/host");
     return NextResponse.json({ pitch }, { status: 200 });
   } catch (error) {
     logger.error("Failed to update pitch", error);
-    return NextResponse.json(
-      { error: formatUnknownError(error) },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: formatUnknownError(error) }, { status: 400 });
   }
 }

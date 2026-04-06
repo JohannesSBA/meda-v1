@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -133,12 +134,14 @@ type OwnerOperationsWorkspaceProps = {
   categories: Category[];
   initialSubscription: OwnerSubscription;
   initialPitches: PitchSummary[];
+  initialView: "calendar" | "places";
 };
 
 type PitchFormState = {
   name: string;
   description: string;
-  pictureUrl: string;
+  image: File | null;
+  imagePreview: string;
   addressLabel: string;
   latitude: string;
   longitude: string;
@@ -302,12 +305,9 @@ function buildRecurringSlotWindows(args: {
     };
   }
 
-  const dailyWindowMinutes = Math.round(
-    (dailyEnd.getTime() - dailyStart.getTime()) / (1000 * 60),
-  );
+  const dailyWindowMinutes = Math.round((dailyEnd.getTime() - dailyStart.getTime()) / (1000 * 60));
   const slotsPerDay = Math.floor(dailyWindowMinutes / (BOOKING_INCREMENT_HOURS * 60));
-  const leftoverMinutesPerDay =
-    dailyWindowMinutes - slotsPerDay * BOOKING_INCREMENT_HOURS * 60;
+  const leftoverMinutesPerDay = dailyWindowMinutes - slotsPerDay * BOOKING_INCREMENT_HOURS * 60;
   const windows: Array<{
     startsAt: string;
     endsAt: string;
@@ -335,9 +335,8 @@ function buildRecurringSlotWindows(args: {
     }
   }
 
-  const dayCount = Math.floor(
-    (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24),
-  ) + 1;
+  const dayCount =
+    Math.floor((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   return {
     dayCount,
@@ -417,7 +416,10 @@ export function OwnerOperationsWorkspace({
   categories,
   initialSubscription,
   initialPitches,
+  initialView,
 }: OwnerOperationsWorkspaceProps) {
+  const isPlacesView = initialView === "places";
+  const isCalendarView = initialView === "calendar";
   const router = useRouter();
   const searchParams = useSearchParams();
   const [subscription, setSubscription] = useState<OwnerSubscription>(initialSubscription);
@@ -428,9 +430,9 @@ export function OwnerOperationsWorkspace({
   const [calendar, setCalendar] = useState<CalendarPayload | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
-  const [subscriptionPaymentMethod, setSubscriptionPaymentMethod] = useState<
-    "balance" | "chapa"
-  >("balance");
+  const [subscriptionPaymentMethod, setSubscriptionPaymentMethod] = useState<"balance" | "chapa">(
+    "balance",
+  );
   const [subscriptionConfirming, setSubscriptionConfirming] = useState(false);
   const [pitchPending, setPitchPending] = useState(false);
   const [editingPitchId, setEditingPitchId] = useState<string | null>(null);
@@ -440,7 +442,8 @@ export function OwnerOperationsWorkspace({
   const [pitchForm, setPitchForm] = useState<PitchFormState>({
     name: "",
     description: "",
-    pictureUrl: "",
+    image: null,
+    imagePreview: "",
     addressLabel: "",
     latitude: DEFAULT_PITCH_COORDINATES.latitude,
     longitude: DEFAULT_PITCH_COORDINATES.longitude,
@@ -501,6 +504,12 @@ export function OwnerOperationsWorkspace({
   }, [anchorDate, calendarView, editingSlotId]);
 
   useEffect(() => {
+    if (!isCalendarView) {
+      setCalendar(null);
+      setCalendarLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadCalendar() {
@@ -537,7 +546,7 @@ export function OwnerOperationsWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [anchorDate, calendarView, selectedPitchId]);
+  }, [anchorDate, calendarView, isCalendarView, selectedPitchId]);
 
   useEffect(() => {
     if (!subscriptionTxRef || subscriptionConfirming) {
@@ -606,9 +615,7 @@ export function OwnerOperationsWorkspace({
     try {
       const payload =
         action === "cancel"
-          ? await browserApi.post<SubscriptionActionResponse>(
-              "/api/pitch-subscriptions/cancel",
-            )
+          ? await browserApi.post<SubscriptionActionResponse>("/api/pitch-subscriptions/cancel")
           : await browserApi.post<SubscriptionActionResponse>(
               `/api/pitch-subscriptions/${action}`,
               {
@@ -679,7 +686,8 @@ export function OwnerOperationsWorkspace({
     setPitchForm({
       name: "",
       description: "",
-      pictureUrl: "",
+      image: null,
+      imagePreview: "",
       addressLabel: "",
       latitude: DEFAULT_PITCH_COORDINATES.latitude,
       longitude: DEFAULT_PITCH_COORDINATES.longitude,
@@ -694,7 +702,8 @@ export function OwnerOperationsWorkspace({
     setPitchForm({
       name: pitch.name,
       description: pitch.description ?? "",
-      pictureUrl: pitch.pictureUrl ?? "",
+      image: null,
+      imagePreview: pitch.pictureUrl ?? "",
       addressLabel: pitch.addressLabel ?? "",
       latitude:
         typeof pitch.latitude === "number" && Number.isFinite(pitch.latitude)
@@ -714,20 +723,67 @@ export function OwnerOperationsWorkspace({
     );
   }
 
+  function handlePitchImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPitchForm((prev) => ({
+        ...prev,
+        image: file,
+        imagePreview: typeof reader.result === "string" ? reader.result : prev.imagePreview,
+      }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearSelectedPitchImage() {
+    const existingPitchImage =
+      (editingPitchId ? pitches.find((pitch) => pitch.id === editingPitchId)?.pictureUrl : null) ??
+      "";
+
+    setPitchForm((prev) => ({
+      ...prev,
+      image: null,
+      imagePreview: existingPitchImage,
+    }));
+  }
+
+  function buildPitchFormData() {
+    const formData = new FormData();
+    formData.set("name", pitchForm.name);
+    formData.set("description", pitchForm.description);
+    formData.set("addressLabel", pitchForm.addressLabel);
+    formData.set("latitude", pitchForm.latitude);
+    formData.set("longitude", pitchForm.longitude);
+    formData.set("categoryId", pitchForm.categoryId);
+    if (pitchForm.image) {
+      formData.set("image", pitchForm.image);
+    }
+    return formData;
+  }
+
   async function handleSavePitch(event: React.FormEvent) {
     event.preventDefault();
     setPitchPending(true);
     try {
+      const formData = buildPitchFormData();
       const data = editingPitchId
-        ? await browserApi.patch<{ pitch: PitchSummary }>(`/api/pitches/${editingPitchId}`, pitchForm)
-        : await browserApi.post<{ pitch: PitchSummary }>("/api/pitches", pitchForm);
+        ? await browserApi.patch<{ pitch: PitchSummary }>(
+            `/api/pitches/${editingPitchId}`,
+            formData,
+          )
+        : await browserApi.post<{ pitch: PitchSummary }>("/api/pitches", formData);
       await refreshPitches();
       setSelectedPitchId(data.pitch.id);
       resetPitchForm();
       toast.success(
         editingPitchId
           ? "Place details updated. The map pin is saved."
-          : "Your place is ready. Now add open times.",
+          : "Your place is ready. Open the calendar page to add booking times.",
       );
     } catch (error) {
       toast.error(
@@ -997,7 +1053,7 @@ export function OwnerOperationsWorkspace({
           detail={
             subscription?.gracePeriodActive
               ? `Grace period ends ${new Date(subscription.graceEndsAt ?? subscription.endsAt).toLocaleDateString()}`
-              : subscription?.status ?? "Turn this on before you add booking times."
+              : (subscription?.status ?? "Turn this on before you add booking times.")
           }
           accent={Boolean(subscription?.entitlementActive)}
         />
@@ -1021,741 +1077,861 @@ export function OwnerOperationsWorkspace({
       <Card className="space-y-4 p-5 sm:p-6">
         <div className="space-y-2">
           <p className="heading-kicker">Easy steps</p>
-          <h2 className="section-title">Do these three things in order.</h2>
+          <h2 className="section-title">
+            {isPlacesView ? "Set up the place first." : "Open your booking windows."}
+          </h2>
           <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-            1. Name your place and drop the map pin. 2. Pick the days you are usually open.
-            3. Add a time people can book and pay for.
+            {isPlacesView
+              ? "1. Name the place. 2. Add the exact map pin and a photo. 3. Open the calendar page when you are ready to publish times."
+              : "1. Pick the place. 2. Save the days you are usually open. 3. Add the booking times people can reserve."}
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
-          <SimpleStepCard
-            step="1"
-            title="Name your place"
-                    body="Start with the place name, address, and map pin so players know where to go."
-          />
-          <SimpleStepCard
-            step="2"
-            title="Pick open days"
-            body="Add the days and hours you normally want this place to be available."
-          />
-          <SimpleStepCard
-            step="3"
-            title="Make a booking time"
-            body="Choose a day, a start time, an end time, and a price. Then people can book it."
-          />
+          {isPlacesView ? (
+            <>
+              <SimpleStepCard
+                step="1"
+                title="Name the place"
+                body="Start with the place name and short description people will understand fast."
+              />
+              <SimpleStepCard
+                step="2"
+                title="Pin the map"
+                body="Save the exact address and pin so players know where they are going."
+              />
+              <SimpleStepCard
+                step="3"
+                title="Add a photo"
+                body="Upload a real image so the place looks trustworthy before anyone books it."
+              />
+            </>
+          ) : (
+            <>
+              <SimpleStepCard
+                step="1"
+                title="Choose the place"
+                body="Pick the place you want to work on before you save open days or booking times."
+              />
+              <SimpleStepCard
+                step="2"
+                title="Save open days"
+                body="Keep your weekly schedule current so the place stays easy to manage."
+              />
+              <SimpleStepCard
+                step="3"
+                title="Publish times"
+                body="Create the actual booking windows people can reserve and pay for."
+              />
+            </>
+          )}
         </div>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <Stack gap="lg">
-          <Card className="space-y-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Before you start</p>
-              <h2 className="section-title">Turn on your host plan</h2>
-              <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                This unlocks place setup and bookable time slots. If you still use the old event
-                flow, that keeps its one-time fee fallback.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Badge variant={subscription?.entitlementActive ? "success" : "default"}>
-                {subscription?.status ?? "NOT_STARTED"}
-              </Badge>
-              {subscription?.gracePeriodActive ? (
-                <Badge variant="accent">
-                  Grace ends {new Date(subscription.graceEndsAt ?? subscription.endsAt).toLocaleDateString()}
-                </Badge>
-              ) : null}
-              {subscription?.renewalAt ? (
-                <Badge variant="accent">
-                  Renews {new Date(subscription.renewalAt).toLocaleDateString()}
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-end">
-              <label className="block">
-                <span className="field-label">How do you want to pay?</span>
-                <Select
-                  value={subscriptionPaymentMethod}
-                  onChange={(event) =>
-                    setSubscriptionPaymentMethod(
-                      event.target.value as "balance" | "chapa",
-                    )
-                  }
-                  disabled={subscriptionPending || subscriptionConfirming}
-                >
-                  <option value="balance">Use my Meda balance</option>
-                  <option value="chapa">Pay with Chapa</option>
-                </Select>
-              </label>
-              <div className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-control-bg)] px-4 py-3 text-sm leading-6 text-[var(--color-text-secondary)]">
-                <p className="font-semibold text-[var(--color-text-primary)]">
-                  Fee: {formatCurrency(subscription?.feeAmountEtb ?? 1500)}
-                </p>
-                <p>You get 30 days plus a 15-day grace period if you renew late.</p>
-              </div>
-            </div>
-
+      <Stack gap="lg">
+        <Card className="space-y-4 p-5 sm:p-6">
+          <div className="space-y-2">
+            <p className="heading-kicker">Before you start</p>
+            <h2 className="section-title">Turn on your host plan</h2>
             <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-              We email you before the host plan expires. If it runs out, you still get 15 days to
-              renew before booking tools lock.
+              This unlocks place setup and bookable time slots. If you still use the old event flow,
+              that keeps its one-time fee fallback.
             </p>
+          </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => void handleSubscriptionAction("start")}
-                disabled={
-                  subscriptionPending ||
-                  subscriptionConfirming ||
-                  Boolean(subscription?.entitlementActive)
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={subscription?.entitlementActive ? "success" : "default"}>
+              {subscription?.status ?? "NOT_STARTED"}
+            </Badge>
+            {subscription?.gracePeriodActive ? (
+              <Badge variant="accent">
+                Grace ends{" "}
+                {new Date(subscription.graceEndsAt ?? subscription.endsAt).toLocaleDateString()}
+              </Badge>
+            ) : null}
+            {subscription?.renewalAt ? (
+              <Badge variant="accent">
+                Renews {new Date(subscription.renewalAt).toLocaleDateString()}
+              </Badge>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-end">
+            <label className="block">
+              <span className="field-label">How do you want to pay?</span>
+              <Select
+                value={subscriptionPaymentMethod}
+                onChange={(event) =>
+                  setSubscriptionPaymentMethod(event.target.value as "balance" | "chapa")
                 }
-              >
-                {subscriptionPending ? "Working..." : "Start plan"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void handleSubscriptionAction("renew")}
                 disabled={subscriptionPending || subscriptionConfirming}
               >
-                {subscriptionPending ? "Working..." : "Renew plan"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => void handleSubscriptionAction("cancel")}
-                disabled={subscriptionPending || subscriptionConfirming || !subscription}
-              >
-                {subscriptionPending ? "Working..." : "Stop plan"}
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="space-y-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Step 1</p>
-              <h2 className="section-title">Name your place and pin it on the map</h2>
-              <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                Keep this simple. Give the place a name, type the address people will recognize,
-                then tap the map so players can find it fast.
+                <option value="balance">Use my Meda balance</option>
+                <option value="chapa">Pay with Chapa</option>
+              </Select>
+            </label>
+            <div className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-control-bg)] px-4 py-3 text-sm leading-6 text-[var(--color-text-secondary)]">
+              <p className="font-semibold text-[var(--color-text-primary)]">
+                Fee: {formatCurrency(subscription?.feeAmountEtb ?? 1500)}
               </p>
+              <p>You get 30 days plus a 15-day grace period if you renew late.</p>
             </div>
+          </div>
 
-            {selectedPitch ? (
-              <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      Current place
-                    </p>
-                    <p className="text-sm text-[var(--color-text-secondary)]">
-                      {selectedPitch.name}
-                    </p>
-                    <p className="text-xs leading-6 text-[var(--color-text-muted)]">
-                      {formatPitchLocation(selectedPitch)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => populatePitchForm(selectedPitch)}
-                    >
-                      Edit this place
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={resetPitchForm}
-                    >
-                      Create new place
-                    </Button>
-                  </div>
-                </div>
+          <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+            We email you before the host plan expires. If it runs out, you still get 15 days to
+            renew before booking tools lock.
+          </p>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => void handleSubscriptionAction("start")}
+              disabled={
+                subscriptionPending ||
+                subscriptionConfirming ||
+                Boolean(subscription?.entitlementActive)
+              }
+            >
+              {subscriptionPending ? "Working..." : "Start plan"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void handleSubscriptionAction("renew")}
+              disabled={subscriptionPending || subscriptionConfirming}
+            >
+              {subscriptionPending ? "Working..." : "Renew plan"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void handleSubscriptionAction("cancel")}
+              disabled={subscriptionPending || subscriptionConfirming || !subscription}
+            >
+              {subscriptionPending ? "Working..." : "Stop plan"}
+            </Button>
+          </div>
+        </Card>
+
+        {isPlacesView ? (
+          <>
+            <Card className="space-y-4 p-5 sm:p-6">
+              <div className="space-y-2">
+                <p className="heading-kicker">Step 1</p>
+                <h2 className="section-title">Name your place and pin it on the map</h2>
+                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                  Keep this simple. Give the place a name, type the address people will recognize,
+                  then tap the map so players can find it fast.
+                </p>
               </div>
-            ) : null}
 
-            <form className="space-y-4" onSubmit={handleSavePitch}>
-              <label className="block">
-                <span className="field-label">What is this place called?</span>
-                <Input
-                  value={pitchForm.name}
-                  onChange={(event) =>
-                    setPitchForm((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                  placeholder="Meda Arena A"
-                />
-              </label>
-
-              <label className="block">
-                <span className="field-label">What sport is this for?</span>
-                <Select
-                  value={pitchForm.categoryId}
-                  onChange={(event) =>
-                    setPitchForm((prev) => ({ ...prev, categoryId: event.target.value }))
-                  }
-                >
-                  <option value="">Use soccer default</option>
-                  {categories.map((category) => (
-                    <option key={category.categoryId} value={category.categoryId}>
-                      {category.categoryName}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              <div className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      Put it on the map
-                    </p>
-                    <p className="text-sm text-[var(--color-text-secondary)]">
-                      Type the place name and tap the map pin where people should go.
-                    </p>
+              {selectedPitch ? (
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedPitch.pictureUrl ? (
+                        <div className="relative h-16 w-20 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)]">
+                          <Image
+                            src={selectedPitch.pictureUrl}
+                            alt={selectedPitch.name}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                          Current place
+                        </p>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          {selectedPitch.name}
+                        </p>
+                        <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+                          {formatPitchLocation(selectedPitch)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => populatePitchForm(selectedPitch)}
+                      >
+                        Edit this place
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={resetPitchForm}>
+                        Create new place
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleUseMyLocation}
-                  >
-                    {locStatus === "locating" ? "Finding my spot..." : "Use my location"}
-                  </Button>
                 </div>
+              ) : null}
 
+              <form className="space-y-4" onSubmit={handleSavePitch}>
                 <label className="block">
-                  <span className="field-label">Where should people go?</span>
+                  <span className="field-label">What is this place called?</span>
                   <Input
-                    value={pitchForm.addressLabel}
+                    value={pitchForm.name}
                     onChange={(event) =>
-                      setPitchForm((prev) => ({
-                        ...prev,
-                        addressLabel: event.target.value,
-                      }))
+                      setPitchForm((prev) => ({ ...prev, name: event.target.value }))
                     }
-                    placeholder="Bole, next to Friendship Park"
+                    placeholder="Meda Arena A"
                   />
                 </label>
 
-                <MapPicker
-                  latitude={pitchForm.latitude}
-                  longitude={pitchForm.longitude}
-                  onChange={handlePitchMapChange}
-                />
-
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-                    <span className="font-semibold text-[var(--color-text-primary)]">Lat:</span>{" "}
-                    {pitchForm.latitude}
-                  </div>
-                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
-                    <span className="font-semibold text-[var(--color-text-primary)]">Lng:</span>{" "}
-                    {pitchForm.longitude}
-                  </div>
-                </div>
-              </div>
-
-              <label className="block">
-                <span className="field-label">Tell people something helpful</span>
-                <Textarea
-                  rows={4}
-                  value={pitchForm.description}
-                  onChange={(event) =>
-                    setPitchForm((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                    placeholder="Indoor five-a-side place with evening lighting."
-                />
-              </label>
-
-              <label className="block">
-                <span className="field-label">Place image URL (optional)</span>
-                <Input
-                  value={pitchForm.pictureUrl}
-                  onChange={(event) =>
-                    setPitchForm((prev) => ({ ...prev, pictureUrl: event.target.value }))
-                  }
-                  placeholder="https://..."
-                />
-              </label>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button type="submit" variant="primary" className="w-full" disabled={pitchPending}>
-                  {pitchPending
-                    ? "Saving..."
-                    : editingPitchId
-                      ? "Save place details"
-                      : "Save place"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  disabled={pitchPending}
-                  onClick={resetPitchForm}
-                >
-                  {editingPitchId ? "Stop editing" : "Clear form"}
-                </Button>
-              </div>
-            </form>
-          </Card>
-
-          <Card className="space-y-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Step 2</p>
-              <h2 className="section-title">Choose the days you are usually open</h2>
-              <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                Pick one place, then add the days and times you normally want it available.
-              </p>
-            </div>
-
-            <form className="space-y-4" onSubmit={handleCreateSchedule}>
-              <label className="block">
-                <span className="field-label">Which place?</span>
-                <Select
-                  value={selectedPitchId}
-                  onChange={(event) => setSelectedPitchId(event.target.value)}
-                >
-                  <option value="">Select place</option>
-                  {pitches.map((pitch) => (
-                    <option key={pitch.id} value={pitch.id}>
-                      {pitch.name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-3">
                 <label className="block">
-                  <span className="field-label">Day</span>
+                  <span className="field-label">What sport is this for?</span>
                   <Select
-                    value={scheduleForm.dayOfWeek}
+                    value={pitchForm.categoryId}
                     onChange={(event) =>
-                      setScheduleForm((prev) => ({ ...prev, dayOfWeek: event.target.value }))
+                      setPitchForm((prev) => ({ ...prev, categoryId: event.target.value }))
                     }
                   >
-                    {weekdayLabels.map((label, index) => (
-                      <option key={label} value={index}>
-                        {label}
+                    <option value="">Use soccer default</option>
+                    {categories.map((category) => (
+                      <option key={category.categoryId} value={category.categoryId}>
+                        {category.categoryName}
                       </option>
                     ))}
                   </Select>
                 </label>
+
+                <div className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        Put it on the map
+                      </p>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        Type the place name and tap the map pin where people should go.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleUseMyLocation}
+                    >
+                      {locStatus === "locating" ? "Finding my spot..." : "Use my location"}
+                    </Button>
+                  </div>
+
+                  <label className="block">
+                    <span className="field-label">Where should people go?</span>
+                    <Input
+                      value={pitchForm.addressLabel}
+                      onChange={(event) =>
+                        setPitchForm((prev) => ({
+                          ...prev,
+                          addressLabel: event.target.value,
+                        }))
+                      }
+                      placeholder="Bole, next to Friendship Park"
+                    />
+                  </label>
+
+                  <MapPicker
+                    latitude={pitchForm.latitude}
+                    longitude={pitchForm.longitude}
+                    onChange={handlePitchMapChange}
+                  />
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+                      <span className="font-semibold text-[var(--color-text-primary)]">Lat:</span>{" "}
+                      {pitchForm.latitude}
+                    </div>
+                    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-3 py-2 text-sm text-[var(--color-text-secondary)]">
+                      <span className="font-semibold text-[var(--color-text-primary)]">Lng:</span>{" "}
+                      {pitchForm.longitude}
+                    </div>
+                  </div>
+                </div>
+
                 <label className="block">
-                  <span className="field-label">Start time</span>
-                  <Input
-                    type="time"
-                    value={scheduleForm.startTime}
+                  <span className="field-label">Tell people something helpful</span>
+                  <Textarea
+                    rows={4}
+                    value={pitchForm.description}
                     onChange={(event) =>
-                      setScheduleForm((prev) => ({ ...prev, startTime: event.target.value }))
+                      setPitchForm((prev) => ({ ...prev, description: event.target.value }))
                     }
+                    placeholder="Indoor five-a-side place with evening lighting."
                   />
                 </label>
-                <label className="block">
-                  <span className="field-label">End time</span>
+
+                <div className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+                  <div className="space-y-1">
+                    <p className="field-label">Place image (optional)</p>
+                    <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                      Upload a photo for this place. We save it to storage for you, so you do not
+                      need to paste an image link.
+                    </p>
+                  </div>
+
                   <Input
-                    type="time"
-                    value={scheduleForm.endTime}
-                    onChange={(event) =>
-                      setScheduleForm((prev) => ({ ...prev, endTime: event.target.value }))
-                    }
+                    key={`${editingPitchId ?? "new"}:${(pitchForm.image?.name ?? pitchForm.imagePreview) || "empty"}`}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePitchImageChange}
+                    className="file:mr-3 file:rounded-full file:border-0 file:bg-[var(--color-accent-soft)] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[var(--color-text-primary)]"
                   />
-                </label>
+
+                  {pitchForm.imagePreview ? (
+                    <div className="space-y-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 p-3">
+                      <div className="relative aspect-[16/10] overflow-hidden rounded-[var(--radius-md)]">
+                        <Image
+                          src={pitchForm.imagePreview}
+                          alt={pitchForm.name ? `${pitchForm.name} preview` : "Place image preview"}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          {pitchForm.image
+                            ? `Selected file: ${pitchForm.image.name}`
+                            : "Saved image preview"}
+                        </p>
+                        {pitchForm.image ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearSelectedPitchImage}
+                          >
+                            {editingPitchId ? "Use saved image" : "Remove image"}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="w-full"
+                    disabled={pitchPending}
+                  >
+                    {pitchPending
+                      ? "Saving..."
+                      : editingPitchId
+                        ? "Save place details"
+                        : "Save place"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    disabled={pitchPending}
+                    onClick={resetPitchForm}
+                  >
+                    {editingPitchId ? "Stop editing" : "Clear form"}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+
+            <Card className="space-y-4 p-5 sm:p-6">
+              <div className="space-y-2">
+                <p className="heading-kicker">Next step</p>
+                <h2 className="section-title">Open the calendar page when the place is ready</h2>
+                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                  Keep place setup here, then move to the calendar page when you want to save open
+                  days and publish bookable times.
+                </p>
               </div>
 
               <Button
-                type="submit"
+                type="button"
                 variant="secondary"
-                className="w-full"
-                disabled={schedulePending || !selectedPitchId}
+                className="w-full sm:w-auto"
+                onClick={() => router.push("/host?view=calendar")}
               >
-                {schedulePending ? "Saving..." : "Save open days"}
+                Open calendar page
               </Button>
-
-              {selectedPitch ? (
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4 text-sm text-[var(--color-text-secondary)]">
-                  <p className="font-semibold text-[var(--color-text-primary)]">
-                    Working on {selectedPitch.name}
-                  </p>
-                  <p className="mt-1">{formatPitchLocation(selectedPitch)}</p>
-                  <p className="mt-1">
-                    {selectedPitch.activeScheduleCount} saved open-day rule
-                    {selectedPitch.activeScheduleCount === 1 ? "" : "s"}.
-                  </p>
-                </div>
-              ) : null}
-            </form>
-          </Card>
-
+            </Card>
+          </>
+        ) : pitches.length === 0 ? (
           <Card className="space-y-4 p-5 sm:p-6">
             <div className="space-y-2">
-              <p className="heading-kicker">{editingSlotId ? "Edit booking time" : "Step 3"}</p>
-              <h2 className="section-title">
-                {editingSlotId ? "Change this booking time" : "Open booking times for a date range"}
-              </h2>
+              <p className="heading-kicker">Calendar</p>
+              <h2 className="section-title">Create a place before you publish times</h2>
               <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                {editingSlotId
-                  ? "You are editing one 2-hour booking time."
-                  : "Pick the first day, the last day, and the hours you want open each day. We will turn that into simple 2-hour booking times people can reserve."}
+                Booking windows need a saved place first. Set up the place details on the places
+                page, then come back here to manage the calendar.
               </p>
             </div>
 
-            <form id="owner-slot-form" className="space-y-4" onSubmit={handleSaveSlot}>
-              <label className="block">
-                <span className="field-label">Which place?</span>
-                <Select
-                  value={slotForm.pitchId}
-                  onChange={(event) =>
-                    setSlotForm((prev) => ({ ...prev, pitchId: event.target.value }))
-                  }
-                >
-                  <option value="">Select place</option>
-                  {pitches.map((pitch) => (
-                    <option key={pitch.id} value={pitch.id}>
-                      {pitch.name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={() => router.push("/host?view=places")}
+            >
+              Open places page
+            </Button>
+          </Card>
+        ) : (
+          <>
+            <Card className="space-y-4 p-5 sm:p-6">
+              <div className="space-y-2">
+                <p className="heading-kicker">Step 2</p>
+                <h2 className="section-title">Choose the days you are usually open</h2>
+                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                  Pick one place, then add the days and times you normally want it available.
+                </p>
+              </div>
 
-              {editingSlotId ? (
-                <div className="grid gap-4 sm:grid-cols-2">
+              <form className="space-y-4" onSubmit={handleCreateSchedule}>
+                <label className="block">
+                  <span className="field-label">Which place?</span>
+                  <Select
+                    value={selectedPitchId}
+                    onChange={(event) => setSelectedPitchId(event.target.value)}
+                  >
+                    <option value="">Select place</option>
+                    {pitches.map((pitch) => (
+                      <option key={pitch.id} value={pitch.id}>
+                        {pitch.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-3">
                   <label className="block">
                     <span className="field-label">Day</span>
+                    <Select
+                      value={scheduleForm.dayOfWeek}
+                      onChange={(event) =>
+                        setScheduleForm((prev) => ({ ...prev, dayOfWeek: event.target.value }))
+                      }
+                    >
+                      {weekdayLabels.map((label, index) => (
+                        <option key={label} value={index}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="block">
+                    <span className="field-label">Start time</span>
                     <Input
-                      type="date"
-                      value={slotForm.startDate}
+                      type="time"
+                      value={scheduleForm.startTime}
+                      onChange={(event) =>
+                        setScheduleForm((prev) => ({ ...prev, startTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="field-label">End time</span>
+                    <Input
+                      type="time"
+                      value={scheduleForm.endTime}
+                      onChange={(event) =>
+                        setScheduleForm((prev) => ({ ...prev, endTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={schedulePending || !selectedPitchId}
+                >
+                  {schedulePending ? "Saving..." : "Save open days"}
+                </Button>
+
+                {selectedPitch ? (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4 text-sm text-[var(--color-text-secondary)]">
+                    <p className="font-semibold text-[var(--color-text-primary)]">
+                      Working on {selectedPitch.name}
+                    </p>
+                    <p className="mt-1">{formatPitchLocation(selectedPitch)}</p>
+                    <p className="mt-1">
+                      {selectedPitch.activeScheduleCount} saved open-day rule
+                      {selectedPitch.activeScheduleCount === 1 ? "" : "s"}.
+                    </p>
+                  </div>
+                ) : null}
+              </form>
+            </Card>
+
+            <Card className="space-y-4 p-5 sm:p-6">
+              <div className="space-y-2">
+                <p className="heading-kicker">{editingSlotId ? "Edit booking time" : "Step 3"}</p>
+                <h2 className="section-title">
+                  {editingSlotId
+                    ? "Change this booking time"
+                    : "Open booking times for a date range"}
+                </h2>
+                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                  {editingSlotId
+                    ? "You are editing one 2-hour booking time."
+                    : "Pick the first day, the last day, and the hours you want open each day. We will turn that into simple 2-hour booking times people can reserve."}
+                </p>
+              </div>
+
+              <form id="owner-slot-form" className="space-y-4" onSubmit={handleSaveSlot}>
+                <label className="block">
+                  <span className="field-label">Which place?</span>
+                  <Select
+                    value={slotForm.pitchId}
+                    onChange={(event) =>
+                      setSlotForm((prev) => ({ ...prev, pitchId: event.target.value }))
+                    }
+                  >
+                    <option value="">Select place</option>
+                    {pitches.map((pitch) => (
+                      <option key={pitch.id} value={pitch.id}>
+                        {pitch.name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+
+                {editingSlotId ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="field-label">Day</span>
+                      <Input
+                        type="date"
+                        value={slotForm.startDate}
+                        onChange={(event) =>
+                          setSlotForm((prev) => ({
+                            ...prev,
+                            startDate: event.target.value,
+                            endDate: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="field-label">Sport</span>
+                      <Select
+                        value={slotForm.categoryId}
+                        onChange={(event) =>
+                          setSlotForm((prev) => ({ ...prev, categoryId: event.target.value }))
+                        }
+                      >
+                        <option value="">Use soccer default</option>
+                        {categories.map((category) => (
+                          <option key={category.categoryId} value={category.categoryId}>
+                            {category.categoryName}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="block">
+                      <span className="field-label">First day</span>
+                      <Input
+                        type="date"
+                        value={slotForm.startDate}
+                        onChange={(event) =>
+                          setSlotForm((prev) => ({ ...prev, startDate: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="field-label">Last day</span>
+                      <Input
+                        type="date"
+                        value={slotForm.endDate}
+                        onChange={(event) =>
+                          setSlotForm((prev) => ({ ...prev, endDate: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="field-label">Sport</span>
+                      <Select
+                        value={slotForm.categoryId}
+                        onChange={(event) =>
+                          setSlotForm((prev) => ({ ...prev, categoryId: event.target.value }))
+                        }
+                      >
+                        <option value="">Use soccer default</option>
+                        {categories.map((category) => (
+                          <option key={category.categoryId} value={category.categoryId}>
+                            {category.categoryName}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="field-label">Start time</span>
+                    <Input
+                      type="time"
+                      value={slotForm.startTime}
+                      onChange={(event) =>
+                        setSlotForm((prev) => ({ ...prev, startTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="field-label">End time</span>
+                    <Input
+                      type="time"
+                      value={slotForm.endTime}
+                      onChange={(event) =>
+                        setSlotForm((prev) => ({ ...prev, endTime: event.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                {!editingSlotId ? (
+                  <div className="rounded-[var(--radius-md)] border border-[rgba(125,211,252,0.22)] bg-[var(--color-accent-soft)] p-4 text-sm text-[var(--color-text-secondary)]">
+                    {slotWindowPlan.slotsPerDay > 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-semibold text-[var(--color-text-primary)]">
+                          We will create {slotWindowPlan.windows.length} bookable time
+                          {slotWindowPlan.windows.length === 1 ? "" : "s"}.
+                        </p>
+                        <p>
+                          That is {slotWindowPlan.slotsPerDay} booking time
+                          {slotWindowPlan.slotsPerDay === 1 ? "" : "s"} each day for{" "}
+                          {slotWindowPlan.dayCount} day
+                          {slotWindowPlan.dayCount === 1 ? "" : "s"}.
+                        </p>
+                        <p>Every player booking is always exactly 2 hours long.</p>
+                        {slotWindowPlan.leftoverMinutesPerDay > 0 ? (
+                          <p>
+                            The last {slotWindowPlan.leftoverMinutesPerDay} minute
+                            {slotWindowPlan.leftoverMinutesPerDay === 1 ? "" : "s"} each day will
+                            stay closed so the booking times stay simple.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p>
+                        Pick at least 2 hours between the start and end time so we can make bookable
+                        2-hour blocks.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="field-label">How many people can join?</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={slotForm.capacity}
+                      onChange={(event) =>
+                        setSlotForm((prev) => ({ ...prev, capacity: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="field-label">Price per player spot</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={slotForm.price}
+                      onChange={(event) =>
+                        setSlotForm((prev) => ({ ...prev, price: event.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="field-label">Booking type</span>
+                    <Select
+                      value={slotForm.productType}
+                      onChange={(event) =>
+                        setSlotForm((prev) => {
+                          const nextProductType = event.target
+                            .value as SlotFormState["productType"];
+                          return {
+                            ...prev,
+                            productType: nextProductType,
+                            requiresParty:
+                              nextProductType === "MONTHLY" ? true : prev.requiresParty,
+                          };
+                        })
+                      }
+                    >
+                      <option value="DAILY">Single visit</option>
+                      <option value="MONTHLY">Monthly group booking</option>
+                    </Select>
+                  </label>
+                  <label className="block">
+                    <span className="field-label">What should people see?</span>
+                    <Select
+                      value={slotForm.status}
                       onChange={(event) =>
                         setSlotForm((prev) => ({
                           ...prev,
-                          startDate: event.target.value,
-                          endDate: event.target.value,
+                          status: event.target.value as SlotFormState["status"],
                         }))
                       }
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="field-label">Sport</span>
-                    <Select
-                      value={slotForm.categoryId}
-                      onChange={(event) =>
-                        setSlotForm((prev) => ({ ...prev, categoryId: event.target.value }))
-                      }
                     >
-                      <option value="">Use soccer default</option>
-                      {categories.map((category) => (
-                        <option key={category.categoryId} value={category.categoryId}>
-                          {category.categoryName}
-                        </option>
-                      ))}
+                      <option value="OPEN">Open</option>
+                      <option value="BLOCKED">Blocked</option>
                     </Select>
                   </label>
                 </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <label className="block">
-                    <span className="field-label">First day</span>
-                    <Input
-                      type="date"
-                      value={slotForm.startDate}
-                      onChange={(event) =>
-                        setSlotForm((prev) => ({ ...prev, startDate: event.target.value }))
-                      }
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="field-label">Last day</span>
-                    <Input
-                      type="date"
-                      value={slotForm.endDate}
-                      onChange={(event) =>
-                        setSlotForm((prev) => ({ ...prev, endDate: event.target.value }))
-                      }
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="field-label">Sport</span>
-                    <Select
-                      value={slotForm.categoryId}
-                      onChange={(event) =>
-                        setSlotForm((prev) => ({ ...prev, categoryId: event.target.value }))
-                      }
-                    >
-                      <option value="">Use soccer default</option>
-                      {categories.map((category) => (
-                        <option key={category.categoryId} value={category.categoryId}>
-                          {category.categoryName}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                </div>
-              )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="field-label">Start time</span>
-                  <Input
-                    type="time"
-                    value={slotForm.startTime}
-                    onChange={(event) =>
-                      setSlotForm((prev) => ({ ...prev, startTime: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="block">
-                  <span className="field-label">End time</span>
-                  <Input
-                    type="time"
-                    value={slotForm.endTime}
-                    onChange={(event) =>
-                      setSlotForm((prev) => ({ ...prev, endTime: event.target.value }))
-                    }
-                  />
-                </label>
-              </div>
-
-              {!editingSlotId ? (
-                <div className="rounded-[var(--radius-md)] border border-[rgba(125,211,252,0.22)] bg-[var(--color-accent-soft)] p-4 text-sm text-[var(--color-text-secondary)]">
-                  {slotWindowPlan.slotsPerDay > 0 ? (
-                    <div className="space-y-2">
-                      <p className="font-semibold text-[var(--color-text-primary)]">
-                        We will create {slotWindowPlan.windows.length} bookable time
-                        {slotWindowPlan.windows.length === 1 ? "" : "s"}.
-                      </p>
-                      <p>
-                        That is {slotWindowPlan.slotsPerDay} booking time
-                        {slotWindowPlan.slotsPerDay === 1 ? "" : "s"} each day for{" "}
-                        {slotWindowPlan.dayCount} day
-                        {slotWindowPlan.dayCount === 1 ? "" : "s"}.
-                      </p>
-                      <p>Every player booking is always exactly 2 hours long.</p>
-                      {slotWindowPlan.leftoverMinutesPerDay > 0 ? (
-                        <p>
-                          The last {slotWindowPlan.leftoverMinutesPerDay} minute
-                          {slotWindowPlan.leftoverMinutesPerDay === 1 ? "" : "s"} each day will stay
-                          closed so the booking times stay simple.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p>
-                      Pick at least 2 hours between the start and end time so we can make bookable
-                      2-hour blocks.
+                {slotForm.productType === "MONTHLY" ? (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                    <p className="font-semibold text-[var(--color-text-primary)]">
+                      Monthly group rule
                     </p>
-                  )}
-                </div>
-              ) : null}
+                    <p className="mt-1">
+                      This booking reserves the whole pitch. Total group payment will be{" "}
+                      <span className="font-semibold text-[var(--color-text-primary)]">
+                        {formatCurrency(monthlyReservationTotal)}
+                      </span>{" "}
+                      because it uses all {Math.max(1, Number(slotForm.capacity) || 1)} player
+                      spots.
+                    </p>
+                  </div>
+                ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="field-label">How many people can join?</span>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={slotForm.capacity}
+                <label className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={slotForm.requiresParty}
+                    disabled={slotForm.productType === "MONTHLY"}
                     onChange={(event) =>
-                      setSlotForm((prev) => ({ ...prev, capacity: event.target.value }))
+                      setSlotForm((prev) => ({ ...prev, requiresParty: event.target.checked }))
                     }
                   />
+                  {slotForm.productType === "MONTHLY"
+                    ? "Full group required for monthly bookings"
+                    : "Only show this booking time to full groups"}
                 </label>
+
                 <label className="block">
-                  <span className="field-label">Price per player spot</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={slotForm.price}
+                  <span className="field-label">Helpful note</span>
+                  <Textarea
+                    rows={3}
+                    value={slotForm.notes}
                     onChange={(event) =>
-                      setSlotForm((prev) => ({ ...prev, price: event.target.value }))
+                      setSlotForm((prev) => ({ ...prev, notes: event.target.value }))
                     }
+                    placeholder="Floodlit, indoor, parking nearby, or any helpful note."
                   />
                 </label>
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="field-label">Booking type</span>
-                  <Select
-                    value={slotForm.productType}
-                    onChange={(event) =>
-                      setSlotForm((prev) => {
-                        const nextProductType =
-                          event.target.value as SlotFormState["productType"];
-                        return {
-                          ...prev,
-                          productType: nextProductType,
-                          requiresParty:
-                            nextProductType === "MONTHLY" ? true : prev.requiresParty,
-                        };
-                      })
-                    }
-                  >
-                    <option value="DAILY">Single visit</option>
-                    <option value="MONTHLY">Monthly group booking</option>
-                  </Select>
-                </label>
-                <label className="block">
-                  <span className="field-label">What should people see?</span>
-                  <Select
-                    value={slotForm.status}
-                    onChange={(event) =>
-                      setSlotForm((prev) => ({
-                        ...prev,
-                        status: event.target.value as SlotFormState["status"],
-                      }))
-                    }
-                  >
-                    <option value="OPEN">Open</option>
-                    <option value="BLOCKED">Blocked</option>
-                  </Select>
-                </label>
-              </div>
-
-              {slotForm.productType === "MONTHLY" ? (
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                  <p className="font-semibold text-[var(--color-text-primary)]">
-                    Monthly group rule
-                  </p>
-                  <p className="mt-1">
-                    This booking reserves the whole pitch. Total group payment will be{" "}
-                    <span className="font-semibold text-[var(--color-text-primary)]">
-                      {formatCurrency(monthlyReservationTotal)}
-                    </span>{" "}
-                    because it uses all {Math.max(1, Number(slotForm.capacity) || 1)} player spots.
-                  </p>
-                </div>
-              ) : null}
-
-              <label className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--color-border)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                <input
-                  type="checkbox"
-                  checked={slotForm.requiresParty}
-                  disabled={slotForm.productType === "MONTHLY"}
-                  onChange={(event) =>
-                    setSlotForm((prev) => ({ ...prev, requiresParty: event.target.checked }))
-                  }
-                />
-                {slotForm.productType === "MONTHLY"
-                  ? "Full group required for monthly bookings"
-                  : "Only show this booking time to full groups"}
-              </label>
-
-              <label className="block">
-                <span className="field-label">Helpful note</span>
-                <Textarea
-                  rows={3}
-                  value={slotForm.notes}
-                  onChange={(event) =>
-                    setSlotForm((prev) => ({ ...prev, notes: event.target.value }))
-                  }
-                  placeholder="Floodlit, indoor, parking nearby, or any helpful note."
-                />
-              </label>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full"
-                  disabled={slotPending || !subscription?.entitlementActive}
-                >
-                  {slotPending
-                    ? "Saving..."
-                    : editingSlotId
-                      ? "Save booking time"
-                      : "Create booking time"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  onClick={resetSlotForm}
-                  disabled={slotPending}
-                >
-                  Start over
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </Stack>
-
-        <Stack gap="lg">
-          <Card className="space-y-5 p-5 sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-2">
-                <p className="heading-kicker">Calendar</p>
-                <h2 className="section-title">Tap a day, then add or edit booking times</h2>
-                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                  Tap a day to focus it. Tap a booking time to load it into the form on the left.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {(["month", "week", "day"] as const).map((view) => (
+                <div className="grid gap-2 sm:grid-cols-2">
                   <Button
-                    key={view}
-                    type="button"
-                    variant={calendarView === view ? "primary" : "secondary"}
-                    size="sm"
-                    onClick={() => setCalendarView(view)}
+                    type="submit"
+                    variant="primary"
+                    className="w-full"
+                    disabled={slotPending || !subscription?.entitlementActive}
                   >
-                    {view}
+                    {slotPending
+                      ? "Saving..."
+                      : editingSlotId
+                        ? "Save booking time"
+                        : "Create booking time"}
                   </Button>
-                ))}
-              </div>
-            </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={resetSlotForm}
+                    disabled={slotPending}
+                  >
+                    Start over
+                  </Button>
+                </div>
+              </form>
+            </Card>
 
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAnchorDate((prev) => shiftAnchorDate(prev, calendarView, -1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAnchorDate(new Date())}
-                >
-                  Today
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAnchorDate((prev) => shiftAnchorDate(prev, calendarView, 1))}
-                >
-                  Next
-                </Button>
-              </div>
+            <Card className="space-y-5 p-5 sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-2">
+                  <p className="heading-kicker">Calendar</p>
+                  <h2 className="section-title">Tap a day, then add or edit booking times</h2>
+                  <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                    This page is only for your booking calendar, so it gets the full width. Tap a
+                    day to focus it, then load the booking time you want to edit.
+                  </p>
+                </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                  {formatCalendarHeading(anchorDate, calendarView)}
-                </p>
-                <Select
-                  value={selectedPitchId}
-                  onChange={(event) => setSelectedPitchId(event.target.value)}
-                >
-                  <option value="">All places</option>
-                  {pitches.map((pitch) => (
-                    <option key={pitch.id} value={pitch.id}>
-                      {pitch.name}
-                    </option>
+                <div className="flex flex-wrap gap-2">
+                  {(["month", "week", "day"] as const).map((view) => (
+                    <Button
+                      key={view}
+                      type="button"
+                      variant={calendarView === view ? "primary" : "secondary"}
+                      size="sm"
+                      onClick={() => setCalendarView(view)}
+                    >
+                      {view}
+                    </Button>
                   ))}
-                </Select>
+                </div>
               </div>
-            </div>
+
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAnchorDate((prev) => shiftAnchorDate(prev, calendarView, -1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAnchorDate(new Date())}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAnchorDate((prev) => shiftAnchorDate(prev, calendarView, 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    {formatCalendarHeading(anchorDate, calendarView)}
+                  </p>
+                  <Select
+                    value={selectedPitchId}
+                    onChange={(event) => setSelectedPitchId(event.target.value)}
+                  >
+                    <option value="">All places</option>
+                    {pitches.map((pitch) => (
+                      <option key={pitch.id} value={pitch.id}>
+                        {pitch.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
 
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -1778,234 +1954,243 @@ export function OwnerOperationsWorkspace({
                   type="button"
                   variant="ghost"
                   size="sm"
-                onClick={() =>
-                  document
-                    .getElementById("host-reports")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                See money and people
-              </Button>
-            </div>
-
-            {calendarLoading ? (
-              <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-                Loading calendar...
+                  onClick={() =>
+                    document
+                      .getElementById("host-reports")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                >
+                  See money and people
+                </Button>
               </div>
-            ) : calendarView === "month" ? (
-              <div className="grid grid-cols-7 gap-2">
-                {weekdayLabels.map((label) => (
-                  <div
-                    key={label}
-                    className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]"
-                  >
-                    {label}
-                  </div>
-                ))}
-                {buildMonthGrid(anchorDate).map((day) => {
-                  const dayKey = getDayKey(day);
-                  const summary = daySummaryByDate.get(dayKey);
-                  const inMonth = day.getMonth() === anchorDate.getMonth();
-                  const active = selectedDayKey === dayKey;
 
-                  return (
-                    <button
-                      key={dayKey}
-                      type="button"
-                      onClick={() => handleSelectDay(dayKey)}
-                      className={`min-h-28 rounded-[var(--radius-md)] border p-3 text-left transition ${
-                        active
-                          ? "border-[rgba(125,211,252,0.42)] bg-[rgba(125,211,252,0.12)]"
-                          : "border-[var(--color-border)] bg-[var(--color-control-bg)] hover:border-[rgba(125,211,252,0.28)]"
-                      }`}
+              {calendarLoading ? (
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
+                  Loading calendar...
+                </div>
+              ) : calendarView === "month" ? (
+                <div className="grid grid-cols-7 gap-2">
+                  {weekdayLabels.map((label) => (
+                    <div
+                      key={label}
+                      className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]"
                     >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`text-sm font-semibold ${
-                            inMonth ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"
-                          }`}
-                        >
-                          {day.getDate()}
-                        </span>
-                        {summary?.slotCount ? (
-                          <Badge variant="accent">{summary.slotCount} times</Badge>
-                        ) : null}
-                      </div>
-                      <div className="mt-3 space-y-1 text-xs text-[var(--color-text-secondary)]">
-                        <p>{summary?.bookingCount ?? 0} bookings</p>
-                        <p>{Math.round((summary?.utilization ?? 0) * 100)}% utilized</p>
-                        <p>{formatCurrency(summary?.revenueSummaryEtb ?? 0)}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {(calendar?.days ?? []).map((day) => (
-                  <button
-                    key={day.date}
-                    type="button"
-                    onClick={() => handleSelectDay(day.date)}
-                    className={`rounded-[var(--radius-md)] border px-4 py-3 text-left transition ${
-                      selectedDayKey === day.date
-                        ? "border-[rgba(125,211,252,0.42)] bg-[rgba(125,211,252,0.12)]"
-                        : "border-[var(--color-border)] bg-[var(--color-control-bg)]"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                          {new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, {
-                            weekday: "long",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                          {day.slotCount} slots, {day.bookingCount} bookings,{" "}
-                          {Math.round(day.utilization * 100)}% utilized
-                        </p>
-                      </div>
-                      <Badge variant="accent">{formatCurrency(day.revenueSummaryEtb)}</Badge>
+                      {label}
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
+                  ))}
+                  {buildMonthGrid(anchorDate).map((day) => {
+                    const dayKey = getDayKey(day);
+                    const summary = daySummaryByDate.get(dayKey);
+                    const inMonth = day.getMonth() === anchorDate.getMonth();
+                    const active = selectedDayKey === dayKey;
 
-          <Card className="space-y-4 p-5 sm:p-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <p className="heading-kicker">Booking times</p>
-                <h2 className="section-title">
-                  {calendarView === "day"
-                    ? "Times in this day"
-                    : `Booking times for ${new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString()}`}
-                </h2>
-              </div>
-              <Badge variant="default">{visibleSlots.length} slots</Badge>
-            </div>
-
-            <div className="grid gap-3">
-              {visibleSlots.length === 0 ? (
-                <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-8 text-sm text-[var(--color-text-secondary)]">
-                  No booking times in this window yet.
+                    return (
+                      <button
+                        key={dayKey}
+                        type="button"
+                        onClick={() => handleSelectDay(dayKey)}
+                        className={`min-h-28 rounded-[var(--radius-md)] border p-3 text-left transition ${
+                          active
+                            ? "border-[rgba(125,211,252,0.42)] bg-[rgba(125,211,252,0.12)]"
+                            : "border-[var(--color-border)] bg-[var(--color-control-bg)] hover:border-[rgba(125,211,252,0.28)]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-sm font-semibold ${
+                              inMonth
+                                ? "text-[var(--color-text-primary)]"
+                                : "text-[var(--color-text-muted)]"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </span>
+                          {summary?.slotCount ? (
+                            <Badge variant="accent">{summary.slotCount} times</Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 space-y-1 text-xs text-[var(--color-text-secondary)]">
+                          <p>{summary?.bookingCount ?? 0} bookings</p>
+                          <p>{Math.round((summary?.utilization ?? 0) * 100)}% utilized</p>
+                          <p>{formatCurrency(summary?.revenueSummaryEtb ?? 0)}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
-                visibleSlots.map((slot) => (
-                  <div
-                    key={slot.id}
-                    className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4"
-                  >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant={getStatusTone(slot.status)}>{slot.status}</Badge>
-                          <Badge variant="default">{slot.productType}</Badge>
-                          {slot.requiresParty ? <Badge variant="accent">Group required</Badge> : null}
+                <div className="grid gap-3">
+                  {(calendar?.days ?? []).map((day) => (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => handleSelectDay(day.date)}
+                      className={`rounded-[var(--radius-md)] border px-4 py-3 text-left transition ${
+                        selectedDayKey === day.date
+                          ? "border-[rgba(125,211,252,0.42)] bg-[rgba(125,211,252,0.12)]"
+                          : "border-[var(--color-border)] bg-[var(--color-control-bg)]"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                            {new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, {
+                              weekday: "long",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            {day.slotCount} slots, {day.bookingCount} bookings,{" "}
+                            {Math.round(day.utilization * 100)}% utilized
+                          </p>
                         </div>
-                        <p className="text-base font-semibold text-[var(--color-text-primary)]">
-                          {slot.pitchName}
-                        </p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                          {new Date(slot.startsAt).toLocaleTimeString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}{" "}
-                          -{" "}
-                          {new Date(slot.endsAt).toLocaleTimeString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                          {slot.bookingCount} bookings, {slot.assignedTicketCount} assigned,{" "}
-                          {slot.checkedInCount} checked in
-                        </p>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                          {slot.capacity} capacity, {Math.round(slot.utilization * 100)}%
-                          utilized, {formatCurrency(slot.revenueSummaryEtb)}
-                        </p>
-                        {slot.notes ? (
-                          <p className="text-sm text-[var(--color-text-secondary)]">{slot.notes}</p>
-                        ) : null}
+                        <Badge variant="accent">{formatCurrency(day.revenueSummaryEtb)}</Badge>
                       </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
 
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => populateSlotForm(slot)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void handleDeleteSlot(slot.id)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
+            <Card className="space-y-4 p-5 sm:p-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="heading-kicker">Booking times</p>
+                  <h2 className="section-title">
+                    {calendarView === "day"
+                      ? "Times in this day"
+                      : `Booking times for ${new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString()}`}
+                  </h2>
+                </div>
+                <Badge variant="default">{visibleSlots.length} slots</Badge>
+              </div>
 
-                    {slot.bookings.length > 0 ? (
-                      <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                          Linked bookings
-                        </p>
-                        {slot.bookings.map((booking) => (
-                          <div
-                            key={booking.id}
-                            className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-4 py-3"
+              <div className="grid gap-3">
+                {visibleSlots.length === 0 ? (
+                  <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-8 text-sm text-[var(--color-text-secondary)]">
+                    No booking times in this window yet.
+                  </div>
+                ) : (
+                  visibleSlots.map((slot) => (
+                    <div
+                      key={slot.id}
+                      className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4"
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant={getStatusTone(slot.status)}>{slot.status}</Badge>
+                            <Badge variant="default">{slot.productType}</Badge>
+                            {slot.requiresParty ? (
+                              <Badge variant="accent">Group required</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-base font-semibold text-[var(--color-text-primary)]">
+                            {slot.pitchName}
+                          </p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            {new Date(slot.startsAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}{" "}
+                            -{" "}
+                            {new Date(slot.endsAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            {slot.bookingCount} bookings, {slot.assignedTicketCount} assigned,{" "}
+                            {slot.checkedInCount} checked in
+                          </p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            {slot.capacity} capacity, {Math.round(slot.utilization * 100)}%
+                            utilized, {formatCurrency(slot.revenueSummaryEtb)}
+                          </p>
+                          {slot.notes ? (
+                            <p className="text-sm text-[var(--color-text-secondary)]">
+                              {slot.notes}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => populateSlotForm(slot)}
                           >
-                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                              <div className="space-y-1">
-                                <div className="flex flex-wrap gap-2">
-                                  <Badge variant="default">{booking.status}</Badge>
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleDeleteSlot(slot.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+
+                      {slot.bookings.length > 0 ? (
+                        <div className="mt-4 space-y-3 border-t border-[var(--color-border)] pt-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                            Linked bookings
+                          </p>
+                          {slot.bookings.map((booking) => (
+                            <div
+                              key={booking.id}
+                              className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-black/10 px-4 py-3"
+                            >
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap gap-2">
+                                    <Badge variant="default">{booking.status}</Badge>
+                                    {booking.poolStatus ? (
+                                      <Badge variant="accent">{booking.poolStatus}</Badge>
+                                    ) : null}
+                                  </div>
+                                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                                    {booking.customerName}
+                                  </p>
+                                  <p className="text-xs text-[var(--color-text-muted)]">
+                                    {booking.customerEmail ??
+                                      booking.partyName ??
+                                      "No customer email"}
+                                  </p>
+                                </div>
+
+                                <div className="grid gap-1 text-sm text-[var(--color-text-secondary)]">
+                                  <p>
+                                    {booking.quantity} seats, {formatCurrency(booking.totalAmount)}
+                                  </p>
+                                  <p>
+                                    {booking.assignedTickets}/{booking.soldTickets} assigned,{" "}
+                                    {booking.checkedInTickets} checked in
+                                  </p>
                                   {booking.poolStatus ? (
-                                    <Badge variant="accent">{booking.poolStatus}</Badge>
+                                    <p>
+                                      Pool {formatCurrency(booking.poolAmountPaid ?? 0)} /{" "}
+                                      {formatCurrency(booking.poolTotalAmount ?? 0)}
+                                    </p>
                                   ) : null}
                                 </div>
-                                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                                  {booking.customerName}
-                                </p>
-                                <p className="text-xs text-[var(--color-text-muted)]">
-                                  {booking.customerEmail ?? booking.partyName ?? "No customer email"}
-                                </p>
-                              </div>
-
-                              <div className="grid gap-1 text-sm text-[var(--color-text-secondary)]">
-                                <p>
-                                  {booking.quantity} seats, {formatCurrency(booking.totalAmount)}
-                                </p>
-                                <p>
-                                  {booking.assignedTickets}/{booking.soldTickets} assigned,{" "}
-                                  {booking.checkedInTickets} checked in
-                                </p>
-                                {booking.poolStatus ? (
-                                  <p>
-                                    Pool {formatCurrency(booking.poolAmountPaid ?? 0)} /{" "}
-                                    {formatCurrency(booking.poolTotalAmount ?? 0)}
-                                  </p>
-                                ) : null}
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-        </Stack>
-      </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </>
+        )}
+      </Stack>
     </Stack>
   );
 }
@@ -2040,15 +2225,7 @@ function MetricCard({
   );
 }
 
-function SimpleStepCard({
-  step,
-  title,
-  body,
-}: {
-  step: string;
-  title: string;
-  body: string;
-}) {
+function SimpleStepCard({ step, title, body }: { step: string; title: string; body: string }) {
   return (
     <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
       <div className="flex items-center gap-3">

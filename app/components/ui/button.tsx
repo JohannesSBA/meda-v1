@@ -23,15 +23,12 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-10 px-4 text-sm",
-  md: "h-11 px-5 text-sm",
-  lg: "h-12 px-6 text-sm sm:text-base",
+  sm: "h-9 px-3.5 text-sm",
+  md: "h-10 px-4 text-sm",
+  lg: "h-11 px-5 text-sm",
 };
 
-export function buttonVariants(
-  variant: ButtonVariant = "secondary",
-  size: ButtonSize = "md",
-) {
+export function buttonVariants(variant: ButtonVariant = "secondary", size: ButtonSize = "md") {
   return cn(buttonBaseClass, variantClasses[variant], sizeClasses[size]);
 }
 
@@ -40,16 +37,6 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ButtonSize;
 };
 
-export function Button({
-  className,
-  variant = "secondary",
-  size = "md",
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      className={cn(buttonVariants(variant, size), className)}
-      {...props}
-    />
-  );
+export function Button({ className, variant = "secondary", size = "md", ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants(variant, size), className)} {...props} />;
 }

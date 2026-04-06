@@ -6,9 +6,9 @@ import { ResponsiveActionBar } from "./responsive-action-bar";
 type Density = "comfortable" | "compact" | "dense";
 
 const densityClasses: Record<Density, string> = {
-  comfortable: "p-5 sm:p-6",
-  compact: "p-4 sm:p-5",
-  dense: "p-3.5 sm:p-4",
+  comfortable: "p-4 sm:p-5",
+  compact: "p-3.5 sm:p-[18px]",
+  dense: "p-3 sm:p-3.5",
 };
 
 type AppSectionCardProps = {
@@ -31,19 +31,19 @@ export function AppSectionCard({
   className,
 }: AppSectionCardProps) {
   return (
-    <Card className={cn("space-y-4", densityClasses[density], className)}>
+    <Card className={cn("space-y-3.5", densityClasses[density], className)}>
       {title || description || headingKicker || actions ? (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {headingKicker ? <p className="heading-kicker">{headingKicker}</p> : null}
               {title ? (
-                <h2 className="text-xl font-semibold tracking-[-0.03em] text-[var(--color-text-primary)] sm:text-2xl">
+                <h2 className="text-lg font-semibold tracking-[-0.03em] text-[var(--color-text-primary)] sm:text-xl">
                   {title}
                 </h2>
               ) : null}
               {description ? (
-                <p className="max-w-3xl text-sm leading-7 text-[var(--color-text-secondary)]">
+                <p className="max-w-3xl text-sm leading-6 text-[var(--color-text-secondary)]">
                   {description}
                 </p>
               ) : null}

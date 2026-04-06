@@ -1,9 +1,47 @@
+import { uploadPitchImageUnified } from "@/lib/uploadPitchImage";
 import { resolveCategoryIdWithFallback } from "@/lib/categoryDefaults";
 import { prisma } from "@/lib/prisma";
 import { notifyUserById } from "@/services/actionNotifications";
 
+const ALLOWED_PITCH_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+const MAX_PITCH_IMAGE_BYTES = 6 * 1024 * 1024;
+
+export type PitchImageInput = {
+  buffer: Buffer;
+  mimeType: string;
+  ext: string;
+};
+
 function compareClockTimes(left: string, right: string) {
   return left.localeCompare(right);
+}
+
+function validatePitchImage(image: PitchImageInput) {
+  if (image.buffer.byteLength > MAX_PITCH_IMAGE_BYTES) {
+    throw new Error("Image must be 6MB or smaller");
+  }
+
+  if (
+    !ALLOWED_PITCH_IMAGE_MIME_TYPES.includes(
+      image.mimeType as (typeof ALLOWED_PITCH_IMAGE_MIME_TYPES)[number],
+    )
+  ) {
+    throw new Error("Invalid image type");
+  }
+}
+
+async function uploadPitchImageIfProvided(
+  pitchId: string,
+  image: PitchImageInput | null | undefined,
+) {
+  if (!image) return null;
+  validatePitchImage(image);
+  return uploadPitchImageUnified(pitchId, image);
 }
 
 type PitchRecord = {
@@ -123,6 +161,7 @@ export async function createPitch(args: {
   name: string;
   description?: string | null;
   pictureUrl?: string | null;
+  image?: PitchImageInput | null;
   addressLabel?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -161,20 +200,55 @@ export async function createPitch(args: {
     },
   });
 
+  let pitchRecord = created;
+
+  try {
+    const uploadedPictureUrl = await uploadPitchImageIfProvided(created.id, args.image);
+
+    if (uploadedPictureUrl) {
+      pitchRecord = await prisma.pitch.update({
+        where: { id: created.id },
+        data: {
+          pictureUrl: uploadedPictureUrl,
+        },
+        include: {
+          category: {
+            select: {
+              categoryName: true,
+            },
+          },
+          schedules: true,
+          subscriptions: {
+            orderBy: [{ endsAt: "desc" }, { createdAt: "desc" }],
+            take: 1,
+          },
+          _count: {
+            select: {
+              slots: true,
+            },
+          },
+        },
+      });
+    }
+  } catch (error) {
+    await prisma.pitch.delete({ where: { id: created.id } }).catch(() => null);
+    throw error;
+  }
+
   await notifyUserById({
     userId: args.ownerId,
     subject: "Your place was created in Meda",
     title: "Your place is ready",
     message: "Your place was saved and is ready for booking times.",
     details: [
-      { label: "Place", value: created.name },
-      { label: "Category", value: created.category.categoryName },
+      { label: "Place", value: pitchRecord.name },
+      { label: "Category", value: pitchRecord.category.categoryName },
     ],
     ctaLabel: "Open Host",
     ctaPath: "/host",
   });
 
-  return serializePitch(created as PitchRecord);
+  return serializePitch(pitchRecord as PitchRecord);
 }
 
 export async function updatePitch(args: {
@@ -183,6 +257,7 @@ export async function updatePitch(args: {
   name?: string;
   description?: string | null;
   pictureUrl?: string | null;
+  image?: PitchImageInput | null;
   addressLabel?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -197,6 +272,7 @@ export async function updatePitch(args: {
     select: {
       id: true,
       categoryId: true,
+      pictureUrl: true,
     },
   });
 
@@ -208,13 +284,18 @@ export async function updatePitch(args: {
     args.categoryId === undefined
       ? existing.categoryId
       : await resolveCategoryIdWithFallback(args.categoryId);
+  const pictureUrl = args.image
+    ? await uploadPitchImageIfProvided(existing.id, args.image)
+    : args.pictureUrl === undefined
+      ? existing.pictureUrl
+      : args.pictureUrl;
 
   const updated = await prisma.pitch.update({
     where: { id: existing.id },
     data: {
       name: args.name?.trim(),
       description: args.description,
-      pictureUrl: args.pictureUrl,
+      pictureUrl,
       addressLabel: args.addressLabel,
       latitude: args.latitude,
       longitude: args.longitude,
@@ -298,7 +379,13 @@ export async function createPitchSchedule(args: {
     title: "Your open day was saved",
     message: "Players can now see this place as open during the saved hours.",
     details: [
-      { label: "Day", value: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][schedule.dayOfWeek] ?? String(schedule.dayOfWeek) },
+      {
+        label: "Day",
+        value:
+          ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
+            schedule.dayOfWeek
+          ] ?? String(schedule.dayOfWeek),
+      },
       { label: "Hours", value: `${schedule.startTime} - ${schedule.endTime}` },
     ],
     ctaLabel: "Open Host",

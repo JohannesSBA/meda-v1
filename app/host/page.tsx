@@ -20,14 +20,7 @@ import { uiCopy } from "@/lib/uiCopy";
 
 export const dynamic = "force-dynamic";
 
-type HostView =
-  | "overview"
-  | "calendar"
-  | "places"
-  | "bookings"
-  | "people"
-  | "money"
-  | "settings";
+type HostView = "overview" | "calendar" | "places" | "bookings" | "people" | "money" | "settings";
 
 type HostPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -69,7 +62,7 @@ const hostViewCopy: Record<
     label: uiCopy.host.places,
     title: "Set up each place so players can trust what they are booking.",
     description:
-      "Name the place, set the map location, choose the category, and make sure the place is ready before you publish times.",
+      "Name the place, set the map location, upload a real image, and make sure the place is ready before you move into the calendar page.",
   },
   bookings: {
     label: "Bookings",
@@ -117,12 +110,10 @@ export default async function HostPage({ searchParams }: HostPageProps) {
   const view = readHostView(requestedView);
 
   const { data } = await auth.getSession();
-  const rawUser = (data?.user ?? null) as
-    | {
-        id?: string;
-        role?: string | null;
-      }
-    | null;
+  const rawUser = (data?.user ?? null) as {
+    id?: string;
+    role?: string | null;
+  } | null;
 
   if (!rawUser?.id) {
     redirect("/auth/sign-in?redirect=%2Fhost");
@@ -156,7 +147,11 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           description={viewCopy.description}
           primaryAction={
             <Link
-              href={view === "calendar" || view === "places" ? hostViewHref("calendar") : hostViewHref("overview")}
+              href={
+                view === "calendar" || view === "places"
+                  ? hostViewHref("calendar")
+                  : hostViewHref("overview")
+              }
               className={cn(buttonVariants("primary", "md"), "rounded-full")}
             >
               {view === "calendar" || view === "places" ? "Open calendar tools" : "Open overview"}
@@ -180,7 +175,10 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           }
           stats={
             <>
-              <StatPill label={uiCopy.host.hostPlan} value={subscription?.entitlementActive ? "On" : "Off"} />
+              <StatPill
+                label={uiCopy.host.hostPlan}
+                value={subscription?.entitlementActive ? "On" : "Off"}
+              />
               <StatPill label={uiCopy.host.places} value={String(activePitchCount)} />
               <StatPill label={uiCopy.host.bookingTimes} value={String(totalSlotCount)} />
               <StatPill label="Mapped places" value={`${mapReadyCount}/${pitches.length || 0}`} />
@@ -280,15 +278,19 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           </>
         ) : null}
 
-        {(view === "calendar" || view === "places") ? (
+        {view === "calendar" || view === "places" ? (
           <>
             <AppSectionCard
               headingKicker={view === "calendar" ? "Calendar" : uiCopy.host.places}
-              title={view === "calendar" ? "Add booking times without leaving this page." : "Set up places before you publish times."}
+              title={
+                view === "calendar"
+                  ? "Add booking times without leaving this page."
+                  : "Set up places before you publish times."
+              }
               description={
                 view === "calendar"
-                  ? "Create or edit 2-hour booking times, block time, and inspect bookings directly from the host calendar."
-                  : "Start with the place name, description, map location, and category. Then use the same screen to publish booking times."
+                  ? "Create or edit 2-hour booking times, block time, and inspect bookings from a dedicated calendar page."
+                  : "Start with the place name, description, map location, and image here. Then move to the calendar page when you are ready to publish booking times."
               }
               actions={
                 <Link
@@ -322,6 +324,7 @@ export default async function HostPage({ searchParams }: HostPageProps) {
               categories={categories}
               initialSubscription={subscription}
               initialPitches={pitches}
+              initialView={view === "calendar" ? "calendar" : "places"}
             />
           </>
         ) : null}
@@ -391,15 +394,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniMetric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
+function MiniMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
     <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
@@ -433,10 +428,7 @@ function TaskCard({
         <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{body}</p>
         <p className="text-xs leading-6 text-[var(--color-text-muted)]">{meta}</p>
       </div>
-      <Link
-        href={href}
-        className={cn(buttonVariants("secondary", "sm"), "mt-4 rounded-full")}
-      >
+      <Link href={href} className={cn(buttonVariants("secondary", "sm"), "mt-4 rounded-full")}>
         {cta}
       </Link>
     </div>

@@ -78,7 +78,7 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
       toast.success("Booking created.");
       router.push("/tickets");
     } catch (error) {
-      toast.error(getErrorMessage(error) || "Failed to create booking");
+      toast.error(getErrorMessage(error) || "Failed to create booking",);
     } finally {
       setSubmitting(false);
     }
