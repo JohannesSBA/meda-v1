@@ -8,6 +8,7 @@ const {
   getLockedAvailabilitySnapshotMock,
   getChapaClientMock,
   initializeChapaTransactionMock,
+  notifyUserByIdMock,
   paymentCreateMock,
   paymentUpdateManyMock,
   paymentUpdateMock,
@@ -25,6 +26,7 @@ const {
   getLockedAvailabilitySnapshotMock: vi.fn(),
   getChapaClientMock: vi.fn(),
   initializeChapaTransactionMock: vi.fn(),
+  notifyUserByIdMock: vi.fn(),
   paymentCreateMock: vi.fn(),
   paymentUpdateManyMock: vi.fn(),
   paymentUpdateMock: vi.fn(),
@@ -55,6 +57,10 @@ vi.mock("@/services/email", () => ({
   sendTicketConfirmationEmail: sendTicketConfirmationEmailMock,
 }));
 
+vi.mock("@/services/actionNotifications", () => ({
+  notifyUserById: notifyUserByIdMock,
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: {
@@ -82,6 +88,7 @@ describe("payments split handling", () => {
     getLockedAvailabilitySnapshotMock.mockReset();
     getChapaClientMock.mockReset();
     initializeChapaTransactionMock.mockReset();
+    notifyUserByIdMock.mockReset();
     paymentCreateMock.mockReset();
     paymentUpdateManyMock.mockReset();
     paymentUpdateMock.mockReset();
@@ -101,6 +108,7 @@ describe("payments split handling", () => {
       event: {
         eventId: "event-1",
         eventName: "Sunday 5v5",
+        eventDatetime: new Date("2099-01-01T16:00:00.000Z"),
         eventEndtime: new Date("2099-01-01T18:00:00.000Z"),
         priceField: 120,
         userId: "owner-1",
@@ -157,6 +165,12 @@ describe("payments split handling", () => {
           ownerRevenueEtb: 228,
           chapaSubaccountId: null,
         }),
+      }),
+    );
+    expect(notifyUserByIdMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "buyer-1",
+        subject: "Finish paying for your event ticket",
       }),
     );
   });
@@ -238,6 +252,12 @@ describe("payments split handling", () => {
           chapaSubaccountId: "sub-123",
           provider: "balance",
         }),
+      }),
+    );
+    expect(notifyUserByIdMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "owner-1",
+        subject: "You made a new event sale in Meda",
       }),
     );
   });

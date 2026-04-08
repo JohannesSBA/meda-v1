@@ -184,7 +184,9 @@ export function TicketsHubWorkspace() {
   const [groupMemberForms, setGroupMemberForms] = useState<Record<string, string>>({});
   const [openQrTickets, setOpenQrTickets] = useState<Record<string, boolean>>({});
   const [ticketShareLinks, setTicketShareLinks] = useState<Record<string, string>>({});
+  const [bookingShareLinks, setBookingShareLinks] = useState<Record<string, string>>({});
   const [copiedShareTicketId, setCopiedShareTicketId] = useState<string | null>(null);
+  const [copiedShareBookingId, setCopiedShareBookingId] = useState<string | null>(null);
 
   const txRef = searchParams.get("tx_ref");
   const poolTxRef = searchParams.get("pool_tx_ref");
@@ -295,6 +297,35 @@ export function TicketsHubWorkspace() {
     }
   }
 
+  async function handleCreateBookingClaimLink(bookingId: string) {
+    setSubmittingItemId(bookingId);
+    try {
+      const data = await browserApi.post<{ shareUrl?: string }>(`/api/bookings/${bookingId}/share-link`);
+      const shareUrl = String(data?.shareUrl ?? "");
+      if (!shareUrl) {
+        throw new Error("Claim link was not returned");
+      }
+
+      setBookingShareLinks((current) => ({
+        ...current,
+        [bookingId]: shareUrl,
+      }));
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedShareBookingId(bookingId);
+        window.setTimeout(() => setCopiedShareBookingId(null), 1600);
+        toast.success("Claim link copied.");
+      } else {
+        toast.success("Claim link created below.");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error) || "Failed to create claim link");
+    } finally {
+      setSubmittingItemId(null);
+    }
+  }
+
   async function handleUnassignTicket(ticketId: string) {
     setSubmittingItemId(ticketId);
     try {
@@ -321,13 +352,13 @@ export function TicketsHubWorkspace() {
     }
   }
 
-  async function handleContribute(poolId: string, itemId: string) {
+  async function handleContribute(poolId: string, itemId: string, partyMemberId?: string) {
     setSubmittingItemId(itemId);
     try {
       const method = poolPaymentMethods[poolId] ?? "balance";
       const result = await browserApi.post<{ checkoutUrl?: string | null }>(
         `/api/payment-pools/${poolId}/contribute`,
-        { paymentMethod: method },
+        { paymentMethod: method, partyMemberId },
       );
 
       if (result.checkoutUrl) {
@@ -483,10 +514,13 @@ export function TicketsHubWorkspace() {
         openQrTickets={openQrTickets}
         setOpenQrTickets={setOpenQrTickets}
         ticketShareLinks={ticketShareLinks}
+        bookingShareLinks={bookingShareLinks}
         copiedShareTicketId={copiedShareTicketId}
+        copiedShareBookingId={copiedShareBookingId}
         submittingItemId={submittingItemId}
         onClaimTicket={handleClaimTicket}
         onAssignTicket={handleAssignTicket}
+        onCreateBookingClaimLink={handleCreateBookingClaimLink}
         onCreateTicketClaimLink={handleCreateTicketClaimLink}
         onUnassignTicket={handleUnassignTicket}
         onContribute={handleContribute}
@@ -511,10 +545,13 @@ export function TicketsHubWorkspace() {
         openQrTickets={openQrTickets}
         setOpenQrTickets={setOpenQrTickets}
         ticketShareLinks={ticketShareLinks}
+        bookingShareLinks={bookingShareLinks}
         copiedShareTicketId={copiedShareTicketId}
+        copiedShareBookingId={copiedShareBookingId}
         submittingItemId={submittingItemId}
         onClaimTicket={handleClaimTicket}
         onAssignTicket={handleAssignTicket}
+        onCreateBookingClaimLink={handleCreateBookingClaimLink}
         onCreateTicketClaimLink={handleCreateTicketClaimLink}
         onUnassignTicket={handleUnassignTicket}
         onContribute={handleContribute}
@@ -539,10 +576,13 @@ export function TicketsHubWorkspace() {
         openQrTickets={openQrTickets}
         setOpenQrTickets={setOpenQrTickets}
         ticketShareLinks={ticketShareLinks}
+        bookingShareLinks={bookingShareLinks}
         copiedShareTicketId={copiedShareTicketId}
+        copiedShareBookingId={copiedShareBookingId}
         submittingItemId={submittingItemId}
         onClaimTicket={handleClaimTicket}
         onAssignTicket={handleAssignTicket}
+        onCreateBookingClaimLink={handleCreateBookingClaimLink}
         onCreateTicketClaimLink={handleCreateTicketClaimLink}
         onUnassignTicket={handleUnassignTicket}
         onContribute={handleContribute}
@@ -574,13 +614,16 @@ function TicketsSection(props: {
   openQrTickets: Record<string, boolean>;
   setOpenQrTickets: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   ticketShareLinks: Record<string, string>;
+  bookingShareLinks: Record<string, string>;
   copiedShareTicketId: string | null;
+  copiedShareBookingId: string | null;
   submittingItemId: string | null;
   onClaimTicket: (ticketId: string) => Promise<void>;
   onAssignTicket: (ticketId: string) => Promise<void>;
+  onCreateBookingClaimLink: (bookingId: string) => Promise<void>;
   onCreateTicketClaimLink: (ticketId: string) => Promise<void>;
   onUnassignTicket: (ticketId: string) => Promise<void>;
-  onContribute: (poolId: string, itemId: string) => Promise<void>;
+  onContribute: (poolId: string, itemId: string, partyMemberId?: string) => Promise<void>;
   onCancelBooking: (bookingId: string) => Promise<void>;
   onAddGroupMember: (partyId: string, bookingId: string) => Promise<void>;
   onRemoveGroupMember: (partyId: string, memberId: string) => Promise<void>;
@@ -617,10 +660,13 @@ function TicketsSection(props: {
                 openQrTickets={props.openQrTickets}
                 setOpenQrTickets={props.setOpenQrTickets}
                 ticketShareLinks={props.ticketShareLinks}
+                bookingShareLinks={props.bookingShareLinks}
                 copiedShareTicketId={props.copiedShareTicketId}
+                copiedShareBookingId={props.copiedShareBookingId}
                 submittingItemId={props.submittingItemId}
                 onClaimTicket={props.onClaimTicket}
                 onAssignTicket={props.onAssignTicket}
+                onCreateBookingClaimLink={props.onCreateBookingClaimLink}
                 onCreateTicketClaimLink={props.onCreateTicketClaimLink}
                 onUnassignTicket={props.onUnassignTicket}
                 onContribute={props.onContribute}
@@ -655,13 +701,16 @@ function BookingTicketCard(props: {
   openQrTickets: Record<string, boolean>;
   setOpenQrTickets: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   ticketShareLinks: Record<string, string>;
+  bookingShareLinks: Record<string, string>;
   copiedShareTicketId: string | null;
+  copiedShareBookingId: string | null;
   submittingItemId: string | null;
   onClaimTicket: (ticketId: string) => Promise<void>;
   onAssignTicket: (ticketId: string) => Promise<void>;
+  onCreateBookingClaimLink: (bookingId: string) => Promise<void>;
   onCreateTicketClaimLink: (ticketId: string) => Promise<void>;
   onUnassignTicket: (ticketId: string) => Promise<void>;
-  onContribute: (poolId: string, itemId: string) => Promise<void>;
+  onContribute: (poolId: string, itemId: string, partyMemberId?: string) => Promise<void>;
   onCancelBooking: (bookingId: string) => Promise<void>;
   onAddGroupMember: (partyId: string, bookingId: string) => Promise<void>;
   onRemoveGroupMember: (partyId: string, memberId: string) => Promise<void>;
@@ -693,6 +742,27 @@ function BookingTicketCard(props: {
     item.booking.tickets.length > 0 ||
     Boolean(item.booking.party) ||
     Boolean(item.booking.paymentPool);
+  const poolShareableSeatCount = item.booking.tickets.filter(
+    (ticket) =>
+      ticket.status === "ASSIGNMENT_PENDING" &&
+      !ticket.assignedUserId &&
+      !ticket.assignedEmail &&
+      !ticket.assignedName,
+  ).length;
+  const supportsPoolClaimLink = Boolean(
+    item.purchaserCanManageTickets &&
+      item.booking.productType === "MONTHLY" &&
+      item.booking.status === "PENDING" &&
+      item.booking.paymentPool?.status === "PENDING" &&
+      item.booking.paymentPool.amountPaid === 0 &&
+      poolShareableSeatCount > 0,
+  );
+  const bookingShareLink = props.bookingShareLinks[item.id] ?? "";
+  const showPoolPaymentSelector = Boolean(
+    item.booking.paymentPool?.status === "PENDING" &&
+      item.purchaserCanManageTickets &&
+      primaryAction.type !== "pay_share",
+  );
 
   return (
     <Card className="space-y-5 p-4 sm:p-6">
@@ -851,6 +921,26 @@ function BookingTicketCard(props: {
               Organizer: keeps the group together and can edit members before money starts moving.
               Members: each person pays their own share before the deadline.
             </p>
+            {showPoolPaymentSelector ? (
+              <div className="grid gap-2 pt-2 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
+                <Select
+                  value={props.poolPaymentMethods[item.booking.paymentPool.id] ?? "balance"}
+                  onChange={(event) =>
+                    props.setPoolPaymentMethods((current) => ({
+                      ...current,
+                      [item.booking.paymentPool!.id]:
+                        event.target.value as "balance" | "chapa",
+                    }))
+                  }
+                >
+                  <option value="balance">Meda balance</option>
+                  <option value="chapa">Chapa</option>
+                </Select>
+                <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+                  This payment method is used when you pay a member&apos;s share on their behalf.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -878,10 +968,19 @@ function BookingTicketCard(props: {
                 const contribution = item.booking.paymentPool?.contributions.find(
                   (entry) => entry.partyMemberId === member.id,
                 );
+                const memberPaymentItemId = `pay:${member.id}`;
                 const removable =
                   canEditGroupMembers &&
                   member.userId !== item.booking.party?.ownerId &&
                   item.booking.party?.ownerId !== member.userId;
+                const payableByOrganizer = Boolean(
+                  item.purchaserCanManageTickets &&
+                    item.booking.paymentPool?.status === "PENDING" &&
+                    contribution &&
+                    contribution.status !== "PAID" &&
+                    contribution.expectedAmount > contribution.paidAmount + 0.009 &&
+                    member.userId !== item.booking.party?.ownerId,
+                );
 
                 return (
                   <div
@@ -903,18 +1002,40 @@ function BookingTicketCard(props: {
                       </p>
                     </div>
 
-                    {removable ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={props.submittingItemId === member.id}
-                        onClick={() =>
-                          void props.onRemoveGroupMember(item.booking.party!.id, member.id)
-                        }
-                      >
-                        {props.submittingItemId === member.id ? "Removing..." : "Remove"}
-                      </Button>
+                    {payableByOrganizer || removable ? (
+                      <div className="flex flex-wrap gap-2">
+                        {payableByOrganizer ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={props.submittingItemId === memberPaymentItemId}
+                            onClick={() =>
+                              void props.onContribute(
+                                item.booking.paymentPool!.id,
+                                memberPaymentItemId,
+                                member.id,
+                              )
+                            }
+                          >
+                            {props.submittingItemId === memberPaymentItemId
+                              ? "Processing..."
+                              : "Pay this share"}
+                          </Button>
+                        ) : null}
+                        {removable ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={props.submittingItemId === member.id}
+                            onClick={() =>
+                              void props.onRemoveGroupMember(item.booking.party!.id, member.id)
+                            }
+                          >
+                            {props.submittingItemId === member.id ? "Removing..." : "Remove"}
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -948,6 +1069,49 @@ function BookingTicketCard(props: {
 
       {props.expanded && item.booking.tickets.length > 0 ? (
         <div className="space-y-3">
+          {supportsPoolClaimLink ? (
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    Share one claim link for the whole pool
+                  </p>
+                  <p className="text-xs leading-6 text-[var(--color-text-muted)]">
+                    Each person who claims this link takes one open spot and gets their own payment
+                    share in Tickets. {poolShareableSeatCount} open seat
+                    {poolShareableSeatCount === 1 ? "" : "s"} remaining.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={props.submittingItemId === item.id}
+                  onClick={() => void props.onCreateBookingClaimLink(item.id)}
+                >
+                  {props.submittingItemId === item.id
+                    ? "Creating..."
+                    : props.copiedShareBookingId === item.id
+                      ? "Copied"
+                      : "Create pool claim link"}
+                </Button>
+              </div>
+              {bookingShareLink ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+                  <Input value={bookingShareLink} readOnly />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={props.submittingItemId === item.id}
+                    onClick={() => void props.onCreateBookingClaimLink(item.id)}
+                  >
+                    {props.copiedShareBookingId === item.id ? "Copied" : "Copy again"}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="space-y-1">
             <p className="text-sm font-semibold text-[var(--color-text-primary)]">Player names</p>
             <p className="text-xs leading-6 text-[var(--color-text-muted)]">
@@ -964,6 +1128,7 @@ function BookingTicketCard(props: {
               };
               const claimable = item.claimableTicketIds.includes(ticket.id);
               const shareable =
+                !supportsPoolClaimLink &&
                 item.purchaserCanManageTickets &&
                 ticket.status === "ASSIGNMENT_PENDING" &&
                 !ticket.assignedUserId &&

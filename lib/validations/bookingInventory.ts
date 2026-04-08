@@ -287,6 +287,7 @@ export const partyPatchSchema = z.object({
 export const poolContributeSchema = z.object({
   paymentMethod: z.enum(["balance", "chapa"]).default("balance"),
   amount: z.coerce.number().positive().optional(),
+  partyMemberId: uuidSchema.optional(),
 });
 
 export const ownerDashboardQuerySchema = z.object({

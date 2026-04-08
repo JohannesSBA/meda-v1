@@ -20,6 +20,7 @@ import {
   PaymentProvider,
   PaymentStatus,
 } from "@/generated/prisma/client";
+import { notifyUserById } from "@/services/actionNotifications";
 import { sendTicketConfirmationEmail } from "@/services/email";
 
 type CheckoutPayload = {
@@ -289,6 +290,23 @@ export async function payWithBalance(
     }
   }
 
+  if (event.userId && event.userId !== userId) {
+    await notifyUserById({
+      userId: event.userId,
+      subject: "You made a new event sale in Meda",
+      title: "A paid event order was confirmed",
+      message: "A buyer paid for tickets to one of your events.",
+      details: [
+        { label: "Event", value: event.eventName },
+        { label: "Time", value: event.eventDatetime.toLocaleString() },
+        { label: "Tickets", value: String(quantity) },
+        { label: "Total", value: `ETB ${totalCost.toFixed(2)}` },
+      ],
+      ctaLabel: "Open event",
+      ctaPath: `/events/${eventId}`,
+    });
+  }
+
   const updatedBalance = await prisma.userBalance.findUnique({ where: { userId } });
 
   return {
@@ -396,6 +414,7 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
     return {
       paymentId: payment.paymentId,
       eventName: event.eventName,
+      eventDateTime: event.eventDatetime,
       amount: totalAmount.toFixed(2),
     };
   });
@@ -450,6 +469,21 @@ export async function initializeChapaCheckout(payload: CheckoutPayload) {
         checkoutUrl: response.data.checkout_url,
       },
       select: { paymentId: true },
+    });
+
+    await notifyUserById({
+      userId: payload.userId,
+      subject: "Finish paying for your event ticket",
+      title: "Your ticket payment is waiting",
+      message: "Your tickets are on hold briefly while you finish the Chapa payment.",
+      details: [
+        { label: "Event", value: intent.eventName },
+        { label: "Time", value: intent.eventDateTime.toLocaleString() },
+        { label: "Tickets", value: String(payload.quantity) },
+        { label: "Total", value: `ETB ${intent.amount}` },
+      ],
+      ctaLabel: "Resume payment",
+      ctaUrl: response.data.checkout_url,
     });
 
     return {
@@ -591,7 +625,18 @@ export async function confirmChapaPayment(
     };
   }
 
-  return prisma.$transaction(async (tx) => {
+  let hostNotification:
+    | {
+        ownerId: string;
+        eventId: string;
+        eventName: string;
+        eventDateTime: Date;
+        quantity: number;
+        totalAmount: number;
+      }
+    | null = null;
+
+  const result = await prisma.$transaction(async (tx) => {
     await acquireTransactionLock(
       tx,
       "payment-confirm",
@@ -604,6 +649,7 @@ export async function confirmChapaPayment(
         event: {
           select: {
             eventId: true,
+            userId: true,
             eventName: true,
             eventDatetime: true,
             eventEndtime: true,
@@ -757,6 +803,17 @@ export async function confirmChapaPayment(
       },
     });
 
+    if (latest.event.userId && latest.event.userId !== latest.userId) {
+      hostNotification = {
+        ownerId: latest.event.userId,
+        eventId: latest.eventId,
+        eventName: latest.event.eventName,
+        eventDateTime: latest.event.eventDatetime,
+        quantity: latest.quantity,
+        totalAmount: Number(latest.amountEtb),
+      };
+    }
+
     return {
       ok: true,
       status: "fulfilled",
@@ -765,6 +822,36 @@ export async function confirmChapaPayment(
       alreadyConfirmed: false,
     } satisfies ChapaConfirmationResult;
   });
+
+  const hostAlert = hostNotification as
+    | {
+        ownerId: string;
+        eventId: string;
+        eventName: string;
+        eventDateTime: Date;
+        quantity: number;
+        totalAmount: number;
+      }
+    | null;
+
+  if (hostAlert) {
+    await notifyUserById({
+      userId: hostAlert.ownerId,
+      subject: "You made a new event sale in Meda",
+      title: "A paid event order was confirmed",
+      message: "A buyer paid for tickets to one of your events.",
+      details: [
+        { label: "Event", value: hostAlert.eventName },
+        { label: "Time", value: hostAlert.eventDateTime.toLocaleString() },
+        { label: "Tickets", value: String(hostAlert.quantity) },
+        { label: "Total", value: `ETB ${hostAlert.totalAmount.toFixed(2)}` },
+      ],
+      ctaLabel: "Open event",
+      ctaPath: `/events/${hostAlert.eventId}`,
+    });
+  }
+
+  return result;
 }
 
 export async function getPaymentEmailPayloadByReference(

@@ -40,6 +40,11 @@ import { prisma } from "@/lib/prisma";
 import {
   notifyUserById,
 } from "@/services/actionNotifications";
+import {
+  loadBookingNotificationRecord,
+  notifyBookingHost,
+  notifyBookingParticipants,
+} from "@/services/bookingNotifications";
 import { sendBookingTicketInviteEmail } from "@/services/email";
 
 const DAILY_BOOKING_HOLD_WINDOW_MS = 15 * 60 * 1000;
@@ -745,7 +750,7 @@ export async function createDailyBooking(args: DailyBookingCreateArgs) {
       const response = await initializeChapaTransaction({
         first_name: args.userName?.trim() || "Meda",
         last_name: "Player",
-        email: args.userEmail ?? "payments@meda.local",
+        email: args.userEmail ?? `user-${args.userId}@meda.app`,
         currency: result.currency,
         amount: result.totalAmount.toFixed(2),
         tx_ref: txRef,
@@ -851,6 +856,27 @@ export async function createDailyBooking(args: DailyBookingCreateArgs) {
     ctaLabel: "Open Tickets",
     ctaPath: "/tickets",
   });
+
+  if (booking.status === BookingStatus.CONFIRMED) {
+    const hostBooking = await loadBookingNotificationRecord(result.bookingId);
+    await notifyBookingHost({
+      booking: hostBooking,
+      subject: "A new booking was confirmed at your place",
+      title: "A slot booking is confirmed",
+      message: "A player finished booking one of your time slots in Meda.",
+      details: [
+        { label: "Place", value: booking.slot.pitchName },
+        {
+          label: "Time",
+          value: `${new Date(booking.slot.startsAt).toLocaleString()} - ${new Date(booking.slot.endsAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+        },
+        { label: "Seats", value: String(booking.ticketSummary.sold) },
+        { label: "Total", value: `ETB ${booking.totalAmount.toFixed(2)}` },
+      ],
+      ctaLabel: "Open Host",
+      ctaPath: "/host",
+    });
+  }
 
   return {
     booking,
@@ -1261,6 +1287,27 @@ export async function createMonthlyBooking(args: MonthlyBookingCreateArgs) {
     ctaPath: "/tickets",
   });
 
+  if (serialized.status === BookingStatus.CONFIRMED) {
+    const hostBooking = await loadBookingNotificationRecord(bookingId);
+    await notifyBookingHost({
+      booking: hostBooking,
+      subject: "A new group booking was confirmed at your place",
+      title: "A group booking is confirmed",
+      message: "A group finished booking one of your time slots in Meda.",
+      details: [
+        { label: "Place", value: serialized.slot.pitchName },
+        {
+          label: "Time",
+          value: `${new Date(serialized.slot.startsAt).toLocaleString()} - ${new Date(serialized.slot.endsAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+        },
+        { label: "Players", value: String(serialized.ticketSummary.sold) },
+        { label: "Total", value: `ETB ${serialized.totalAmount.toFixed(2)}` },
+      ],
+      ctaLabel: "Open Host",
+      ctaPath: "/host",
+    });
+  }
+
   return serialized;
 }
 
@@ -1493,6 +1540,26 @@ export async function confirmBookingPayment(args: {
     });
   }
 
+  if (confirmed.slot.pitch.ownerId !== confirmed.userId) {
+    await notifyBookingHost({
+      booking: confirmed,
+      subject: "A new booking was confirmed at your place",
+      title: "A slot booking is confirmed",
+      message: "A player completed payment for one of your time slots in Meda.",
+      details: [
+        { label: "Place", value: confirmed.slot.pitch.name },
+        {
+          label: "Time",
+          value: `${confirmed.slot.startsAt.toLocaleString()} - ${confirmed.slot.endsAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+        },
+        { label: "Seats", value: String(confirmed.tickets.length) },
+        { label: "Total", value: `ETB ${asNumber(confirmed.totalAmount).toFixed(2)}` },
+      ],
+      ctaLabel: "Open Host",
+      ctaPath: "/host",
+    });
+  }
+
   return {
     ok: true as const,
     status: "confirmed" as const,
@@ -1623,27 +1690,25 @@ export async function cancelBooking(args: {
     return cancelled;
   });
 
-  if (updated.userId) {
-    await notifyUserById({
-      userId: updated.userId,
-      subject: "Your Meda booking was cancelled",
-      title: "Your booking was cancelled",
-      message:
-        updated.failureReason?.includes("refunded")
-          ? "Your booking was cancelled and the payment went back to your Meda balance."
-          : "Your booking was cancelled.",
-      details: [
-        { label: "Place", value: updated.slot.pitch.name },
-        {
-          label: "Time",
-          value: `${updated.slot.startsAt.toLocaleString()} - ${updated.slot.endsAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
-        },
-        { label: "Total", value: `ETB ${asNumber(updated.totalAmount).toFixed(2)}` },
-      ],
-      ctaLabel: "Open Tickets",
-      ctaPath: "/tickets",
-    });
-  }
+  await notifyBookingParticipants({
+    booking: updated,
+    subject: "Your Meda booking was cancelled",
+    title: "Your booking was cancelled",
+    message:
+      updated.failureReason?.includes("refunded")
+        ? "Your booking was cancelled and the payment went back to your Meda balance."
+        : "Your booking was cancelled.",
+    details: [
+      { label: "Place", value: updated.slot.pitch.name },
+      {
+        label: "Time",
+        value: `${updated.slot.startsAt.toLocaleString()} - ${updated.slot.endsAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+      },
+      { label: "Total", value: `ETB ${asNumber(updated.totalAmount).toFixed(2)}` },
+    ],
+    ctaLabel: "Open Tickets",
+    ctaPath: "/tickets",
+  });
 
   return serializeBooking(updated);
 }

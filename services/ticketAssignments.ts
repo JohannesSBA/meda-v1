@@ -205,6 +205,16 @@ export async function assignTicket(args: {
     updated.assignedName ??
     (updated.assignedUserId ? assigneeUsers.get(updated.assignedUserId)?.name ?? null : null);
   const previousRecipientEmail = normalizeEmail(ticket.assignedEmail);
+  const nextRecipientKey = updated.assignedUserId
+    ? `user:${updated.assignedUserId}`
+    : recipientEmail
+      ? `email:${recipientEmail}`
+      : null;
+  const previousRecipientKey = ticket.assignedUserId
+    ? `user:${ticket.assignedUserId}`
+    : previousRecipientEmail
+      ? `email:${previousRecipientEmail}`
+      : null;
 
   if (
     recipientEmail &&
@@ -243,6 +253,35 @@ export async function assignTicket(args: {
       });
     } catch (error) {
       logger.error("Failed to send assigned booking ticket email", error);
+    }
+  }
+
+  if (previousRecipientKey && previousRecipientKey !== nextRecipientKey) {
+    const previousNotification = {
+      subject: "A booking ticket was removed from your name",
+      title: "Ticket assignment removed",
+      message: "This ticket was reassigned to another player.",
+      details: [
+        { label: "Place", value: updated.booking.slot.pitch.name },
+        {
+          label: "Time",
+          value: `${updated.booking.slot.startsAt.toLocaleString()} - ${updated.booking.slot.endsAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+        },
+      ],
+      ctaLabel: "Open Tickets",
+      ctaPath: "/tickets",
+    };
+
+    if (ticket.assignedUserId) {
+      await notifyUserById({
+        userId: ticket.assignedUserId,
+        ...previousNotification,
+      });
+    } else if (previousRecipientEmail) {
+      await notifyUserByEmail({
+        email: previousRecipientEmail,
+        ...previousNotification,
+      });
     }
   }
 

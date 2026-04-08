@@ -330,6 +330,60 @@ async function rebuildPoolContributionsTx(args: {
   });
 }
 
+export async function syncEditableMonthlyBookingForPartyTx(args: {
+  tx: TransactionClient;
+  partyId: string;
+}) {
+  let booking = await getEditableMonthlyBookingTx(args.tx, args.partyId);
+  booking = await ensureBookingTicketCapacityTx(args.tx, booking);
+
+  if (!booking) {
+    return {
+      booking: null,
+      activeMembers: [] as Array<{
+        id: string;
+        userId: string | null;
+        invitedEmail: string | null;
+      }>,
+      assignments: new Map<string, string>(),
+    };
+  }
+
+  const activeMembers = await args.tx.partyMember.findMany({
+    where: {
+      partyId: args.partyId,
+      status: {
+        not: PartyMemberStatus.REMOVED,
+      },
+    },
+    orderBy: [{ createdAt: "asc" }],
+  });
+
+  const assignments = await syncTicketsForMembersTx({
+    tx: args.tx,
+    booking,
+    activeMembers,
+  });
+
+  if (
+    booking.paymentPool &&
+    booking.paymentPool.status === PaymentPoolStatus.PENDING &&
+    asNumber(booking.paymentPool.amountPaid) === 0
+  ) {
+    await rebuildPoolContributionsTx({
+      tx: args.tx,
+      booking,
+      activeMembers,
+    });
+  }
+
+  return {
+    booking: await getEditableMonthlyBookingTx(args.tx, args.partyId),
+    activeMembers,
+    assignments,
+  };
+}
+
 async function serializeParty(party: PartyRecord) {
   const userIds = [
     ...new Set(
@@ -613,35 +667,13 @@ export async function invitePartyMembers(args: {
     }
 
     if (booking) {
-      const activeMembers = await tx.partyMember.findMany({
-        where: {
-          partyId: party.id,
-          status: {
-            not: PartyMemberStatus.REMOVED,
-          },
-        },
-        orderBy: [{ createdAt: "asc" }],
-      });
-
-      const assignments = await syncTicketsForMembersTx({
+      const synced = await syncEditableMonthlyBookingForPartyTx({
         tx,
-        booking,
-        activeMembers,
+        partyId: party.id,
       });
-
-      if (
-        booking.paymentPool &&
-        booking.paymentPool.status === PaymentPoolStatus.PENDING &&
-        asNumber(booking.paymentPool.amountPaid) === 0
-      ) {
-        await rebuildPoolContributionsTx({
-          tx,
-          booking,
-          activeMembers,
-        });
-      }
-
-      const refreshedBooking = await getEditableMonthlyBookingTx(tx, party.id);
+      const activeMembers = synced.activeMembers;
+      const assignments = synced.assignments;
+      const refreshedBooking = synced.booking;
       if (refreshedBooking) {
         const authUsers = await getAuthUserEmails(
           activeMembers
@@ -945,33 +977,10 @@ export async function removePartyMember(args: {
     });
 
     if (booking) {
-      const activeMembers = await tx.partyMember.findMany({
-        where: {
-          partyId: party.id,
-          status: {
-            not: PartyMemberStatus.REMOVED,
-          },
-        },
-        orderBy: [{ createdAt: "asc" }],
-      });
-
-      await syncTicketsForMembersTx({
+      await syncEditableMonthlyBookingForPartyTx({
         tx,
-        booking,
-        activeMembers,
+        partyId: party.id,
       });
-
-      if (
-        booking.paymentPool &&
-        booking.paymentPool.status === PaymentPoolStatus.PENDING &&
-        asNumber(booking.paymentPool.amountPaid) === 0
-      ) {
-        await rebuildPoolContributionsTx({
-          tx,
-          booking,
-          activeMembers,
-        });
-      }
     }
 
     return party.id;

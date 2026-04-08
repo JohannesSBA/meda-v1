@@ -760,11 +760,13 @@ model TicketScan {
 
 model ReminderLog {
   reminderLogId String   @id @default(uuid()) @map("reminder_log_id") @db.Uuid
-  eventId       String   @map("event_id") @db.Uuid
+  eventId       String?  @map("event_id") @db.Uuid
+  bookingId     String?  @map("booking_id") @db.Uuid
   userId        String   @map("user_id") @db.Uuid
   reminderType  String   @map("reminder_type") @db.VarChar(20)
   sentAt        DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
 
   @@unique([eventId, userId, reminderType], map: "reminder_log_event_user_type_key")
+  @@unique([bookingId, userId, reminderType], map: "reminder_log_booking_user_type_key")
   @@map("reminder_log")
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import StaticEventMapClient from "@/app/components/StaticEventMapClient";
@@ -12,8 +12,9 @@ import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Select } from "@/app/components/ui/select";
 import { Badge } from "@/app/components/ui/badge";
-import { browserApi } from "@/lib/browserApi";
+import { browserApi, BrowserApiError } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
+import { buildMonthlyBookingPayload, normalizeMonthlyMemberEmails } from "@/lib/monthlyBooking";
 
 type SlotPayload = {
   id: string;
@@ -34,6 +35,18 @@ type SlotPayload = {
   hostTrustBadge: string;
 };
 
+type PartySummary = {
+  id: string;
+  name: string | null;
+  status: string;
+  members: Array<{
+    id: string;
+    displayName: string;
+    invitedEmail: string | null;
+    status: string;
+  }>;
+};
+
 function stars(value: number) {
   const rounded = Math.max(0, Math.min(5, Math.round(value)));
   return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
@@ -43,16 +56,42 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [groups, setGroups] = useState<PartySummary[]>([]);
   const [quantity, setQuantity] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState<"balance" | "chapa">("chapa");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [groupName, setGroupName] = useState("");
   const [memberEmails, setMemberEmails] = useState("");
 
-  const normalizedEmails = useMemo(
-    () =>
-      [...new Set(memberEmails.split(/[\n,]/).map((entry) => entry.trim().toLowerCase()).filter(Boolean))],
-    [memberEmails],
-  );
+  const normalizedEmails = normalizeMonthlyMemberEmails(memberEmails);
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGroups() {
+      try {
+        const data = await browserApi.get<{ parties?: PartySummary[] }>("/api/parties", {
+          cache: "no-store",
+        });
+        if (!cancelled) {
+          setGroups(data.parties ?? []);
+        }
+      } catch (error) {
+        if (!cancelled && (!(error instanceof BrowserApiError) || error.status !== 401)) {
+          toast.error(getErrorMessage(error) || "Failed to load your saved groups");
+        }
+      }
+    }
+
+    if (slot.productType === "MONTHLY") {
+      void loadGroups();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slot.productType]);
 
   async function submitBooking() {
     setSubmitting(true);
@@ -68,11 +107,15 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
           return;
         }
       } else {
-        await browserApi.post("/api/bookings/monthly", {
-          slotId: slot.id,
-          partyName: groupName || undefined,
-          memberEmails: normalizedEmails,
-        });
+        await browserApi.post(
+          "/api/bookings/monthly",
+          buildMonthlyBookingPayload({
+            slotId: slot.id,
+            selectedGroupId,
+            groupName,
+            memberEmails,
+          }),
+        );
       }
 
       toast.success("Booking created.");
@@ -151,12 +194,44 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
           ) : (
             <>
               <label className="block">
+                <span className="field-label">Use a saved group</span>
+                <Select
+                  value={selectedGroupId}
+                  onChange={(event) => setSelectedGroupId(event.target.value)}
+                >
+                  <option value="">Create a new group</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {(group.name?.trim() || "Unnamed group").trim()} ({group.members.length} member
+                      {group.members.length === 1 ? "" : "s"})
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              {selectedGroup ? (
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-3 text-sm text-[var(--color-text-secondary)]">
+                  Using <span className="font-medium text-[var(--color-text-primary)]">{selectedGroup.name ?? "Unnamed group"}</span> with{" "}
+                  {selectedGroup.members.length} member{selectedGroup.members.length === 1 ? "" : "s"}.
+                </div>
+              ) : null}
+              <label className="block">
                 <span className="field-label">Group name</span>
-                <Input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Friday squad" />
+                <Input
+                  value={groupName}
+                  onChange={(event) => setGroupName(event.target.value)}
+                  placeholder="Friday squad"
+                  disabled={Boolean(selectedGroupId)}
+                />
               </label>
               <label className="block">
                 <span className="field-label">Member emails</span>
-                <Textarea rows={5} value={memberEmails} onChange={(event) => setMemberEmails(event.target.value)} placeholder="a@example.com, b@example.com" />
+                <Textarea
+                  rows={5}
+                  value={memberEmails}
+                  onChange={(event) => setMemberEmails(event.target.value)}
+                  placeholder="a@example.com, b@example.com"
+                  disabled={Boolean(selectedGroupId)}
+                />
               </label>
             </>
           )}
@@ -173,7 +248,7 @@ export function SlotBookingFlow({ slot }: { slot: SlotPayload }) {
           <p className="text-sm text-[var(--color-text-secondary)]">
             {slot.productType === "DAILY"
               ? `${Math.max(1, Number(quantity) || 1)} spot(s) at ${slot.currency} ${slot.price}`
-              : `${normalizedEmails.length + 1} member(s) for full pitch reservation`}
+              : `${selectedGroup ? selectedGroup.members.length : normalizedEmails.length + 1} member(s) for full pitch reservation`}
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setStep(2)}>Back</Button>

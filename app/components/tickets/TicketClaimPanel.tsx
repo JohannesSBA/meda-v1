@@ -19,7 +19,7 @@ type TicketClaimPanelProps = {
 };
 
 type ShareDetails = {
-  kind?: "event_attendee" | "booking_ticket";
+  kind?: "event_attendee" | "booking_ticket" | "booking_pool";
   status: "Active" | "Expired" | "Revoked" | "Claimed";
   remainingClaims: number;
   event?: {
@@ -139,6 +139,10 @@ export default function TicketClaimPanel({ token }: TicketClaimPanelProps) {
             ? details.status === "Active"
               ? "This claim link is ready to use."
               : "This claim link is no longer available."
+            : details.kind === "booking_pool"
+              ? details.status === "Active"
+                ? `Open group spots left on this link: ${details.remainingClaims}`
+                : "This pool claim link is no longer available."
             : `Tickets remaining on this link: ${details.remainingClaims}`}
         </p>
       </div>

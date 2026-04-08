@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { formatUnknownError } from "@/lib/apiResponse";
+import { getAppBaseUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import {
   poolIdParamSchema,
@@ -31,10 +32,11 @@ export async function POST(
   }
 
   try {
-    const origin = new URL(request.url).origin;
+    const publicBaseUrl = getAppBaseUrl();
     const result = await contributeToPaymentPool({
       poolId: parsedParams.data.id,
       amount: parsedBody.data.amount,
+      partyMemberId: parsedBody.data.partyMemberId,
       paymentMethod: parsedBody.data.paymentMethod,
       actor: {
         userId: sessionCheck.user!.id,
@@ -42,8 +44,9 @@ export async function POST(
         email: sessionCheck.user!.email ?? null,
         parentPitchOwnerUserId: sessionCheck.user!.parentPitchOwnerUserId ?? null,
       },
-      callbackUrl: `${origin}/api/payments/chapa/callback`,
-      returnUrlBase: `${origin}/tickets`,
+      callbackUrl:
+        process.env.CHAPA_CALLBACK_URL ?? `${publicBaseUrl}/api/payments/chapa/callback`,
+      returnUrlBase: `${publicBaseUrl}/tickets`,
     });
 
     revalidatePath("/tickets");

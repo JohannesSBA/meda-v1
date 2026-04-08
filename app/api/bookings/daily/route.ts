@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireSessionUser } from "@/lib/auth/guards";
 import { formatUnknownError } from "@/lib/apiResponse";
+import { getAppBaseUrl } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { dailyBookingCreateSchema } from "@/lib/validations/bookingInventory";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const origin = new URL(request.url).origin;
+    const publicBaseUrl = getAppBaseUrl();
     const result = await createDailyBooking({
       slotId: parsed.data.slotId,
       quantity: parsed.data.quantity,
@@ -25,8 +26,9 @@ export async function POST(request: Request) {
       userId: sessionCheck.user!.id,
       userEmail: sessionCheck.user!.email ?? null,
       userName: sessionCheck.user!.name ?? null,
-      callbackUrl: `${origin}/api/payments/chapa/callback`,
-      returnUrlBase: `${origin}/tickets`,
+      callbackUrl:
+        process.env.CHAPA_CALLBACK_URL ?? `${publicBaseUrl}/api/payments/chapa/callback`,
+      returnUrlBase: `${publicBaseUrl}/tickets`,
     });
 
     revalidatePath("/tickets");

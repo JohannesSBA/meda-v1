@@ -178,6 +178,12 @@ async function listHeldEventTicketsForUser(userId: string) {
 function buildBookingHubItem(actor: BookingActor, booking: SerializedBooking): TicketHubBookingItem {
   const now = Date.now();
   const actorEmail = normalizeEmail(actor.email);
+  const matchingPartyMember =
+    booking.party?.members.find(
+      (member) =>
+        member.userId === actor.userId ||
+        (actorEmail ? normalizeEmail(member.invitedEmail) === actorEmail : false),
+    ) ?? null;
   const isPast =
     new Date(booking.slot.endsAt).getTime() < now ||
     booking.status === "CANCELLED" ||
@@ -200,7 +206,11 @@ function buildBookingHubItem(actor: BookingActor, booking: SerializedBooking): T
       booking.paymentPool.status === "PENDING" &&
       booking.paymentPool.contributions.some(
         (contribution) =>
-          contribution.userId === actor.userId && contribution.status !== "PAID",
+          contribution.status !== "PAID" &&
+          (contribution.userId === actor.userId ||
+            (matchingPartyMember
+              ? contribution.partyMemberId === matchingPartyMember.id
+              : false)),
       ),
   );
 

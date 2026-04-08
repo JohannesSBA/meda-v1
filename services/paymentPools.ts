@@ -5,6 +5,7 @@ import {
   PaymentProvider,
   Prisma,
 } from "@/generated/prisma/client";
+import axios from "axios";
 import {
   getChapaClient,
   initializeChapaTransaction,
@@ -17,6 +18,11 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { notifyUserById } from "@/services/actionNotifications";
 import { recomputeSlotStatusTx } from "@/services/bookingCapacity";
+import {
+  loadBookingNotificationRecord,
+  notifyBookingHost,
+  notifyBookingParticipants,
+} from "@/services/bookingNotifications";
 import {
   type BookingActor,
   finalizeBookingConfirmationTx,
@@ -233,6 +239,7 @@ type ContributeArgs = {
   poolId: string;
   actor: BookingActor;
   amount?: number;
+  partyMemberId?: string;
   paymentMethod: "balance" | "chapa";
   callbackUrl: string;
   returnUrlBase: string;
@@ -292,22 +299,41 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
       throw new Error("This payment pool has already expired.");
     }
 
+    const canManageContribution =
+      args.actor.role === "admin" ||
+      pool.booking.userId === args.actor.userId ||
+      pool.booking.party?.ownerId === args.actor.userId ||
+      pool.booking.slot.pitch.ownerId === args.actor.userId ||
+      (args.actor.role === "facilitator" &&
+        args.actor.parentPitchOwnerUserId === pool.booking.slot.pitch.ownerId);
     const matchingMember = pool.booking.party?.members.find(
       (member) =>
         member.userId === args.actor.userId ||
         (actorEmail ? normalizeEmail(member.invitedEmail) === actorEmail : false),
     );
-    if (!matchingMember && args.actor.role !== "admin") {
+    if (!matchingMember && !canManageContribution) {
       throw new Error("You are not allowed to contribute to this pool.");
+    }
+
+    const targetMember = args.partyMemberId
+      ? pool.booking.party?.members.find((member) => member.id === args.partyMemberId) ?? null
+      : matchingMember ?? null;
+    if (args.partyMemberId && !targetMember) {
+      throw new Error("That group member does not belong to this payment pool.");
+    }
+    if (args.partyMemberId && !canManageContribution) {
+      throw new Error("You are not allowed to pay this member's share.");
     }
 
     let contribution = pool.contributions.find(
       (entry) =>
-        entry.userId === args.actor.userId ||
-        (matchingMember ? entry.partyMemberId === matchingMember.id : false),
+        args.partyMemberId
+          ? entry.partyMemberId === args.partyMemberId
+          : entry.userId === args.actor.userId ||
+            (matchingMember ? entry.partyMemberId === matchingMember.id : false),
     );
 
-    if (!contribution && !matchingMember) {
+    if (!contribution && !targetMember) {
       throw new Error("No contribution record exists for this member.");
     }
 
@@ -328,12 +354,12 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
       });
     }
 
-    if (!contribution && matchingMember) {
+    if (!contribution && targetMember) {
       contribution = await tx.paymentContribution.create({
         data: {
           poolId: pool.id,
-          userId: knownUser?.id ?? args.actor.userId,
-          partyMemberId: matchingMember.id,
+          userId: args.partyMemberId ? targetMember.userId : knownUser?.id ?? args.actor.userId,
+          partyMemberId: targetMember.id,
           expectedAmount: 0,
           paidAmount: 0,
           status: ContributionStatus.PENDING,
@@ -378,7 +404,7 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
       const updatedContribution = await tx.paymentContribution.update({
         where: { id: contribution.id },
         data: {
-          userId: knownUser?.id ?? args.actor.userId,
+          userId: args.actor.userId,
           paidAmount: { increment: amountToPay },
           status:
             amountToPay >= outstandingAmount
@@ -396,7 +422,9 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
         await tx.partyMember.update({
           where: { id: updatedContribution.partyMemberId },
           data: {
-            userId: knownUser?.id ?? args.actor.userId,
+            userId:
+              updatedContribution.partyMember?.userId ??
+              (args.partyMemberId ? null : knownUser?.id ?? args.actor.userId),
             status:
               amountToPay >= outstandingAmount
                 ? PartyMemberStatus.PAID
@@ -457,7 +485,7 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
     await tx.paymentContribution.update({
       where: { id: contribution.id },
       data: {
-        userId: knownUser?.id ?? args.actor.userId,
+        userId: args.actor.userId,
         providerRef: txRef,
         status: ContributionStatus.PENDING,
       },
@@ -509,7 +537,7 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
       const response = await initializeChapaTransaction({
         first_name: "Meda",
         last_name: "Player",
-        email: args.actor.email ?? "payments@meda.local",
+        email: args.actor.email ?? `user-${args.actor.userId}@meda.app`,
         currency: result.currency,
         amount: result.amountToPay.toFixed(2),
         tx_ref: txRef,
@@ -535,6 +563,13 @@ export async function contributeToPaymentPool(args: ContributeArgs) {
           status: ContributionStatus.FAILED,
         },
       });
+      if (axios.isAxiosError(error)) {
+        const providerMessage =
+          typeof error.response?.data?.message === "string"
+            ? error.response.data.message
+            : error.message;
+        throw new Error(providerMessage || "Failed to initialize pool contribution payment");
+      }
       throw error instanceof Error
         ? error
         : new Error("Failed to initialize pool contribution payment");
@@ -771,7 +806,10 @@ export async function confirmPaymentPoolContribution(args: {
       }),
     });
 
-    if (asNumber(updatedPool.amountPaid) + 0.0001 >= asNumber(updatedPool.totalAmount)) {
+    const bookingConfirmedNow =
+      asNumber(updatedPool.amountPaid) + 0.0001 >= asNumber(updatedPool.totalAmount);
+
+    if (bookingConfirmedNow) {
       await finalizeBookingConfirmationTx(tx, latest.pool.bookingId, {
         paidAt,
         paymentProvider: PaymentProvider.chapa,
@@ -795,6 +833,7 @@ export async function confirmPaymentPoolContribution(args: {
 
     return {
       bookingId: latest.pool.bookingId,
+      bookingConfirmedNow,
     };
   });
 
@@ -809,7 +848,45 @@ export async function confirmPaymentPoolContribution(args: {
       } satisfies BookingActor),
   });
 
-  if (contribution.userId ?? contribution.partyMember?.userId) {
+  if (booking.bookingConfirmedNow) {
+    const confirmedBooking = await loadBookingNotificationRecord(booking.bookingId);
+    await notifyBookingParticipants({
+      booking: confirmedBooking,
+      subject: "Your group booking is confirmed",
+      title: "Your group booking is ready",
+      message: "The full group payment cleared and every spot on this booking is now ready in Meda.",
+      details: [
+        { label: "Place", value: serializedBooking.slot.pitchName },
+        {
+          label: "Time",
+          value: `${new Date(serializedBooking.slot.startsAt).toLocaleString()} - ${new Date(serializedBooking.slot.endsAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+        },
+        { label: "Group total", value: `ETB ${serializedBooking.totalAmount.toFixed(2)}` },
+      ],
+      ctaLabel: "Open Tickets",
+      ctaPath: "/tickets",
+    });
+
+    if (confirmedBooking.slot.pitch.ownerId !== serializedBooking.purchaser?.id) {
+      await notifyBookingHost({
+        booking: confirmedBooking,
+        subject: "A new group booking was confirmed at your place",
+        title: "A group booking is confirmed",
+        message: "A group finished paying for one of your time slots in Meda.",
+        details: [
+          { label: "Place", value: serializedBooking.slot.pitchName },
+          {
+            label: "Time",
+            value: `${new Date(serializedBooking.slot.startsAt).toLocaleString()} - ${new Date(serializedBooking.slot.endsAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
+          },
+          { label: "Players", value: String(serializedBooking.ticketSummary.sold) },
+          { label: "Total", value: `ETB ${serializedBooking.totalAmount.toFixed(2)}` },
+        ],
+        ctaLabel: "Open Host",
+        ctaPath: "/host",
+      });
+    }
+  } else if (contribution.userId ?? contribution.partyMember?.userId) {
     await notifyUserById({
       userId:
         contribution.userId ??
