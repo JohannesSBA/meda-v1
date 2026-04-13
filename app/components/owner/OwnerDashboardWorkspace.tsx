@@ -111,6 +111,7 @@ type OwnerPayoutSummary = {
   ownerId: string;
   businessName: string | null;
   payoutReady: boolean;
+  payoutSetupIssue: string | null;
   destinationLabel: string | null;
   destinationBankCode: string | null;
   currentBalanceEtb: number;
@@ -638,7 +639,9 @@ export function OwnerDashboardWorkspace({
                       Verified destination
                     </p>
                     <p className="mt-2 text-sm font-medium leading-6 text-[var(--color-text-primary)]">
-                      {payoutSummary?.destinationLabel ?? "Set up your payout destination in profile first."}
+                      {payoutSummary?.destinationLabel ??
+                        payoutSummary?.payoutSetupIssue ??
+                        "Set up your payout destination in profile first."}
                     </p>
                   </div>
                 </div>
@@ -718,7 +721,8 @@ export function OwnerDashboardWorkspace({
                 {!payoutSummary?.payoutReady ? (
                   <div className="space-y-3 rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 px-4 py-3">
                     <p className="text-sm text-[var(--color-text-primary)]">
-                      Add and verify your payout destination in profile before sending money out.
+                      {payoutSummary?.payoutSetupIssue ??
+                        "Add and verify your payout destination in profile before sending money out."}
                     </p>
                     <Button
                       type="button"

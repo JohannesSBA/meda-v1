@@ -7,12 +7,11 @@ import {
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
 import { PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
 import {
-  decryptPayoutValue,
   encryptPayoutValue,
-  maskAccountNumber,
 } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { readPitchOwnerPayoutCredentials } from "@/services/payoutCredentials";
 export { PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
 
 export type PitchOwnerPayoutSettings = {
@@ -26,6 +25,7 @@ export type PitchOwnerPayoutSettings = {
   splitValue: number | null;
   payoutSetupVerifiedAt: string | null;
   payoutSetupComplete: boolean;
+  payoutSetupIssue: string | null;
 };
 
 export async function ensurePitchOwnerProfile(args: {
@@ -91,6 +91,7 @@ function toNumber(value: Prisma.Decimal | number | string | null | undefined) {
 }
 
 function formatPayoutSettings(profile: {
+  userId: string;
   businessName: string | null;
   accountNameEnc: string | null;
   accountNumberEnc: string | null;
@@ -100,23 +101,36 @@ function formatPayoutSettings(profile: {
   splitValue: Prisma.Decimal | number | string | null;
   payoutSetupVerifiedAt: Date | null;
 }): PitchOwnerPayoutSettings {
-  const accountName = decryptPayoutValue(profile.accountNameEnc);
-  const accountNumber = decryptPayoutValue(profile.accountNumberEnc);
-  const bankCode = decryptPayoutValue(profile.bankCodeEnc);
+  const payoutCredentials = readPitchOwnerPayoutCredentials({
+    ownerId: profile.userId,
+    accountNameEnc: profile.accountNameEnc,
+    accountNumberEnc: profile.accountNumberEnc,
+    bankCodeEnc: profile.bankCodeEnc,
+    context: "pitch-owner-settings",
+  });
 
   return {
     businessName: profile.businessName,
-    accountName,
-    accountNumberMasked: maskAccountNumber(accountNumber),
-    accountNumberLast4: accountNumber ? accountNumber.slice(-4) : null,
-    bankCode,
+    accountName: payoutCredentials.accountName,
+    accountNumberMasked: payoutCredentials.accountNumberMasked,
+    accountNumberLast4: payoutCredentials.accountNumberLast4,
+    bankCode: payoutCredentials.bankCode,
     chapaSubaccountId: profile.chapaSubaccountId,
     splitType: profile.splitType,
     splitValue: toNumber(profile.splitValue),
-    payoutSetupVerifiedAt: profile.payoutSetupVerifiedAt?.toISOString() ?? null,
+    payoutSetupVerifiedAt:
+      payoutCredentials.payoutSetupIssue == null
+        ? profile.payoutSetupVerifiedAt?.toISOString() ?? null
+        : null,
     payoutSetupComplete: Boolean(
-      profile.chapaSubaccountId && profile.payoutSetupVerifiedAt,
+      profile.chapaSubaccountId &&
+        profile.payoutSetupVerifiedAt &&
+        payoutCredentials.accountName &&
+        payoutCredentials.accountNumber &&
+        payoutCredentials.bankCode &&
+        payoutCredentials.payoutSetupIssue == null,
     ),
+    payoutSetupIssue: payoutCredentials.payoutSetupIssue,
   };
 }
 

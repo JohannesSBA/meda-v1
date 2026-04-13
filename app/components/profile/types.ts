@@ -109,6 +109,7 @@ export type AdminOwnerPayoutSummary = {
   ownerEmail?: string | null;
   businessName?: string | null;
   payoutReady: boolean;
+  payoutSetupIssue?: string | null;
   destinationLabel?: string | null;
   destinationBankCode?: string | null;
   grossTicketSalesEtb: number;

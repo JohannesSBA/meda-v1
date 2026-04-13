@@ -320,7 +320,9 @@ export function AdminBillingTab({
                     {owner.ownerEmail ?? "No email on file"}
                   </p>
                   <p className="text-sm text-[var(--color-text-secondary)]">
-                    {owner.destinationLabel ?? "No verified payout destination yet"}
+                    {owner.destinationLabel ??
+                      owner.payoutSetupIssue ??
+                      "No verified payout destination yet"}
                   </p>
                 </div>
 

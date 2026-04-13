@@ -91,6 +91,7 @@ describe("pitch owner payout settings", () => {
     pitchOwnerProfileUpdateMock
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({
+        userId: "user-1",
         businessName: "Pitch Owner FC",
         accountNameEnc: "enc:Abebe",
         accountNumberEnc: "enc:0123456789",
@@ -163,6 +164,54 @@ describe("pitch owner payout settings", () => {
         bankCode: "128",
         chapaSubaccountId: "sub-123",
         payoutSetupComplete: true,
+        payoutSetupIssue: null,
+      }),
+    );
+  });
+
+  it("marks payout setup for re-verification when encrypted values cannot be decrypted", async () => {
+    getAuthUserEmailsMock.mockResolvedValue(
+      new Map([
+        [
+          "user-1",
+          {
+            id: "user-1",
+            email: "owner@example.com",
+            name: "Pitch Owner",
+          },
+        ],
+      ]),
+    );
+    pitchOwnerProfileFindUniqueMock.mockResolvedValue({
+      userId: "user-1",
+      businessName: "Pitch Owner",
+      accountNameEnc: "v1:broken-account-name",
+      accountNumberEnc: "v1:broken-account-number",
+      bankCodeEnc: "v1:broken-bank-code",
+      chapaSubaccountId: "sub-123",
+      splitType: "percentage",
+      splitValue: 0.05,
+      payoutSetupVerifiedAt: new Date("2026-03-15T12:00:00.000Z"),
+    });
+    decryptPayoutValueMock.mockImplementation(() => {
+      throw new Error("Unsupported state or unable to authenticate data");
+    });
+    maskAccountNumberMock.mockReturnValue(null);
+
+    const { getPitchOwnerPayoutSettings } = await import("@/services/pitchOwner");
+    const result = await getPitchOwnerPayoutSettings("user-1");
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        businessName: "Pitch Owner",
+        accountName: null,
+        accountNumberMasked: null,
+        accountNumberLast4: null,
+        bankCode: null,
+        payoutSetupComplete: false,
+        payoutSetupVerifiedAt: null,
+        payoutSetupIssue:
+          "Your saved payout details can no longer be read with the current encryption key. Re-enter and verify them again.",
       }),
     );
   });

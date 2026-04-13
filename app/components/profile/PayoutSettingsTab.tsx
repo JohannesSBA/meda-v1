@@ -26,6 +26,7 @@ type PayoutSettings = {
   splitValue: number | null;
   payoutSetupVerifiedAt: string | null;
   payoutSetupComplete: boolean;
+  payoutSetupIssue: string | null;
 };
 
 const EMPTY_FORM = {
@@ -207,6 +208,12 @@ export function PayoutSettingsTab() {
         ) : (
           <Card className="p-5 sm:p-6">
             <form className="space-y-4" onSubmit={handleSubmit}>
+              {payout?.payoutSetupIssue ? (
+                <div className="rounded-[var(--radius-md)] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-[var(--color-text-primary)]">
+                  {payout.payoutSetupIssue}
+                </div>
+              ) : null}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                   <span className="field-label">Business name</span>

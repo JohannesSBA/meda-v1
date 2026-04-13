@@ -11,10 +11,13 @@ import {
   PLATFORM_COMMISSION_PERCENT,
   TICKET_SURCHARGE_ETB,
 } from "@/lib/constants";
-import { decryptPayoutValue, maskAccountNumber } from "@/lib/encryption";
 import { prisma } from "@/lib/prisma";
 import { roundCurrency } from "@/lib/ticketPricing";
 import { notifyUserById } from "@/services/actionNotifications";
+import {
+  PAYOUT_REVERIFICATION_REQUIRED_MESSAGE,
+  readPitchOwnerPayoutCredentials,
+} from "@/services/payoutCredentials";
 
 const PAYOUT_REFERENCE_PREFIX = "MEDAPAYOUT";
 
@@ -44,6 +47,7 @@ export type AdminOwnerPayoutSummary = {
   ownerEmail: string | null;
   businessName: string | null;
   payoutReady: boolean;
+  payoutSetupIssue: string | null;
   destinationLabel: string | null;
   destinationBankCode: string | null;
   grossTicketSalesEtb: number;
@@ -60,6 +64,7 @@ export type PitchOwnerPayoutSummary = {
   ownerId: string;
   businessName: string | null;
   payoutReady: boolean;
+  payoutSetupIssue: string | null;
   destinationLabel: string | null;
   destinationBankCode: string | null;
   currentBalanceEtb: number;
@@ -269,8 +274,13 @@ async function computeOwnerPayoutSummary(args: {
     )
     .reduce((sum, payout) => sum + asNumber(payout.amountEtb), 0);
 
-  const accountNumber = decryptPayoutValue(profile?.accountNumberEnc);
-  const bankCode = decryptPayoutValue(profile?.bankCodeEnc);
+  const payoutCredentials = readPitchOwnerPayoutCredentials({
+    ownerId: args.ownerId,
+    accountNameEnc: null,
+    accountNumberEnc: profile?.accountNumberEnc,
+    bankCodeEnc: profile?.bankCodeEnc,
+    context: "owner-payout-summary",
+  });
   const currentBalanceEtb = roundCurrency(asNumber(balanceRecord?.balanceEtb));
   const remainingOwnerRevenueEtb = roundCurrency(
     grossEventBreakdown.netOwnerRevenueEtb +
@@ -278,16 +288,22 @@ async function computeOwnerPayoutSummary(args: {
       reservedPayoutEtb,
   );
   const destinationLabel =
-    accountNumber && bankCode
-      ? `${maskAccountNumber(accountNumber)}${bankCode ? ` via bank ${bankCode}` : ""}`
+    payoutCredentials.accountNumber && payoutCredentials.bankCode
+      ? `${payoutCredentials.accountNumberMasked}${payoutCredentials.bankCode ? ` via bank ${payoutCredentials.bankCode}` : ""}`
       : null;
 
   return {
     ownerId: args.ownerId,
     businessName: profile?.businessName ?? null,
-    payoutReady: Boolean(profile?.payoutSetupVerifiedAt && accountNumber && bankCode),
+    payoutReady: Boolean(
+      profile?.payoutSetupVerifiedAt &&
+        payoutCredentials.accountNumber &&
+        payoutCredentials.bankCode &&
+        payoutCredentials.payoutSetupIssue == null,
+    ),
+    payoutSetupIssue: payoutCredentials.payoutSetupIssue,
     destinationLabel,
-    destinationBankCode: bankCode,
+    destinationBankCode: payoutCredentials.bankCode,
     currentBalanceEtb,
     grossTicketSalesEtb: roundCurrency(
       grossEventBreakdown.grossTicketSalesEtb + bookingBreakdown.grossTicketSalesEtb,
@@ -347,6 +363,7 @@ export async function listAdminPitchOwnerPayoutSummaries() {
         ownerEmail: authUser?.email ?? null,
         businessName: payoutSummary.businessName,
         payoutReady: payoutSummary.payoutReady,
+        payoutSetupIssue: payoutSummary.payoutSetupIssue,
         destinationLabel: payoutSummary.destinationLabel,
         destinationBankCode: payoutSummary.destinationBankCode,
         grossTicketSalesEtb: payoutSummary.grossTicketSalesEtb,
@@ -397,6 +414,10 @@ export async function createPitchOwnerPayout(args: {
     recentPayoutLimit: 8,
   });
 
+  if (summary.payoutSetupIssue) {
+    throw new Error(PAYOUT_REVERIFICATION_REQUIRED_MESSAGE);
+  }
+
   if (!summary.payoutReady) {
     throw new Error("This pitch owner does not have a verified payout destination.");
   }
@@ -413,9 +434,19 @@ export async function createPitchOwnerPayout(args: {
     );
   }
 
-  const accountName = decryptPayoutValue(profile.accountNameEnc);
-  const accountNumber = decryptPayoutValue(profile.accountNumberEnc);
-  const bankCode = decryptPayoutValue(profile.bankCodeEnc);
+  const payoutCredentials = readPitchOwnerPayoutCredentials({
+    ownerId: args.ownerId,
+    accountNameEnc: profile.accountNameEnc,
+    accountNumberEnc: profile.accountNumberEnc,
+    bankCodeEnc: profile.bankCodeEnc,
+    context: "create-owner-payout",
+  });
+  if (payoutCredentials.payoutSetupIssue) {
+    throw new Error(PAYOUT_REVERIFICATION_REQUIRED_MESSAGE);
+  }
+  const accountName = payoutCredentials.accountName;
+  const accountNumber = payoutCredentials.accountNumber;
+  const bankCode = payoutCredentials.bankCode;
   if (!accountName || !accountNumber || !bankCode) {
     throw new Error("The verified payout destination is incomplete.");
   }
@@ -484,7 +515,7 @@ export async function createPitchOwnerPayout(args: {
         { label: "Amount", value: `ETB ${payoutAmount.toFixed(2)}` },
         {
           label: "Destination",
-          value: `${maskAccountNumber(accountNumber)} (${bankCode})`,
+          value: `${payoutCredentials.accountNumberMasked} (${bankCode})`,
         },
         { label: "Reference", value: reference },
       ],
