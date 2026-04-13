@@ -12,8 +12,13 @@ import { Select } from "@/app/components/ui/select";
 import { Stack } from "@/app/components/ui/primitives";
 import { Textarea } from "@/app/components/ui/textarea";
 import { MapPicker } from "@/app/components/create-event/MapPicker";
+import { HostPanelLoading } from "@/app/components/host/HostPanelLoading";
+import { HostSectionHeader } from "@/app/components/host/HostSectionHeader";
+import { HOST_WORKBENCH_LIST_CARD_CLASS } from "@/app/components/host/hostWorkbenchChrome";
+import { HostWorkbenchListDetailBody } from "@/app/components/host/HostWorkbenchListDetailBody";
 import { browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
+import { shouldClearStaleListSelection } from "@/lib/reconcileHostSelection";
 import type { Category } from "@/app/types/catagory";
 
 type CalendarView = "month" | "week" | "day";
@@ -604,9 +609,13 @@ export function OwnerOperationsWorkspace({
 
   async function refreshPitches() {
     const data = await browserApi.get<{ pitches: PitchSummary[] }>("/api/pitches");
-    setPitches(data.pitches ?? []);
-    if (data.pitches.length > 0 && !data.pitches.some((pitch) => pitch.id === selectedPitchId)) {
-      setSelectedPitchId(data.pitches[0].id);
+    const nextPitches = data.pitches ?? [];
+    setPitches(nextPitches);
+    const pitchIds = nextPitches.map((pitch) => pitch.id);
+    if (nextPitches.length === 0) {
+      setSelectedPitchId("");
+    } else if (shouldClearStaleListSelection(selectedPitchId, pitchIds)) {
+      setSelectedPitchId(nextPitches[0].id);
     }
   }
 
@@ -1014,6 +1023,13 @@ export function OwnerOperationsWorkspace({
   }
 
   const selectedPitch = pitches.find((pitch) => pitch.id === selectedPitchId) ?? null;
+  const calendarWeekDays = calendar?.days ?? [];
+  /** Week summary list is empty only when we also have nothing to show for the selected window. */
+  const weekViewHasNoDaysAndNoSlots =
+    !calendarLoading &&
+    calendarView === "week" &&
+    calendarWeekDays.length === 0 &&
+    visibleSlots.length === 0;
   const totalRevenue = calendar?.totals.revenueSummaryEtb ?? 0;
   const slotWindowPlan = useMemo(
     () =>
@@ -1439,14 +1455,16 @@ export function OwnerOperationsWorkspace({
             </Card>
 
             <Card className="space-y-4 p-5 sm:p-6">
-              <div className="space-y-2">
-                <p className="heading-kicker">Next step</p>
-                <h2 className="section-title">Open the calendar page when the place is ready</h2>
-                <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                  Keep place setup here, then move to the calendar page when you want to save open
-                  days and publish bookable times.
-                </p>
-              </div>
+              <HostSectionHeader
+                kicker="Next step"
+                title="Open the calendar page when the place is ready"
+                description={
+                  <>
+                    Keep place setup here, then move to the calendar page when you want to save open
+                    days and publish bookable times.
+                  </>
+                }
+              />
 
               <Button
                 type="button"
@@ -1460,14 +1478,16 @@ export function OwnerOperationsWorkspace({
           </>
         ) : pitches.length === 0 ? (
           <Card className="space-y-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Calendar</p>
-              <h2 className="section-title">Create a place before you publish times</h2>
-              <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
-                Booking windows need a saved place first. Set up the place details on the places
-                page, then come back here to manage the calendar.
-              </p>
-            </div>
+            <HostSectionHeader
+              kicker="Calendar"
+              title="Create a place before you publish times"
+              description={
+                <>
+                  Booking windows need a saved place first. Set up the place details on the places
+                  page, then come back here to manage the calendar.
+                </>
+              }
+            />
 
             <Button
               type="button"
@@ -1965,9 +1985,7 @@ export function OwnerOperationsWorkspace({
               </div>
 
               {calendarLoading ? (
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-                  Loading calendar...
-                </div>
+                <HostPanelLoading message="Loading calendar…" />
               ) : calendarView === "month" ? (
                 <div className="grid grid-cols-7 gap-2">
                   {weekdayLabels.map((label) => (
@@ -2054,29 +2072,25 @@ export function OwnerOperationsWorkspace({
             </Card>
 
             <Card className="space-y-4 p-5 sm:p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="heading-kicker">Booking times</p>
-                  <h2 className="section-title">
-                    {calendarView === "day"
-                      ? "Times in this day"
-                      : `Booking times for ${new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString()}`}
-                  </h2>
-                </div>
-                <Badge variant="default">{visibleSlots.length} slots</Badge>
-              </div>
+              <HostSectionHeader
+                kicker="Booking times"
+                title={
+                  calendarView === "day"
+                    ? "Times in this day"
+                    : `Booking times for ${new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString()}`
+                }
+                actions={<Badge variant="default">{visibleSlots.length} slots</Badge>}
+              />
 
-              <div className="grid gap-3">
-                {visibleSlots.length === 0 ? (
-                  <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-8 text-sm text-[var(--color-text-secondary)]">
-                    No booking times in this window yet.
-                  </div>
-                ) : (
-                  visibleSlots.map((slot) => (
-                    <div
-                      key={slot.id}
-                      className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4"
-                    >
+              <HostWorkbenchListDetailBody
+                listEmpty={weekViewHasNoDaysAndNoSlots}
+                listEmptyInsetMessage="No days in this week for the current range. Try another week or switch the calendar view."
+                idleMessage="No booking times in this window yet."
+                hasDetail={visibleSlots.length > 0}
+              >
+                <div className="grid gap-3">
+                  {visibleSlots.map((slot) => (
+                    <div key={slot.id} className={HOST_WORKBENCH_LIST_CARD_CLASS}>
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="space-y-2">
                           <div className="flex flex-wrap gap-2">
@@ -2184,9 +2198,9 @@ export function OwnerOperationsWorkspace({
                         </div>
                       ) : null}
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              </HostWorkbenchListDetailBody>
             </Card>
           </>
         )}
@@ -2227,7 +2241,7 @@ function MetricCard({
 
 function SimpleStepCard({ step, title, body }: { step: string; title: string; body: string }) {
   return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
+    <div className={HOST_WORKBENCH_LIST_CARD_CLASS}>
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-text-primary)]">
           {step}

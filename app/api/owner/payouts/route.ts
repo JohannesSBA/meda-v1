@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePitchOwnerUser } from "@/lib/auth/guards";
 import { formatUnknownError } from "@/lib/apiResponse";
 import { logger } from "@/lib/logger";
+import { checkOwnerPayoutInitRateLimit } from "@/lib/ratelimit";
 import { createPitchOwnerPayoutSchema } from "@/lib/validations/payments";
 import { parseJsonBody, validationErrorResponse } from "@/lib/validations/http";
 import {
@@ -28,6 +29,17 @@ export async function GET() {
 export async function POST(request: Request) {
   const sessionCheck = await requirePitchOwnerUser();
   if (sessionCheck.response) return sessionCheck.response;
+
+  const rl = await checkOwnerPayoutInitRateLimit(sessionCheck.user!.id);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before trying again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
+    );
+  }
 
   const parsed = await parseJsonBody(createPitchOwnerPayoutSchema, request);
   if (!parsed.success) {

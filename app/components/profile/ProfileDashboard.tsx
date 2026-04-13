@@ -17,8 +17,10 @@ import { ProfileHeader } from "./ProfileHeader";
 import { RegisteredEventsTab } from "./RegisteredEventsTab";
 import { SavedEventsTab } from "./SavedEventsTab";
 import { PayoutSettingsTab } from "./PayoutSettingsTab";
+import { FacilitatorsTab } from "./FacilitatorsTab";
 import type { ProfileUser } from "./types";
 import { appRoutes } from "@/lib/navigation";
+import { HOST_TEAM_PROFILE_HASH } from "@/lib/hostNavigation";
 
 type ProfileDashboardProps = {
   user: ProfileUser;
@@ -150,6 +152,11 @@ export default function ProfileDashboard({ user }: ProfileDashboardProps) {
           />
 
           {isPitchOwner ? <PayoutSettingsTab /> : null}
+          {isPitchOwner ? (
+            <div id={HOST_TEAM_PROFILE_HASH} className="scroll-mt-24">
+              <FacilitatorsTab />
+            </div>
+          ) : null}
         </>
       ) : null}
     </Stack>

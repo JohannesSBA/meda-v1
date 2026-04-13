@@ -1,4 +1,10 @@
-export const AUTH_PROTECTED_EXACT_PATHS = ["/profile", "/create-events", "/admin"] as const;
+export const AUTH_PROTECTED_EXACT_PATHS = [
+  "/profile",
+  "/create-events",
+  "/admin",
+  /** Host operational home (`?view=`); role check remains server-side in `app/host/page.tsx`. */
+  "/host",
+] as const;
 
 export const AUTH_PROTECTED_PREFIXES = [
   "/account/",
@@ -15,6 +21,7 @@ export const AUTH_PROTECTED_MATCHER = [
   "/create-events/:path*",
   "/admin",
   "/admin/:path*",
+  "/host",
 ] as const;
 
 export function isAuthProtectedPath(pathname: string) {

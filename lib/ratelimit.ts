@@ -168,3 +168,31 @@ export function getClientId(request: Request): string {
   if (forwarded) return forwarded.split(",")[0]?.trim() ?? "unknown";
   return "unknown";
 }
+
+/** Per pitch-owner limit shared across bookings/payments/attendees CSV exports (abuse + PII scrape resistance). */
+const OWNER_DASHBOARD_CSV_EXPORT_MAX = 15;
+const OWNER_DASHBOARD_CSV_EXPORT_WINDOW_MS = 60_000;
+
+export async function checkOwnerDashboardCsvExportRateLimit(
+  ownerUserId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(
+    `owner-dashboard-csv-export:${ownerUserId}`,
+    OWNER_DASHBOARD_CSV_EXPORT_MAX,
+    OWNER_DASHBOARD_CSV_EXPORT_WINDOW_MS,
+  );
+}
+
+/** Mitigates repeated payout initiation (Chapa / provider cost + abuse). Aligned with refund POST cadence. */
+const OWNER_PAYOUT_INIT_MAX = 5;
+const OWNER_PAYOUT_INIT_WINDOW_MS = 60_000;
+
+export async function checkOwnerPayoutInitRateLimit(
+  ownerUserId: string,
+): Promise<RateLimitResult> {
+  return checkRateLimit(
+    `owner-payout-init:${ownerUserId}`,
+    OWNER_PAYOUT_INIT_MAX,
+    OWNER_PAYOUT_INIT_WINDOW_MS,
+  );
+}

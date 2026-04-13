@@ -14,14 +14,11 @@ import {
   type SessionUser,
 } from "@/lib/auth/session-contract";
 
+// `createNeonAuth` only accepts `baseUrl` + `cookies` in @neondatabase/auth; native
+// redirect origins belong in Neon Auth / Better Auth server settings, not here.
+
 const neonAuth = createNeonAuth({
   baseUrl: getRequiredEnv("NEON_AUTH_BASE_URL"),
-  // Allow the mobile app to receive the Neon OAuth verifier directly and finish
-  // the normal cookie-based session exchange through `/api/auth/get-session`.
-  trustedOrigins: [
-    "medamobile://",
-    ...(process.env.NODE_ENV === "production" ? [] : ["exp://"]),
-  ],
   cookies: {
     secret: getRequiredEnv("NEON_AUTH_COOKIE_SECRET"),
   },

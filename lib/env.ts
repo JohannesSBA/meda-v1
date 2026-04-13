@@ -21,6 +21,7 @@ export function getAppBaseUrl() {
   return process.env.NEXT_PUBLIC_BASE_URL?.trim() || "https://meda.app";
 }
 
+/** Never true in production builds — see SECURITY_FINDINGS.md (E2E bypass). */
 export function isE2EAuthBypassEnabled() {
   return process.env.NODE_ENV !== "production" && process.env.E2E_AUTH_BYPASS === "1";
 }

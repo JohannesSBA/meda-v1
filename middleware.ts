@@ -55,5 +55,6 @@ export const config = {
     "/create-events/:path*",
     "/admin",
     "/admin/:path*",
+    "/host",
   ],
 };

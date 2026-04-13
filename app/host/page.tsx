@@ -5,6 +5,12 @@ import { normalizeAppUserRole } from "@/lib/auth/roles";
 import { getCategories } from "@/lib/data/categories";
 import { getCurrentOwnerSubscription } from "@/services/subscriptions";
 import { listOwnerPitches } from "@/services/pitches";
+import { HostMetricTile } from "@/app/components/host/HostMetricTile";
+import { HostPrimaryNav } from "@/app/components/host/HostPrimaryNav";
+import {
+  HOST_OVERVIEW_TASK_GRID,
+  HOST_SECTION_STRIP_GRID,
+} from "@/app/components/host/hostSurfaceGrids";
 import { OwnerOperationsWorkspace } from "@/app/components/owner/OwnerOperationsWorkspace";
 import { OwnerDashboardWorkspace } from "@/app/components/owner/OwnerDashboardWorkspace";
 import { PageShell } from "@/app/components/ui/page-shell";
@@ -15,29 +21,24 @@ import { AppPageHeader } from "@/app/components/ui/app-page-header";
 import { AppSectionCard } from "@/app/components/ui/app-section-card";
 import { InlineStatusBanner } from "@/app/components/ui/inline-status-banner";
 import type { Category } from "@/app/types/catagory";
+import {
+  hostFabTarget,
+  hostPrimaryHeaderCta,
+  hostViewHref,
+  parseHostViewParam,
+  type HostOperationalView,
+} from "@/lib/hostNavigation";
 import { appRoutes } from "@/lib/navigation";
 import { uiCopy } from "@/lib/uiCopy";
 
 export const dynamic = "force-dynamic";
 
-type HostView = "overview" | "calendar" | "places" | "bookings" | "people" | "money" | "settings";
-
 type HostPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const hostViewOrder: HostView[] = [
-  "overview",
-  "calendar",
-  "places",
-  "bookings",
-  "people",
-  "money",
-  "settings",
-];
-
 const hostViewCopy: Record<
-  HostView,
+  HostOperationalView,
   {
     label: string;
     title: string;
@@ -49,7 +50,7 @@ const hostViewCopy: Record<
     label: "Overview",
     title: "Run your place from one calm home screen.",
     description:
-      "Check what needs attention today, then jump straight into your calendar, people, money, or account settings.",
+      "See what needs attention today. Use Analytics for full performance metrics and Customers for roster detail.",
     dashboardTab: "overview",
   },
   calendar: {
@@ -85,6 +86,13 @@ const hostViewCopy: Record<
       "Review money in, platform fees, refunds, your current Meda balance, and what is ready to withdraw right now.",
     dashboardTab: "payments",
   },
+  analytics: {
+    label: "Analytics",
+    title: "How your host business is performing.",
+    description:
+      "Revenue, utilization, ticket assignment, and plan status—interpret performance here; take action from Overview or Events.",
+    dashboardTab: "overview",
+  },
   settings: {
     label: "Settings",
     title: "Manage your host plan and account details.",
@@ -94,20 +102,12 @@ const hostViewCopy: Record<
   },
 };
 
-function readHostView(value: string | undefined): HostView {
-  return hostViewOrder.includes(value as HostView) ? (value as HostView) : "overview";
-}
-
-function hostViewHref(view: HostView) {
-  return `${appRoutes.host}?view=${view}`;
-}
-
 export default async function HostPage({ searchParams }: HostPageProps) {
   const resolvedSearchParams = await searchParams;
   const requestedView = Array.isArray(resolvedSearchParams.view)
     ? resolvedSearchParams.view[0]
     : resolvedSearchParams.view;
-  const view = readHostView(requestedView);
+  const view = parseHostViewParam(requestedView);
 
   const { data } = await auth.getSession();
   const rawUser = (data?.user ?? null) as {
@@ -137,6 +137,8 @@ export default async function HostPage({ searchParams }: HostPageProps) {
       (typeof pitch.latitude === "number" && typeof pitch.longitude === "number"),
   ).length;
   const viewCopy = hostViewCopy[view];
+  const headerPrimary = hostPrimaryHeaderCta(view);
+  const fab = hostFabTarget(view);
 
   return (
     <PageShell containerClassName="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -147,24 +149,29 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           description={viewCopy.description}
           primaryAction={
             <Link
-              href={
-                view === "calendar" || view === "places"
-                  ? hostViewHref("calendar")
-                  : hostViewHref("overview")
-              }
+              href={headerPrimary.href}
               className={cn(buttonVariants("primary", "md"), "rounded-full")}
             >
-              {view === "calendar" || view === "places" ? "Open calendar tools" : "Open overview"}
+              {headerPrimary.label}
             </Link>
           }
           secondaryActions={
             <>
-              <Link
-                href={hostViewHref("money")}
-                className={cn(buttonVariants("secondary", "md"), "rounded-full")}
-              >
-                See money
-              </Link>
+              {view === "money" ? (
+                <Link
+                  href={hostViewHref("analytics")}
+                  className={cn(buttonVariants("secondary", "md"), "rounded-full")}
+                >
+                  Analytics
+                </Link>
+              ) : (
+                <Link
+                  href={hostViewHref("money")}
+                  className={cn(buttonVariants("secondary", "md"), "rounded-full")}
+                >
+                  Payouts
+                </Link>
+              )}
               <Link
                 href={appRoutes.createMatch}
                 className={cn(buttonVariants("ghost", "md"), "rounded-full")}
@@ -214,32 +221,11 @@ export default async function HostPage({ searchParams }: HostPageProps) {
 
         <AppSectionCard
           density="compact"
-          headingKicker="Host sections"
-          title="Use one section at a time."
-          description="This keeps the page lighter on phones and makes it easier to focus on the task you are doing right now."
+          headingKicker="Workspace"
+          title="Pick a focus."
+          description="Each area matches one job: overview for what needs attention, events for inventory, payouts and analytics for money and performance."
         >
-          <div
-            role="tablist"
-            aria-label="Host sections"
-            className="inline-flex w-full flex-wrap gap-2 rounded-[24px] border border-[rgba(125,211,252,0.14)] bg-[rgba(255,255,255,0.04)] p-2"
-          >
-            {hostViewOrder.map((entry) => (
-              <Link
-                key={entry}
-                href={hostViewHref(entry)}
-                role="tab"
-                aria-selected={view === entry}
-                className={cn(
-                  "min-h-11 rounded-full px-4 py-2 text-sm font-semibold transition",
-                  view === entry
-                    ? "bg-[var(--color-accent-soft)] text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-control-bg-hover)] hover:text-[var(--color-text-primary)]",
-                )}
-              >
-                {hostViewCopy[entry].label}
-              </Link>
-            ))}
-          </div>
+          <HostPrimaryNav currentView={view} />
         </AppSectionCard>
 
         {view === "overview" ? (
@@ -249,7 +235,7 @@ export default async function HostPage({ searchParams }: HostPageProps) {
               title="What deserves your attention first"
               description="Start with the task that unlocks the rest of the day."
             >
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className={HOST_OVERVIEW_TASK_GRID}>
                 <TaskCard
                   title="Keep places easy to find"
                   body="Make sure every active place has a saved address or map pin so players can judge distance before they pay."
@@ -269,12 +255,17 @@ export default async function HostPage({ searchParams }: HostPageProps) {
                   body="Your payout depends on your current Meda balance, not just what you earned in total."
                   meta="Check money, fees, refunds, and ready-to-withdraw"
                   href={hostViewHref("money")}
-                  cta="Open money"
+                  cta="Open payouts"
+                />
+                <TaskCard
+                  title="Study performance"
+                  body="See revenue, utilization, refunds, and ticket assignment quality in one place."
+                  meta="Full dashboard metrics"
+                  href={hostViewHref("analytics")}
+                  cta="Open analytics"
                 />
               </div>
             </AppSectionCard>
-
-            <OwnerDashboardWorkspace initialTab="overview" />
           </>
         ) : null}
 
@@ -301,18 +292,18 @@ export default async function HostPage({ searchParams }: HostPageProps) {
                 </Link>
               }
             >
-              <div className="grid gap-3 md:grid-cols-3">
-                <MiniMetric
+              <div className={HOST_SECTION_STRIP_GRID}>
+                <HostMetricTile
                   label="Open places"
                   value={String(activePitchCount)}
                   detail="Places currently ready to accept bookings"
                 />
-                <MiniMetric
+                <HostMetricTile
                   label="Booking times"
                   value={String(totalSlotCount)}
                   detail="Saved 2-hour times across all places"
                 />
-                <MiniMetric
+                <HostMetricTile
                   label="Mapped places"
                   value={`${mapReadyCount}/${pitches.length || 0}`}
                   detail="Places with a saved address or pin"
@@ -333,21 +324,27 @@ export default async function HostPage({ searchParams }: HostPageProps) {
           <>
             <AppSectionCard
               headingKicker={hostViewCopy[view].label}
-              title={view === "money" ? "Money and payouts" : hostViewCopy[view].label}
+              title={
+                view === "money"
+                  ? "Payouts"
+                  : view === "analytics"
+                    ? "Analytics"
+                    : hostViewCopy[view].label
+              }
               description={hostViewCopy[view].description}
             >
-              <div className="grid gap-3 md:grid-cols-3">
-                <MiniMetric
+              <div className={HOST_SECTION_STRIP_GRID}>
+                <HostMetricTile
                   label={uiCopy.host.places}
                   value={String(activePitchCount)}
                   detail="Active places connected to these reports"
                 />
-                <MiniMetric
+                <HostMetricTile
                   label={uiCopy.host.bookingTimes}
                   value={String(totalSlotCount)}
                   detail="Booking times feeding this view"
                 />
-                <MiniMetric
+                <HostMetricTile
                   label={uiCopy.host.hostPlan}
                   value={
                     subscription?.gracePeriodActive
@@ -367,18 +364,18 @@ export default async function HostPage({ searchParams }: HostPageProps) {
               </div>
             </AppSectionCard>
 
-            <OwnerDashboardWorkspace initialTab={viewCopy.dashboardTab} />
+            <OwnerDashboardWorkspace initialTab={viewCopy.dashboardTab ?? "overview"} />
           </>
         ) : null}
       </Stack>
       <Link
-        href={`${appRoutes.host}?view=places`}
+        href={fab.href}
         className={cn(
           buttonVariants("primary", "lg"),
           "fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full p-0 shadow-[0_16px_40px_rgba(0,0,0,0.35)]",
         )}
-        aria-label="Create new place or booking"
-        title="Create new place or booking"
+        aria-label={fab.ariaLabel}
+        title={fab.title}
       >
         +
       </Link>
@@ -390,20 +387,6 @@ function StatPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-full border border-[rgba(125,211,252,0.18)] bg-[rgba(255,255,255,0.04)] px-4 py-2 text-sm text-[var(--color-text-secondary)]">
       <span className="font-semibold text-[var(--color-text-primary)]">{value}</span> {label}
-    </div>
-  );
-}
-
-function MiniMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-[20px] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--color-text-primary)]">
-        {value}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{detail}</p>
     </div>
   );
 }

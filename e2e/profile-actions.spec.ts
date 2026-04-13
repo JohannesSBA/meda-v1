@@ -9,8 +9,8 @@ const EVENT_ID = "550e8400-e29b-41d4-a716-446655440101";
 const registeredItem = {
   eventId: EVENT_ID,
   eventName: "Friday Night Match",
-  eventDatetime: "2026-04-12T18:00:00.000Z",
-  eventEndtime: "2026-04-12T20:00:00.000Z",
+  eventDatetime: "2099-04-12T18:00:00.000Z",
+  eventEndtime: "2099-04-12T20:00:00.000Z",
   addressLabel: "Megenagna Turf",
   ticketCount: 2,
   heldTicketCount: 2,

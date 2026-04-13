@@ -7,6 +7,7 @@ export default async function SlotBookingPage({ params }: { params: Promise<{ id
 
   try {
     const slot = await getPublicSlotById(id);
+    // eslint-disable-next-line react-hooks/error-boundaries
     return <SlotBookingFlow slot={slot} />;
   } catch {
     return notFound();

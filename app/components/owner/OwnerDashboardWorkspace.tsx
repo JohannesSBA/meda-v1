@@ -6,18 +6,62 @@ import { toast } from "sonner";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
+import { cn } from "@/app/components/ui/cn";
 import { Input } from "@/app/components/ui/input";
 import { ResponsiveTableCard } from "@/app/components/ui/responsive-table-card";
 import { Select } from "@/app/components/ui/select";
 import { Table } from "@/app/components/ui/table";
+import { HostEmptyState } from "@/app/components/host/HostEmptyState";
+import { HostMetricTile } from "@/app/components/host/HostMetricTile";
+import { HostPanelLoading } from "@/app/components/host/HostPanelLoading";
+import { HostSectionHeader } from "@/app/components/host/HostSectionHeader";
+import { HostWorkbenchTableSection } from "@/app/components/host/HostWorkbenchTableSection";
+import {
+  HOST_MASTER_DETAIL_GRID,
+  HOST_TABLE_CELL_CLASS,
+  HOST_TABLE_HEAD_CLASS,
+  HOST_TABLE_ROW_DIVIDER_CLASS,
+  HOST_WORKBENCH_TIMELINE_ENTRY_CLASS,
+} from "@/app/components/host/hostWorkbenchChrome";
+import { HostWorkbenchListDetailBody } from "@/app/components/host/HostWorkbenchListDetailBody";
+import {
+  HOST_METRIC_GRID_DENSE,
+  HOST_METRIC_GRID_THREE,
+  HOST_METRIC_PAIR_GRID,
+} from "@/app/components/host/hostSurfaceGrids";
+import { OwnerDashboardBookingsTablePanel } from "@/app/components/owner/OwnerDashboardBookingsTablePanel";
+import { OwnerDashboardCsvExportCard } from "@/app/components/owner/OwnerDashboardCsvExportCard";
+import { OwnerDashboardFilterTabsCard } from "@/app/components/owner/OwnerDashboardFilterTabsCard";
+import {
+  CustomerRowCard,
+  PaymentRowCard,
+  UtilizationSlotCard,
+} from "@/app/components/owner/OwnerDashboardMobileRowCards";
+import type {
+  BookingRow,
+  CustomerRow,
+  OwnerDashboardPitchOption,
+  OwnerDashboardTab,
+  PaymentRow,
+  Utilization,
+} from "@/app/components/owner/ownerDashboardWorkspaceTypes";
 import { browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
+import { getCustomerProfileDetailHeaderCopy } from "@/lib/hostSplitPaneCopy";
+import {
+  buildOwnerDashboardQueryString as buildQueryString,
+  formatOwnerDashboardCurrency as formatCurrency,
+  ownerDashboardDateInputFromDate as toDateInput,
+} from "@/lib/ownerDashboardQuery";
+import { buildOwnerOverviewMetricTiles } from "@/lib/ownerOverviewDashboardMetrics";
+import {
+  getOwnerSubscriptionDaysLeftMetricDetail,
+  getOwnerSubscriptionDaysLeftValue,
+  getOwnerSubscriptionPlanMetricDetail,
+  getOwnerSubscriptionStatusMetricDetail,
+} from "@/lib/ownerSubscriptionDashboardCopy";
+import { shouldClearStaleListSelection } from "@/lib/reconcileHostSelection";
 import { uiCopy } from "@/lib/uiCopy";
-
-type PitchSummary = {
-  id: string;
-  name: string;
-};
 
 type OwnerSubscriptionSummary = {
   id: string;
@@ -56,39 +100,6 @@ type Overview = {
   subscription: OwnerSubscriptionSummary;
 };
 
-type BookingRow = {
-  id: string;
-  status: string;
-  productType: string;
-  pitchName: string;
-  startsAt: string;
-  quantity: number;
-  totalAmount: number;
-  customerName: string;
-  partyName: string | null;
-  partyStatus: string | null;
-  partyMemberCount: number;
-  poolStatus: string | null;
-  poolAmountPaid: number | null;
-  poolTotalAmount: number | null;
-  poolOutstandingAmount: number | null;
-  poolExpiresAt: string | null;
-  soldTickets: number;
-  assignedTickets: number;
-  checkedInTickets: number;
-};
-
-type PaymentRow = {
-  type: string;
-  id: string;
-  bookingId: string | null;
-  pitchName: string | null;
-  productType: string | null;
-  amount: number;
-  status: string;
-  paidAt: string | null;
-};
-
 type OwnerPayoutRow = {
   id: string;
   ownerId: string;
@@ -125,114 +136,21 @@ type OwnerPayoutSummary = {
   recentPayouts: OwnerPayoutRow[];
 };
 
-type CustomerRow = {
-  customerId: string;
-  customerName: string;
-  customerEmail: string | null;
-  bookings: number;
-  ticketsAssigned: number;
-  ticketsCheckedIn: number;
-  totalPaidEtb: number;
-  monthlyPassUsage: number;
-  history: Array<{
-    referenceId: string;
-    sourceType: "SLOT" | "EVENT";
-    title: string;
-    startsAt: string;
-    amountEtb: number;
-    checkedInCount: number;
-    assignedCount: number;
-    refundAmountEtb: number;
-  }>;
-};
-
-type Utilization = {
-  totals: {
-    slotCount: number;
-    bookingCount: number;
-    utilization: number;
-    revenueTotalEtb: number;
-  };
-  slots: Array<{
-    id: string;
-    pitchName: string;
-    startsAt: string;
-    endsAt: string;
-    status: string;
-    capacity: number;
-    soldQuantity: number;
-    remainingCapacity: number;
-    bookingCount: number;
-    utilization: number;
-    revenueSummaryEtb: number;
-    productType: string;
-  }>;
-};
-
-type DashboardTab =
-  | "overview"
-  | "bookings"
-  | "payments"
-  | "pool_payments"
-  | "customers"
-  | "slots"
-  | "subscription"
-  | "exports";
-
-const dashboardTabLabels: Record<DashboardTab, string> = {
-  overview: "Overview",
-  bookings: "Bookings",
-  payments: "Money",
-  pool_payments: uiCopy.host.groupPayment,
-  customers: uiCopy.host.people,
-  slots: "Calendar",
-  subscription: "Settings",
-  exports: "Exports",
-};
-
-function formatCurrency(value: number, currency = "ETB") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function toDateInput(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function buildQueryString(filters: {
-  from: string;
-  to: string;
-  pitchId: string;
-  customerId?: string;
-}) {
-  const params = new URLSearchParams();
-  if (filters.from) params.set("from", new Date(`${filters.from}T00:00:00`).toISOString());
-  if (filters.to) params.set("to", new Date(`${filters.to}T23:59:59`).toISOString());
-  if (filters.pitchId) params.set("pitchId", filters.pitchId);
-  if (filters.customerId) params.set("customerId", filters.customerId);
-  return params.toString();
-}
-
 type OwnerDashboardWorkspaceProps = {
-  initialTab?: DashboardTab;
+  initialTab?: OwnerDashboardTab;
 };
 
 export function OwnerDashboardWorkspace({
   initialTab = "overview",
 }: OwnerDashboardWorkspaceProps = {}) {
   const router = useRouter();
-  const [tab, setTab] = useState<DashboardTab>(initialTab);
-  const [fromDate, setFromDate] = useState(() => toDateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [tab, setTab] = useState<OwnerDashboardTab>(initialTab);
+  const [fromDate, setFromDate] = useState(() =>
+    toDateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+  );
   const [toDate, setToDate] = useState(() => toDateInput(new Date()));
   const [selectedPitchId, setSelectedPitchId] = useState("");
-  const [pitches, setPitches] = useState<PitchSummary[]>([]);
+  const [pitches, setPitches] = useState<OwnerDashboardPitchOption[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [subscription, setSubscription] = useState<OwnerSubscriptionSummary>(null);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -248,9 +166,9 @@ export function OwnerDashboardWorkspace({
   const [payoutPending, setPayoutPending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [subscriptionPending, setSubscriptionPending] = useState(false);
-  const [subscriptionPaymentMethod, setSubscriptionPaymentMethod] = useState<
-    "balance" | "chapa"
-  >("balance");
+  const [subscriptionPaymentMethod, setSubscriptionPaymentMethod] = useState<"balance" | "chapa">(
+    "balance",
+  );
   const [refreshToken, setRefreshToken] = useState(0);
 
   const filterQuery = useMemo(
@@ -263,19 +181,69 @@ export function OwnerDashboardWorkspace({
   }, [initialTab]);
 
   useEffect(() => {
+    if (
+      shouldClearStaleListSelection(
+        selectedCustomerId,
+        customers.map((c) => c.customerId),
+      )
+    ) {
+      setSelectedCustomerId("");
+    }
+  }, [customers, selectedCustomerId]);
+
+  useEffect(() => {
+    if (
+      shouldClearStaleListSelection(
+        selectedPitchId,
+        pitches.map((p) => p.id),
+      )
+    ) {
+      setSelectedPitchId("");
+    }
+  }, [pitches, selectedPitchId]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       try {
-        const [pitchResponse, overviewResponse, bookingsResponse, paymentsResponse, customersResponse, utilizationResponse, subscriptionResponse, payoutResponse] = await Promise.all([
-          browserApi.get<{ pitches?: PitchSummary[] }>("/api/pitches", { cache: "no-store" }),
-          browserApi.get<{ overview?: Overview }>(`/api/owner/dashboard/overview?${filterQuery}`, { cache: "no-store" }),
-          browserApi.get<{ bookings?: BookingRow[] }>(`/api/owner/dashboard/bookings?${filterQuery}`, { cache: "no-store" }),
-          browserApi.get<{ payments?: PaymentRow[] }>(`/api/owner/dashboard/payments?${filterQuery}`, { cache: "no-store" }),
-          browserApi.get<{ customers?: CustomerRow[] }>(`/api/owner/dashboard/customers?${filterQuery}`, { cache: "no-store" }),
-          browserApi.get<{ utilization?: Utilization }>(`/api/owner/dashboard/utilization?${filterQuery}`, { cache: "no-store" }),
-          browserApi.get<{ subscription?: OwnerSubscriptionSummary }>("/api/owner/dashboard/subscription", { cache: "no-store" }),
+        const [
+          pitchResponse,
+          overviewResponse,
+          bookingsResponse,
+          paymentsResponse,
+          customersResponse,
+          utilizationResponse,
+          subscriptionResponse,
+          payoutResponse,
+        ] = await Promise.all([
+          browserApi.get<{ pitches?: OwnerDashboardPitchOption[] }>("/api/pitches", {
+            cache: "no-store",
+          }),
+          browserApi.get<{ overview?: Overview }>(`/api/owner/dashboard/overview?${filterQuery}`, {
+            cache: "no-store",
+          }),
+          browserApi.get<{ bookings?: BookingRow[] }>(
+            `/api/owner/dashboard/bookings?${filterQuery}`,
+            { cache: "no-store" },
+          ),
+          browserApi.get<{ payments?: PaymentRow[] }>(
+            `/api/owner/dashboard/payments?${filterQuery}`,
+            { cache: "no-store" },
+          ),
+          browserApi.get<{ customers?: CustomerRow[] }>(
+            `/api/owner/dashboard/customers?${filterQuery}`,
+            { cache: "no-store" },
+          ),
+          browserApi.get<{ utilization?: Utilization }>(
+            `/api/owner/dashboard/utilization?${filterQuery}`,
+            { cache: "no-store" },
+          ),
+          browserApi.get<{ subscription?: OwnerSubscriptionSummary }>(
+            "/api/owner/dashboard/subscription",
+            { cache: "no-store" },
+          ),
           browserApi.get<{
             summary?: OwnerPayoutSummary;
             commissionPercent?: number;
@@ -287,7 +255,9 @@ export function OwnerDashboardWorkspace({
 
         setPitches(pitchResponse.pitches ?? []);
         setOverview(overviewResponse.overview ?? null);
-        setSubscription(subscriptionResponse.subscription ?? overviewResponse.overview?.subscription ?? null);
+        setSubscription(
+          subscriptionResponse.subscription ?? overviewResponse.overview?.subscription ?? null,
+        );
         setBookings(bookingsResponse.bookings ?? []);
         setPayments(paymentsResponse.payments ?? []);
         setCustomers(customersResponse.customers ?? []);
@@ -355,9 +325,11 @@ export function OwnerDashboardWorkspace({
     attendees: `/api/owner/dashboard/exports/attendees.csv?${filterQuery}`,
   };
 
-  const poolBookings = useMemo(
-    () => bookings.filter((booking) => booking.poolStatus),
-    [bookings],
+  const poolBookings = useMemo(() => bookings.filter((booking) => booking.poolStatus), [bookings]);
+
+  const overviewMetricTiles = useMemo(
+    () => buildOwnerOverviewMetricTiles(overview, utilization, uiCopy.host.hostPlan),
+    [overview, utilization],
   );
 
   async function handleSubscriptionAction(action: "start" | "renew" | "cancel") {
@@ -365,9 +337,7 @@ export function OwnerDashboardWorkspace({
     try {
       const payload =
         action === "cancel"
-          ? await browserApi.post<SubscriptionActionResponse>(
-              "/api/pitch-subscriptions/cancel",
-            )
+          ? await browserApi.post<SubscriptionActionResponse>("/api/pitch-subscriptions/cancel")
           : await browserApi.post<SubscriptionActionResponse>(
               `/api/pitch-subscriptions/${action}`,
               {
@@ -420,161 +390,70 @@ export function OwnerDashboardWorkspace({
 
   return (
     <div className="space-y-6">
-      <Card className="space-y-4 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="heading-kicker">Host overview</p>
-            <h2 className="section-title">See bookings, people, money, settings, and exports.</h2>
-          </div>
+      <OwnerDashboardFilterTabsCard
+        fromDate={fromDate}
+        toDate={toDate}
+        selectedPitchId={selectedPitchId}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onPitchChange={setSelectedPitchId}
+        pitches={pitches}
+        tab={tab}
+        onSelectTab={setTab}
+      />
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block">
-              <span className="field-label">From</span>
-              <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
-            </label>
-            <label className="block">
-              <span className="field-label">To</span>
-              <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
-            </label>
-            <label className="block">
-              <span className="field-label">Pitch</span>
-              <Select value={selectedPitchId} onChange={(event) => setSelectedPitchId(event.target.value)}>
-                <option value="">All pitches</option>
-                {pitches.map((pitch) => (
-                  <option key={pitch.id} value={pitch.id}>
-                    {pitch.name}
-                  </option>
-                ))}
-              </Select>
-            </label>
-          </div>
-        </div>
-
-        <div role="tablist" aria-label="Owner dashboard sections" className="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
-          {([
-            "overview",
-            "bookings",
-            "payments",
-            "pool_payments",
-            "customers",
-            "slots",
-            "subscription",
-            "exports",
-          ] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={tab === value}
-              onClick={() => setTab(value)}
-              className={`rounded-[var(--radius-md)] px-4 py-3 text-sm font-semibold transition ${
-                tab === value
-                  ? "bg-[rgba(125,211,252,0.12)] text-[var(--color-text-primary)]"
-                  : "text-[var(--color-text-secondary)] hover:bg-white/[0.04] hover:text-[var(--color-text-primary)]"
-              }`}
-            >
-              {dashboardTabLabels[value]}
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {loading ? (
-        <Card className="p-8 text-center text-sm text-[var(--color-text-secondary)]">
-          Loading owner dashboard...
-        </Card>
-      ) : null}
+      {loading ? <HostPanelLoading message="Loading host reports…" /> : null}
 
       {!loading && tab === "overview" ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Money in" value={formatCurrency(overview?.revenueTotalEtb ?? 0)} detail={`${overview?.bookingsConfirmed ?? 0} booked and paid`} />
-          <MetricCard label="Refunds" value={formatCurrency(overview?.refundedAmountEtb ?? 0)} detail={`${overview?.expiredPools ?? 0} expired group payments`} />
-          <MetricCard label="Calendar use" value={`${Math.round((overview?.utilization ?? 0) * 100)}%`} detail={`${utilization?.totals.slotCount ?? 0} booking times in range`} />
-          <MetricCard label="Player names" value={`${overview?.assignedTicketCount ?? 0}/${(overview?.assignedTicketCount ?? 0) + (overview?.unassignedTicketCount ?? 0)}`} detail={`${overview?.checkedInTicketCount ?? 0} checked in`} />
-          <MetricCard label="Single vs group" value={`${overview?.dailySalesCount ?? 0} / ${overview?.monthlySalesCount ?? 0}`} detail="Single visits vs monthly groups" />
-          <MetricCard label="Monthly members" value={String(overview?.monthlyPassCustomers ?? 0)} detail={`${Math.round((overview?.partyCompletion ?? 0) * 100)}% group payment completion`} />
-          <MetricCard label={uiCopy.host.hostPlan} value={overview?.subscription?.status ?? "NONE"} detail={overview?.subscription?.entitlementActive ? `${overview.subscription.daysRemaining} days left` : "Turn this on to publish booking times"} />
-          <MetricCard label="Total bookings" value={String(overview?.bookingsTotal ?? 0)} detail={`${overview?.activeSlotCount ?? 0} open booking times in range`} />
+        <div className={HOST_METRIC_GRID_DENSE}>
+          {overviewMetricTiles.map((tile) => (
+            <HostMetricTile
+              key={tile.label}
+              label={tile.label}
+              value={tile.value}
+              detail={tile.detail}
+            />
+          ))}
         </div>
       ) : null}
 
       {!loading && tab === "bookings" ? (
-        <Card className="p-5 sm:p-6">
-          <ResponsiveTableCard
-            table={
-              <Table>
-                <thead>
-                  <tr>
-                    <th className="px-3 py-3">Pitch</th>
-                    <th className="px-3 py-3">When</th>
-                    <th className="px-3 py-3">Customer</th>
-                    <th className="px-3 py-3">Type</th>
-                    <th className="px-3 py-3">Tickets</th>
-                    <th className="px-3 py-3">Pool</th>
-                    <th className="px-3 py-3">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((booking) => (
-                    <tr key={booking.id} className="border-t border-[var(--color-border)]">
-                      <td className="px-3 py-4">{booking.pitchName}</td>
-                      <td className="px-3 py-4">{new Date(booking.startsAt).toLocaleString()}</td>
-                      <td className="px-3 py-4">{booking.customerName}</td>
-                      <td className="px-3 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="accent">{booking.productType}</Badge>
-                          <Badge variant="default">{booking.status}</Badge>
-                        </div>
-                      </td>
-                      <td className="px-3 py-4">
-                        {booking.assignedTickets} assigned / {booking.checkedInTickets} checked in
-                      </td>
-                      <td className="px-3 py-4">{booking.poolStatus ?? "-"}</td>
-                      <td className="px-3 py-4 font-semibold text-[var(--color-text-primary)]">
-                        {formatCurrency(booking.totalAmount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            }
-            mobileCards={bookings.map((booking) => (
-              <BookingRowCard key={booking.id} booking={booking} />
-            ))}
-          />
-        </Card>
+        <OwnerDashboardBookingsTablePanel bookings={bookings} />
       ) : null}
 
       {!loading && tab === "payments" ? (
         <div className="space-y-4">
           <Card className="space-y-5 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Host payout</p>
-              <h2 className="section-title">Send your settled earnings to your verified bank account.</h2>
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                Money moves from Meda&apos;s Chapa balance to your verified payout destination. This is not a direct wallet-to-wallet Chapa send.
-              </p>
-            </div>
+            <HostSectionHeader
+              kicker="Host payout"
+              title="Send your settled earnings to your verified bank account."
+              description={
+                <>
+                  Money moves from Meda&apos;s Chapa balance to your verified payout destination.
+                  This is not a direct wallet-to-wallet Chapa send.
+                </>
+              }
+            />
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
+            <div className={HOST_METRIC_GRID_DENSE}>
+              <HostMetricTile
                 label="Ready now"
                 value={formatCurrency(payoutSummary?.availablePayoutEtb ?? 0)}
                 detail={`Based on your current Meda balance of ${formatCurrency(
                   payoutSummary?.currentBalanceEtb ?? 0,
                 )}.`}
               />
-              <MetricCard
+              <HostMetricTile
                 label="Already sent"
                 value={formatCurrency(payoutSummary?.totalPaidOutEtb ?? 0)}
                 detail="Completed payouts to your verified destination."
               />
-              <MetricCard
+              <HostMetricTile
                 label="Still processing"
                 value={formatCurrency(payoutSummary?.totalPendingPayoutEtb ?? 0)}
                 detail="Payouts that Chapa is still reviewing or sending."
               />
-              <MetricCard
+              <HostMetricTile
                 label="You earned"
                 value={formatCurrency(payoutSummary?.netOwnerRevenueEtb ?? 0)}
                 detail="Your host share after fees."
@@ -666,9 +545,7 @@ export function OwnerDashboardWorkspace({
                     value={payoutAmountDraft}
                     onChange={(event) => setPayoutAmountDraft(event.target.value)}
                     placeholder={
-                      payoutSummary
-                        ? payoutSummary.availablePayoutEtb.toFixed(2)
-                        : "0.00"
+                      payoutSummary ? payoutSummary.availablePayoutEtb.toFixed(2) : "0.00"
                     }
                     disabled={payoutPending}
                   />
@@ -682,7 +559,8 @@ export function OwnerDashboardWorkspace({
                     </span>
                   </p>
                   <p>
-                    This number is capped by your real Meda balance, not just your lifetime host earnings.
+                    This number is capped by your real Meda balance, not just your lifetime host
+                    earnings.
                   </p>
                   <p>
                     If Chapa accepts the transfer, the money goes to your verified bank destination.
@@ -695,12 +573,12 @@ export function OwnerDashboardWorkspace({
                     variant="secondary"
                     onClick={() =>
                       setPayoutAmountDraft(
-                        payoutSummary
-                          ? payoutSummary.availablePayoutEtb.toFixed(2)
-                          : "",
+                        payoutSummary ? payoutSummary.availablePayoutEtb.toFixed(2) : "",
                       )
                     }
-                    disabled={payoutPending || !payoutSummary || payoutSummary.availablePayoutEtb <= 0}
+                    disabled={
+                      payoutPending || !payoutSummary || payoutSummary.availablePayoutEtb <= 0
+                    }
                   >
                     Use full amount
                   </Button>
@@ -724,11 +602,7 @@ export function OwnerDashboardWorkspace({
                       {payoutSummary?.payoutSetupIssue ??
                         "Add and verify your payout destination in profile before sending money out."}
                     </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => router.push("/profile")}
-                    >
+                    <Button type="button" variant="ghost" onClick={() => router.push("/profile")}>
                       Open payout settings
                     </Button>
                   </div>
@@ -759,47 +633,54 @@ export function OwnerDashboardWorkspace({
                         {payout.reference}
                       </p>
                       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                        {payout.failureReason ??
-                          payout.destinationBusinessName ??
-                          "Processing"}
+                        {payout.failureReason ?? payout.destinationBusinessName ?? "Processing"}
                       </p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[var(--color-text-secondary)]">
-                  No payouts sent yet.
-                </p>
+                <HostEmptyState
+                  className="py-4 text-left"
+                  message="No payouts sent yet. Completed transfers will appear here."
+                />
               )}
             </div>
           </Card>
 
-          <Card className="p-5 sm:p-6">
+          <HostWorkbenchTableSection
+            empty={payments.length === 0}
+            emptyMessage="No payments in this date range."
+          >
             <ResponsiveTableCard
               table={
                 <Table>
                   <thead>
                     <tr>
-                      <th className="px-3 py-3">Type</th>
-                      <th className="px-3 py-3">Reference</th>
-                      <th className="px-3 py-3">Status</th>
-                      <th className="px-3 py-3">Amount</th>
-                      <th className="px-3 py-3">Paid at</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Type</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Reference</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Status</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Amount</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Paid at</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((payment) => (
                       <tr
                         key={`${payment.type}-${payment.id}`}
-                        className="border-t border-[var(--color-border)]"
+                        className={HOST_TABLE_ROW_DIVIDER_CLASS}
                       >
-                        <td className="px-3 py-4">{payment.type}</td>
-                        <td className="px-3 py-4">{payment.pitchName ?? "-"}</td>
-                        <td className="px-3 py-4">{payment.status}</td>
-                        <td className="px-3 py-4 font-semibold text-[var(--color-text-primary)]">
+                        <td className={HOST_TABLE_CELL_CLASS}>{payment.type}</td>
+                        <td className={HOST_TABLE_CELL_CLASS}>{payment.pitchName ?? "-"}</td>
+                        <td className={HOST_TABLE_CELL_CLASS}>{payment.status}</td>
+                        <td
+                          className={cn(
+                            HOST_TABLE_CELL_CLASS,
+                            "font-semibold text-[var(--color-text-primary)]",
+                          )}
+                        >
                           {formatCurrency(payment.amount)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td className={HOST_TABLE_CELL_CLASS}>
                           {payment.paidAt ? new Date(payment.paidAt).toLocaleString() : "-"}
                         </td>
                       </tr>
@@ -811,16 +692,14 @@ export function OwnerDashboardWorkspace({
                 <PaymentRowCard key={`${payment.type}-${payment.id}`} payment={payment} />
               ))}
             />
-          </Card>
+          </HostWorkbenchTableSection>
         </div>
       ) : null}
 
       {!loading && tab === "pool_payments" ? (
         <div className="grid gap-4">
           {poolBookings.length === 0 ? (
-            <Card className="p-8 text-center text-sm text-[var(--color-text-secondary)]">
-              No group payments in this date range.
-            </Card>
+            <HostEmptyState variant="panel" message="No group payments in this date range." />
           ) : (
             poolBookings.map((booking) => (
               <Card key={booking.id} className="space-y-4 p-5 sm:p-6">
@@ -837,8 +716,8 @@ export function OwnerDashboardWorkspace({
                       {booking.pitchName}
                     </h3>
                     <p className="text-sm text-[var(--color-text-secondary)]">
-                        {booking.partyName ?? "Unnamed group"} with {booking.partyMemberCount} member
-                        {booking.partyMemberCount === 1 ? "" : "s"}
+                      {booking.partyName ?? "Unnamed group"} with {booking.partyMemberCount} member
+                      {booking.partyMemberCount === 1 ? "" : "s"}
                     </p>
                     <p className="text-sm text-[var(--color-text-secondary)]">
                       {new Date(booking.startsAt).toLocaleString()}
@@ -866,28 +745,34 @@ export function OwnerDashboardWorkspace({
       ) : null}
 
       {!loading && tab === "customers" ? (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-          <Card className="p-5 sm:p-6">
+        <div className={HOST_MASTER_DETAIL_GRID}>
+          <HostWorkbenchTableSection
+            empty={customers.length === 0}
+            emptyMessage="No customers in this date range."
+          >
             <ResponsiveTableCard
               table={
                 <Table>
                   <thead>
                     <tr>
-                      <th className="px-3 py-3">Customer</th>
-                      <th className="px-3 py-3">Bookings</th>
-                      <th className="px-3 py-3">Assigned</th>
-                      <th className="px-3 py-3">Checked in</th>
-                      <th className="px-3 py-3">Paid</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Customer</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Bookings</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Assigned</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Checked in</th>
+                      <th className={HOST_TABLE_HEAD_CLASS}>Paid</th>
                     </tr>
                   </thead>
                   <tbody>
                     {customers.map((customer) => (
                       <tr
                         key={customer.customerId}
-                        className="cursor-pointer border-t border-[var(--color-border)] hover:bg-white/[0.03]"
+                        className={cn(
+                          HOST_TABLE_ROW_DIVIDER_CLASS,
+                          "cursor-pointer hover:bg-white/[0.03]",
+                        )}
                         onClick={() => setSelectedCustomerId(customer.customerId)}
                       >
-                        <td className="px-3 py-4">
+                        <td className={HOST_TABLE_CELL_CLASS}>
                           <div className="space-y-1">
                             <p className="font-semibold text-[var(--color-text-primary)]">
                               {customer.customerName}
@@ -897,10 +782,15 @@ export function OwnerDashboardWorkspace({
                             </p>
                           </div>
                         </td>
-                        <td className="px-3 py-4">{customer.bookings}</td>
-                        <td className="px-3 py-4">{customer.ticketsAssigned}</td>
-                        <td className="px-3 py-4">{customer.ticketsCheckedIn}</td>
-                        <td className="px-3 py-4 font-semibold text-[var(--color-text-primary)]">
+                        <td className={HOST_TABLE_CELL_CLASS}>{customer.bookings}</td>
+                        <td className={HOST_TABLE_CELL_CLASS}>{customer.ticketsAssigned}</td>
+                        <td className={HOST_TABLE_CELL_CLASS}>{customer.ticketsCheckedIn}</td>
+                        <td
+                          className={cn(
+                            HOST_TABLE_CELL_CLASS,
+                            "font-semibold text-[var(--color-text-primary)]",
+                          )}
+                        >
                           {formatCurrency(customer.totalPaidEtb)}
                         </td>
                       </tr>
@@ -916,86 +806,122 @@ export function OwnerDashboardWorkspace({
                 />
               ))}
             />
-          </Card>
+          </HostWorkbenchTableSection>
 
           <Card className="space-y-4 p-5 sm:p-6">
-            <div className="space-y-2">
-              <p className="heading-kicker">Customer profile</p>
-              <h2 className="section-title">{selectedCustomer?.customerName ?? "Select a customer"}</h2>
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                {selectedCustomer?.customerEmail ?? "Payment history, attendance, and monthly usage appear here."}
-              </p>
-            </div>
+            <HostSectionHeader
+              kicker="Customer profile"
+              {...getCustomerProfileDetailHeaderCopy({
+                listEmpty: customers.length === 0,
+                selectedCustomer,
+              })}
+            />
 
-            {selectedCustomer ? (
-              <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <MetricCard label="Bookings" value={String(selectedCustomer.bookings)} detail={`${selectedCustomer.monthlyPassUsage} monthly pass usages`} />
-                  <MetricCard label="Paid" value={formatCurrency(selectedCustomer.totalPaidEtb)} detail={`${selectedCustomer.ticketsCheckedIn} check-ins`} />
-                </div>
+            <HostWorkbenchListDetailBody
+              listEmpty={customers.length === 0}
+              idleMessage="Select a row in the list to load full payment and attendance history for that person."
+              hasDetail={Boolean(selectedCustomer)}
+            >
+              {selectedCustomer ? (
+                <div className="space-y-4">
+                  <div className={HOST_METRIC_PAIR_GRID}>
+                    <HostMetricTile
+                      label="Bookings"
+                      value={String(selectedCustomer.bookings)}
+                      detail={`${selectedCustomer.monthlyPassUsage} monthly pass usages`}
+                    />
+                    <HostMetricTile
+                      label="Paid"
+                      value={formatCurrency(selectedCustomer.totalPaidEtb)}
+                      detail={`${selectedCustomer.ticketsCheckedIn} check-ins`}
+                    />
+                  </div>
 
-                <div className="space-y-3">
-                  {selectedCustomer.history.map((entry) => (
-                    <div key={`${entry.sourceType}:${entry.referenceId}`} className="rounded-[var(--radius-md)] border border-[var(--color-border)] px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={entry.sourceType === "SLOT" ? "accent" : "default"}>
-                          {entry.sourceType}
-                        </Badge>
-                        <p className="font-semibold text-[var(--color-text-primary)]">{entry.title}</p>
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)]">{new Date(entry.startsAt).toLocaleString()}</p>
-                      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                        {entry.assignedCount} assigned, {entry.checkedInCount} checked in, {formatCurrency(entry.amountEtb)}
-                      </p>
-                      {entry.refundAmountEtb > 0 ? (
-                        <p className="text-sm text-[var(--color-text-secondary)]">
-                          Refunded {formatCurrency(entry.refundAmountEtb)}
+                  <div className="space-y-3">
+                    {selectedCustomer.history.map((entry) => (
+                      <div
+                        key={`${entry.sourceType}:${entry.referenceId}`}
+                        className={HOST_WORKBENCH_TIMELINE_ENTRY_CLASS}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={entry.sourceType === "SLOT" ? "accent" : "default"}>
+                            {entry.sourceType}
+                          </Badge>
+                          <p className="font-semibold text-[var(--color-text-primary)]">
+                            {entry.title}
+                          </p>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          {new Date(entry.startsAt).toLocaleString()}
                         </p>
-                      ) : null}
-                    </div>
-                  ))}
+                        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                          {entry.assignedCount} assigned, {entry.checkedInCount} checked in,{" "}
+                          {formatCurrency(entry.amountEtb)}
+                        </p>
+                        {entry.refundAmountEtb > 0 ? (
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            Refunded {formatCurrency(entry.refundAmountEtb)}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] px-4 py-8 text-sm text-[var(--color-text-secondary)]">
-                Click a customer row to inspect their booking and attendance history.
-              </div>
-            )}
+              ) : null}
+            </HostWorkbenchListDetailBody>
           </Card>
         </div>
       ) : null}
 
       {!loading && tab === "slots" ? (
-        <Card className="p-5 sm:p-6">
+        <HostWorkbenchTableSection
+          empty={(utilization?.slots ?? []).length === 0}
+          emptyMessage="No booking times in this date range."
+          footer={
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Calendar-backed create, edit, and block actions are available in the owner operations
+              section below.
+            </p>
+          }
+        >
           <ResponsiveTableCard
             table={
               <Table>
                 <thead>
                   <tr>
-                    <th className="px-3 py-3">Pitch</th>
-                    <th className="px-3 py-3">When</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="px-3 py-3">Inventory</th>
-                    <th className="px-3 py-3">Utilization</th>
-                    <th className="px-3 py-3">Revenue</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>Pitch</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>When</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>Status</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>Inventory</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>Utilization</th>
+                    <th className={HOST_TABLE_HEAD_CLASS}>Revenue</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(utilization?.slots ?? []).map((slot) => (
-                    <tr key={slot.id} className="border-t border-[var(--color-border)]">
-                      <td className="px-3 py-4">{slot.pitchName}</td>
-                      <td className="px-3 py-4">{new Date(slot.startsAt).toLocaleString()}</td>
-                      <td className="px-3 py-4">
+                    <tr key={slot.id} className={HOST_TABLE_ROW_DIVIDER_CLASS}>
+                      <td className={HOST_TABLE_CELL_CLASS}>{slot.pitchName}</td>
+                      <td className={HOST_TABLE_CELL_CLASS}>
+                        {new Date(slot.startsAt).toLocaleString()}
+                      </td>
+                      <td className={HOST_TABLE_CELL_CLASS}>
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="default">{slot.status}</Badge>
                           <Badge variant="accent">{slot.productType}</Badge>
                         </div>
                       </td>
-                      <td className="px-3 py-4">
+                      <td className={HOST_TABLE_CELL_CLASS}>
                         {slot.soldQuantity}/{slot.capacity} sold, {slot.remainingCapacity} left
                       </td>
-                      <td className="px-3 py-4">{Math.round(slot.utilization * 100)}%</td>
-                      <td className="px-3 py-4 font-semibold text-[var(--color-text-primary)]">
+                      <td className={HOST_TABLE_CELL_CLASS}>
+                        {Math.round(slot.utilization * 100)}%
+                      </td>
+                      <td
+                        className={cn(
+                          HOST_TABLE_CELL_CLASS,
+                          "font-semibold text-[var(--color-text-primary)]",
+                        )}
+                      >
                         {formatCurrency(slot.revenueSummaryEtb)}
                       </td>
                     </tr>
@@ -1007,53 +933,32 @@ export function OwnerDashboardWorkspace({
               <UtilizationSlotCard key={slot.id} slot={slot} />
             ))}
           />
-          <p className="mt-4 text-sm text-[var(--color-text-secondary)]">
-            Calendar-backed create, edit, and block actions are available in the owner operations section below.
-          </p>
-        </Card>
+        </HostWorkbenchTableSection>
       ) : null}
 
       {!loading && tab === "subscription" ? (
         <Card className="space-y-5 p-5 sm:p-6">
-          <div className="space-y-2">
-            <p className="heading-kicker">Subscription</p>
-            <h2 className="section-title">Pitch inventory entitlement</h2>
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              Monthly subscription status controls whether owners can keep publishing and managing slot inventory.
-            </p>
-          </div>
+          <HostSectionHeader
+            kicker="Subscription"
+            title="Pitch inventory entitlement"
+            description="Monthly subscription status controls whether owners can keep publishing and managing slot inventory."
+          />
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
+          <div className={HOST_METRIC_GRID_THREE}>
+            <HostMetricTile
               label="Status"
               value={subscription?.status ?? "NONE"}
-              detail={
-                subscription?.gracePeriodActive
-                  ? `Grace ends ${new Date(subscription.graceEndsAt ?? subscription.endsAt).toLocaleDateString()}`
-                  : subscription?.entitlementActive
-                    ? "Inventory access active"
-                    : "Inventory access inactive"
-              }
+              detail={getOwnerSubscriptionStatusMetricDetail(subscription ?? undefined)}
             />
-            <MetricCard
+            <HostMetricTile
               label="Plan"
               value={subscription?.planCode ?? "N/A"}
-              detail={subscription?.renewalAt ? `Renews ${new Date(subscription.renewalAt).toLocaleDateString()}` : "No renewal scheduled"}
+              detail={getOwnerSubscriptionPlanMetricDetail(subscription ?? undefined)}
             />
-            <MetricCard
+            <HostMetricTile
               label="Days left"
-              value={String(
-                subscription?.gracePeriodActive
-                  ? subscription.graceDaysRemaining
-                  : subscription?.daysRemaining ?? 0,
-              )}
-              detail={
-                subscription?.gracePeriodActive
-                  ? `Grace ends ${new Date(subscription.graceEndsAt ?? subscription.endsAt).toLocaleDateString()}`
-                  : subscription?.endsAt
-                    ? `Ends ${new Date(subscription.endsAt).toLocaleDateString()}`
-                    : "No active term"
-              }
+              value={String(getOwnerSubscriptionDaysLeftValue(subscription ?? undefined))}
+              detail={getOwnerSubscriptionDaysLeftMetricDetail(subscription ?? undefined)}
             />
           </div>
 
@@ -1063,9 +968,7 @@ export function OwnerDashboardWorkspace({
               <Select
                 value={subscriptionPaymentMethod}
                 onChange={(event) =>
-                  setSubscriptionPaymentMethod(
-                    event.target.value as "balance" | "chapa",
-                  )
+                  setSubscriptionPaymentMethod(event.target.value as "balance" | "chapa")
                 }
                 disabled={subscriptionPending}
               >
@@ -1109,148 +1012,8 @@ export function OwnerDashboardWorkspace({
       ) : null}
 
       {!loading && tab === "exports" ? (
-        <Card className="space-y-4 p-5 sm:p-6">
-          <p className="heading-kicker">Exports</p>
-          <h2 className="section-title">Download ERP CSV snapshots.</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button type="button" variant="secondary" onClick={() => window.open(exportLinks.bookings, "_blank", "noopener,noreferrer")}>
-              Export bookings
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => window.open(exportLinks.payments, "_blank", "noopener,noreferrer")}>
-              Export payments
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => window.open(exportLinks.attendees, "_blank", "noopener,noreferrer")}>
-              Export attendees
-            </Button>
-          </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            These exports are filtered by the date range and pitch selector above.
-          </p>
-        </Card>
+        <OwnerDashboardCsvExportCard exportLinks={exportLinks} />
       ) : null}
-    </div>
-  );
-}
-
-function BookingRowCard({ booking }: { booking: BookingRow }) {
-  return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="accent">{booking.productType}</Badge>
-        <Badge variant="default">{booking.status}</Badge>
-        {booking.poolStatus ? <Badge variant="default">{booking.poolStatus}</Badge> : null}
-      </div>
-      <div className="mt-3 space-y-1">
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">
-          {booking.pitchName}
-        </p>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          {new Date(booking.startsAt).toLocaleString()}
-        </p>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)]">
-        <p>Customer: {booking.customerName}</p>
-        <p>
-          Tickets: {booking.assignedTickets} assigned / {booking.checkedInTickets} checked in
-        </p>
-        <p>Amount: {formatCurrency(booking.totalAmount)}</p>
-      </div>
-    </div>
-  );
-}
-
-function PaymentRowCard({ payment }: { payment: PaymentRow }) {
-  return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">{payment.type}</p>
-        <Badge variant="default">{payment.status}</Badge>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)]">
-        <p>Reference: {payment.pitchName ?? "-"}</p>
-        <p>Amount: {formatCurrency(payment.amount)}</p>
-        <p>
-          Paid at: {payment.paidAt ? new Date(payment.paidAt).toLocaleString() : "Not paid yet"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function CustomerRowCard({
-  customer,
-  onSelect,
-}: {
-  customer: CustomerRow;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="w-full rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4 text-left transition hover:bg-white/[0.03]"
-    >
-      <div className="space-y-1">
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">
-          {customer.customerName}
-        </p>
-        <p className="text-sm text-[var(--color-text-muted)]">
-          {customer.customerEmail ?? "No email"}
-        </p>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)] sm:grid-cols-2">
-        <p>Bookings: {customer.bookings}</p>
-        <p>Assigned: {customer.ticketsAssigned}</p>
-        <p>Checked in: {customer.ticketsCheckedIn}</p>
-        <p>Paid: {formatCurrency(customer.totalPaidEtb)}</p>
-      </div>
-      <p className="mt-3 text-xs text-[var(--color-text-muted)]">Tap to inspect history</p>
-    </button>
-  );
-}
-
-function UtilizationSlotCard({ slot }: { slot: Utilization["slots"][number] }) {
-  return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="default">{slot.status}</Badge>
-        <Badge variant="accent">{slot.productType}</Badge>
-      </div>
-      <div className="mt-3 space-y-1">
-        <p className="text-base font-semibold text-[var(--color-text-primary)]">{slot.pitchName}</p>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          {new Date(slot.startsAt).toLocaleString()}
-        </p>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-[var(--color-text-secondary)]">
-        <p>
-          Inventory: {slot.soldQuantity}/{slot.capacity} sold, {slot.remainingCapacity} left
-        </p>
-        <p>Space used: {Math.round(slot.utilization * 100)}%</p>
-        <p>Revenue: {formatCurrency(slot.revenueSummaryEtb)}</p>
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-control-bg)] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-[var(--color-text-primary)]">
-        {value}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">{detail}</p>
     </div>
   );
 }

@@ -236,7 +236,7 @@ test("keeps ticket management hidden until requested and can create a claim link
 
   await expect(
     page.getByRole("heading", {
-      name: "Everything you booked or joined lives in one timeline.",
+      name: "Your tickets in one place.",
     }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Open map" }).first()).toBeVisible();

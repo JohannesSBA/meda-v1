@@ -67,14 +67,6 @@ test.beforeEach(async ({ page, context, baseURL }) => {
       body: JSON.stringify(slotsPayload),
     });
   });
-
-  await page.route("**/api/parties", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ parties: [] }),
-    });
-  });
 });
 
 test("shows grouped slot offers and opens the map modal from Play", async ({ page }) => {
@@ -82,7 +74,7 @@ test("shows grouped slot offers and opens the map modal from Play", async ({ pag
 
   await expect(
     page.getByRole("heading", {
-      name: "Find somewhere to play, or join a match that is already happening.",
+      name: "Book a pitch or join a match.",
     }),
   ).toBeVisible();
   await expect(page.getByText("Gergi Football").first()).toBeVisible();

@@ -7,14 +7,10 @@ import { toast } from "sonner";
 import { Card } from "@/app/components/ui/card";
 import { Badge } from "@/app/components/ui/badge";
 import { Button, buttonVariants } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { Select } from "@/app/components/ui/select";
-import { Textarea } from "@/app/components/ui/textarea";
-import { useConfirmDialog } from "@/app/components/ui/confirm-dialog";
 import { OverlayPortal } from "@/app/components/ui/overlay-portal";
-import { browserApi, BrowserApiError } from "@/lib/browserApi";
+import { browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
-import { authClient } from "@/lib/auth/client";
 import { cn } from "@/app/components/ui/cn";
 import { computeTicketChargeBreakdown } from "@/lib/ticketPricing";
 import { buildGoogleMapsUrl } from "@/lib/location";
@@ -46,18 +42,6 @@ type SlotSummary = {
   hostAverageRating: number;
   hostReviewCount: number;
   hostTrustBadge: string;
-};
-
-type PartySummary = {
-  id: string;
-  name: string | null;
-  status: string;
-  members: Array<{
-    id: string;
-    displayName: string;
-    invitedEmail: string | null;
-    status: string;
-  }>;
 };
 
 type SlotOffer = {
@@ -237,24 +221,11 @@ function getOfferNextAvailableLabel(offer: Pick<SlotOffer, "slots">) {
 
 export function SlotMarketplace() {
   const router = useRouter();
-  const reserveWholePitchDialog = useConfirmDialog();
-  const { data: sessionData } = authClient.useSession();
-  const currentUser = (sessionData?.user ?? null) as {
-    id?: string;
-    email?: string | null;
-  } | null;
 
   const [slots, setSlots] = useState<SlotSummary[]>([]);
-  const [groups, setGroups] = useState<PartySummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [productFilter, setProductFilter] = useState<"ALL" | "DAILY" | "MONTHLY">("ALL");
-  const [quantity, setQuantity] = useState("1");
-  const [paymentMethod, setPaymentMethod] = useState<"balance" | "chapa">("chapa");
-  const [selectedGroupId, setSelectedGroupId] = useState("");
-  const [groupName, setGroupName] = useState("");
-  const [memberEmails, setMemberEmails] = useState("");
   const [selectedDayByOffer, setSelectedDayByOffer] = useState<Record<string, string>>({});
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [focusedOfferKey, setFocusedOfferKey] = useState<string | null>(null);
@@ -290,7 +261,6 @@ export function SlotMarketplace() {
     offerCards.find((offer) => offer.slots.some((slot) => slot.id === selectedSlotId)) ??
     offerCards[0] ??
     null;
-  const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? null;
   const mappableOffers = useMemo(
     () =>
       offerCards.filter(
@@ -304,41 +274,12 @@ export function SlotMarketplace() {
 
   const monthlyPreview = useMemo(() => {
     if (!selectedSlot || selectedSlot.productType !== "MONTHLY") return null;
-
-    const normalizedCurrentUserEmail = currentUser?.email?.trim().toLowerCase() ?? "";
-    const invitedEmails = [
-      ...new Set(
-        memberEmails
-          .split(/[,\n]/)
-          .map((email) => email.trim())
-          .filter(Boolean)
-          .map((email) => email.toLowerCase()),
-      ),
-    ].filter((email) => email !== normalizedCurrentUserEmail);
-    const memberCount = selectedGroup ? selectedGroup.members.length : 1 + invitedEmails.length;
     const pricing = getSlotChargeBreakdown(selectedSlot);
-    const totalAmount = pricing.totalAmountEtb;
-    const extraMemberCount = Math.max(0, memberCount - 1);
-    const perAddedMemberAmount = pricing.perTicketTotalEtb;
-    const organizerAmount = Math.max(0, totalAmount - perAddedMemberAmount * extraMemberCount);
-
     return {
-      memberCount,
       ticketSubtotal: pricing.ticketSubtotalEtb,
       surchargeTotal: pricing.surchargeTotalEtb,
-      totalAmount,
-      organizerAmount,
-      perAddedMemberAmount,
-      isTooLarge: memberCount > selectedSlot.capacity,
-      deadlineLabel: "1 hour after you create the booking",
     };
-  }, [currentUser?.email, memberEmails, selectedGroup, selectedSlot]);
-
-  const dailyPreview = useMemo(() => {
-    if (!selectedSlot || selectedSlot.productType !== "DAILY") return null;
-    const selectedQuantity = Math.max(1, Number(quantity) || 1);
-    return getSlotChargeBreakdown(selectedSlot, selectedQuantity);
-  }, [quantity, selectedSlot]);
+  }, [selectedSlot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,22 +309,7 @@ export function SlotMarketplace() {
       }
     }
 
-    async function loadGroups() {
-      try {
-        const data = await browserApi.get<{ parties?: PartySummary[] }>("/api/parties", {
-          cache: "no-store",
-        });
-        if (!cancelled) {
-          setGroups(data.parties ?? []);
-        }
-      } catch (error) {
-        if (!(error instanceof BrowserApiError) || error.status !== 401) {
-          toast.error(getErrorMessage(error) || "Failed to load your saved groups");
-        }
-      }
-    }
-
-    void Promise.all([load(), loadGroups()]);
+    void load();
 
     return () => {
       cancelled = true;
@@ -445,85 +371,6 @@ export function SlotMarketplace() {
       [selectedOffer.key]: selectedDayKey,
     }));
   }, [selectedOffer, selectedDayByOffer, selectedSlot]);
-
-  async function handleCreateBooking() {
-    if (!selectedSlot) return;
-    if (!currentUser?.id) {
-      router.push("/auth/sign-in?redirect=%2Fplay%3Fmode%3Dslots");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      if (selectedSlot.productType === "DAILY") {
-        const result = await browserApi.post<{
-          checkoutUrl?: string | null;
-          booking?: { id: string };
-        }>("/api/bookings/daily", {
-          slotId: selectedSlot.id,
-          quantity: Math.max(1, Number(quantity) || 1),
-          paymentMethod,
-        });
-
-        if (result.checkoutUrl) {
-          window.location.href = result.checkoutUrl;
-          return;
-        }
-
-        toast.success("Booking confirmed.");
-        router.push("/tickets");
-        return;
-      }
-
-      const normalizedCurrentUserEmail = currentUser.email?.trim().toLowerCase() ?? "";
-      const emails = [
-        ...new Set(
-          memberEmails
-            .split(/[,\n]/)
-            .map((email) => email.trim())
-            .filter(Boolean)
-            .map((email) => email.toLowerCase()),
-        ),
-      ].filter((email) => email !== normalizedCurrentUserEmail);
-
-      if (monthlyPreview?.isTooLarge) {
-        toast.error(`This booking only fits ${selectedSlot.capacity} players.`);
-        return;
-      }
-
-      await browserApi.post("/api/bookings/monthly", {
-        slotId: selectedSlot.id,
-        partyId: selectedGroupId || undefined,
-        partyName: selectedGroupId ? undefined : groupName || undefined,
-        memberEmails: selectedGroupId ? [] : emails,
-      });
-
-      toast.success("Group booking created. Finish the group payment in Tickets.");
-      router.push("/tickets");
-    } catch (error) {
-      toast.error(getErrorMessage(error) || "Failed to create booking");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleSubmitBooking() {
-    if (selectedSlot?.productType === "MONTHLY") {
-      const confirmed = await reserveWholePitchDialog.confirm({
-        title: "Before you reserve the whole pitch",
-        description:
-          "Anyone you enter with an email will need a Meda account using that exact same email so their invite, payment share, and ticket match correctly. If this booking includes your child or another dependent under your own account, do not add their email here. You can save just their name later in Tickets.",
-        confirmLabel: "I understand",
-        cancelLabel: "Go back",
-      });
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    await handleCreateBooking();
-  }
 
   function selectOfferFromMap(offerKey: string) {
     const offer = offerCards.find((entry) => entry.key === offerKey);
@@ -1066,7 +913,6 @@ export function SlotMarketplace() {
             </div>
           </OverlayPortal>
         ) : null}
-      {reserveWholePitchDialog.dialog}
     </>
   );
 }

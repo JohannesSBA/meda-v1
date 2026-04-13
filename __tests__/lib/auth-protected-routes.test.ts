@@ -8,7 +8,12 @@ import {
 
 describe("auth protected route matrix", () => {
   it("keeps exact and prefix coverage aligned with middleware matcher", () => {
-    expect(AUTH_PROTECTED_EXACT_PATHS).toEqual(["/profile", "/create-events", "/admin"]);
+    expect(AUTH_PROTECTED_EXACT_PATHS).toEqual([
+      "/profile",
+      "/create-events",
+      "/admin",
+      "/host",
+    ]);
     expect(AUTH_PROTECTED_PREFIXES).toEqual([
       "/account/",
       "/profile/",
@@ -23,6 +28,7 @@ describe("auth protected route matrix", () => {
       "/create-events/:path*",
       "/admin",
       "/admin/:path*",
+      "/host",
     ]);
   });
 
@@ -32,7 +38,7 @@ describe("auth protected route matrix", () => {
     expect(isAuthProtectedPath("/admin/events/123/edit")).toBe(true);
     expect(isAuthProtectedPath("/account/settings")).toBe(true);
 
-    expect(isAuthProtectedPath("/host")).toBe(false);
+    expect(isAuthProtectedPath("/host")).toBe(true);
     expect(isAuthProtectedPath("/play")).toBe(false);
   });
 

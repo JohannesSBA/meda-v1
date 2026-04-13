@@ -1,5 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { describe, it, expect } from "vitest";
-import { checkRateLimit, getClientId } from "@/lib/ratelimit";
+import {
+  checkOwnerDashboardCsvExportRateLimit,
+  checkOwnerPayoutInitRateLimit,
+  checkRateLimit,
+  getClientId,
+} from "@/lib/ratelimit";
 
 describe("checkRateLimit", () => {
   it("allows the first request", async () => {
@@ -47,6 +53,53 @@ describe("checkRateLimit", () => {
     }
     const resultB = await checkRateLimit(`key-b-${ts}`, 5, 60_000);
     expect(resultB.limited).toBe(false);
+  });
+});
+
+describe("checkOwnerDashboardCsvExportRateLimit", () => {
+  it("allows 15 owner CSV exports per minute then blocks the 16th", async () => {
+    const ownerId = randomUUID();
+    for (let i = 0; i < 15; i++) {
+      const r = await checkOwnerDashboardCsvExportRateLimit(ownerId);
+      expect(r.limited).toBe(false);
+    }
+    const blocked = await checkOwnerDashboardCsvExportRateLimit(ownerId);
+    expect(blocked.limited).toBe(true);
+    if (blocked.limited) {
+      expect(blocked.retryAfterMs).toBeGreaterThan(0);
+    }
+  });
+
+  it("uses independent buckets for different owner ids", async () => {
+    const ownerA = randomUUID();
+    const ownerB = randomUUID();
+    for (let i = 0; i < 15; i++) {
+      await checkOwnerDashboardCsvExportRateLimit(ownerA);
+    }
+    expect((await checkOwnerDashboardCsvExportRateLimit(ownerB)).limited).toBe(false);
+  });
+});
+
+describe("checkOwnerPayoutInitRateLimit", () => {
+  it("allows 5 payout init attempts per minute then blocks the 6th", async () => {
+    const ownerId = randomUUID();
+    for (let i = 0; i < 5; i++) {
+      expect((await checkOwnerPayoutInitRateLimit(ownerId)).limited).toBe(false);
+    }
+    const blocked = await checkOwnerPayoutInitRateLimit(ownerId);
+    expect(blocked.limited).toBe(true);
+    if (blocked.limited) {
+      expect(blocked.retryAfterMs).toBeGreaterThan(0);
+    }
+  });
+
+  it("scopes payout init limits per owner independently", async () => {
+    const ownerA = randomUUID();
+    const ownerB = randomUUID();
+    for (let i = 0; i < 5; i++) {
+      await checkOwnerPayoutInitRateLimit(ownerA);
+    }
+    expect((await checkOwnerPayoutInitRateLimit(ownerB)).limited).toBe(false);
   });
 });
 

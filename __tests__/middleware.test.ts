@@ -81,6 +81,20 @@ describe("middleware auth protection", () => {
     expect(authMiddlewareMock).not.toHaveBeenCalled();
   });
 
+  it("applies E2E bypass to the host workbench route when protected", async () => {
+    const { NextResponse } = await import("next/server");
+    authMiddlewareMock.mockResolvedValue(
+      NextResponse.redirect("https://meda.test/auth/sign-in", 307),
+    );
+    isE2EAuthBypassEnabledMock.mockReturnValue(true);
+
+    const { default: middleware } = await import("@/middleware");
+    const response = await middleware(makeRequest("/host", { hasE2ECookie: true }) as never);
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(authMiddlewareMock).not.toHaveBeenCalled();
+  });
+
   it("does not bypass unprotected routes even if cookie exists", async () => {
     const { NextResponse } = await import("next/server");
     const passthrough = NextResponse.next();

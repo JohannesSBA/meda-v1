@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requirePitchOwnerUser } from "@/lib/auth/guards";
 import { formatUnknownError } from "@/lib/apiResponse";
 import { logger } from "@/lib/logger";
+import { checkOwnerDashboardCsvExportRateLimit } from "@/lib/ratelimit";
 import { ownerDashboardQuerySchema } from "@/lib/validations/bookingInventory";
 import { parseSearchParams, validationErrorResponse } from "@/lib/validations/http";
 import { exportOwnerDashboardCsv } from "@/services/ownerAnalytics";
@@ -9,6 +10,17 @@ import { exportOwnerDashboardCsv } from "@/services/ownerAnalytics";
 export async function GET(request: Request) {
   const sessionCheck = await requirePitchOwnerUser();
   if (sessionCheck.response) return sessionCheck.response;
+
+  const rl = await checkOwnerDashboardCsvExportRateLimit(sessionCheck.user!.id);
+  if (rl.limited) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait before trying again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
+      },
+    );
+  }
 
   const parsed = parseSearchParams(
     ownerDashboardQuerySchema,

@@ -2,14 +2,13 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/app/components/ui/page-shell";
 import { Section, Stack } from "@/app/components/ui/primitives";
 import { buttonVariants } from "@/app/components/ui/button";
 import { Card } from "@/app/components/ui/card";
 import { cn } from "@/app/components/ui/cn";
 import { AppPageHeader } from "@/app/components/ui/app-page-header";
-import { AppSectionCard } from "@/app/components/ui/app-section-card";
 import { SlotMarketplace } from "@/app/components/bookings/SlotMarketplace";
 import { EventsDiscoveryWorkspace } from "@/app/events/EventsPageClient";
 import { appRoutes } from "@/lib/navigation";
@@ -22,7 +21,6 @@ function readMode(value: string | null): PlayMode {
 }
 
 export function PlayWorkspace() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readMode(searchParams.get("mode"));
 
@@ -33,12 +31,6 @@ export function PlayWorkspace() {
     }),
     [],
   );
-
-  function switchMode(nextMode: PlayMode) {
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("mode", nextMode);
-    router.push(`${appRoutes.play}?${next.toString()}`);
-  }
 
   return (
     <PageShell containerClassName="mx-auto max-w-[1380px] px-0 py-4 sm:px-6 sm:py-8 lg:px-8">
