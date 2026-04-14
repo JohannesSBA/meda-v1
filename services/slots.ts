@@ -7,6 +7,7 @@ import {
 } from "@/generated/prisma/client";
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
 import { resolveCategoryIdWithFallback } from "@/lib/categoryDefaults";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { notifyUserById } from "@/services/actionNotifications";
 import { requireActiveOwnerSubscription } from "@/services/subscriptions";
@@ -419,6 +420,8 @@ export async function listPublicSlots(args: {
   from?: Date;
   to?: Date;
   pitchId?: string;
+  /** When set, caps rows returned (e.g. landing page previews). */
+  take?: number;
 }) {
   const now = new Date();
   const slots = await prisma.bookableSlot.findMany({
@@ -433,6 +436,7 @@ export async function listPublicSlots(args: {
         isActive: true,
       },
     },
+    ...(args.take != null ? { take: args.take } : {}),
     include: {
       pitch: {
         select: {
@@ -477,8 +481,13 @@ export async function listPublicSlots(args: {
   });
 
   const ownerIds = [...new Set(slots.map((slot) => slot.pitch.ownerId))];
-  const trustMetrics = ownerIds.length
-    ? await prisma.hostTrustMetrics.findMany({
+  const trustByOwner = new Map<
+    string,
+    { avgRating: number; reviewCount: number; trustBadge: string }
+  >();
+  if (ownerIds.length > 0) {
+    try {
+      const trustMetrics = await prisma.hostTrustMetrics.findMany({
         where: { hostId: { in: ownerIds } },
         select: {
           hostId: true,
@@ -486,18 +495,18 @@ export async function listPublicSlots(args: {
           reviewCount: true,
           trustBadge: true,
         },
-      })
-    : [];
-  const trustByOwner = new Map(
-    trustMetrics.map((item) => [
-      item.hostId,
-      {
-        avgRating: Number(item.avgRating),
-        reviewCount: item.reviewCount,
-        trustBadge: item.trustBadge,
-      },
-    ]),
-  );
+      });
+      for (const item of trustMetrics) {
+        trustByOwner.set(item.hostId, {
+          avgRating: Number(item.avgRating),
+          reviewCount: item.reviewCount,
+          trustBadge: item.trustBadge,
+        });
+      }
+    } catch (err) {
+      logger.warn("listPublicSlots: skipping host trust metrics", err);
+    }
+  }
 
   return slots.map((slot) => {
     const serialized = serializeSlot(slot as SlotRecord);

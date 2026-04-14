@@ -5,12 +5,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
-import { getAppBaseUrl } from "@/lib/env";
+import { getMetadataBaseUrl } from "@/lib/env";
 import "./globals.css";
 import AuthProviders from "./components/AuthProviders";
 import Footer from "./components/Footer";
 
-const BASE_URL = getAppBaseUrl();
+const METADATA_BASE = getMetadataBaseUrl();
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,14 +30,18 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
+  metadataBase: new URL(METADATA_BASE),
   title: "Meda - Event Management System",
   other: { "color-scheme": "dark" },
   description:
     "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia’s night football and weekend runs.",
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
+    icon: [
+      { url: "/logo-White.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: "/logo-White.svg",
+    apple: "/logo.png",
   },
   alternates: {
     canonical: "/",
@@ -46,10 +50,11 @@ export const metadata: Metadata = {
     title: "Meda - Event Management System",
     description:
       "Organize pickup matches, split the pitch cost per player, and lock in games near you. Built for Ethiopia's night football and weekend runs.",
-    images: "/logo.png",
+    images: [{ url: "/logo.png", alt: "Meda" }],
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/logo.png"],
   },
 };
 

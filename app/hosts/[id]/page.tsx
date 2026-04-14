@@ -3,6 +3,7 @@
  */
 
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { EventCard } from "@/app/components/EventCard";
 import { PageShell } from "@/app/components/ui/page-shell";
@@ -10,6 +11,10 @@ import { Card } from "@/app/components/ui/card";
 import { buttonVariants } from "@/app/components/ui/button";
 import { getActiveReservationCountMap } from "@/lib/events/availability";
 import { serializePublicEvent } from "@/lib/events/serializers";
+import {
+  getAuthUserPublicProfiles,
+  publicHostDisplayName,
+} from "@/lib/auth/userLookup";
 import { prisma } from "@/lib/prisma";
 
 async function getHostEvents(userId: string) {
@@ -54,18 +59,35 @@ export default async function HostProfilePage({
     ...past.map((event) => event.eventId),
   ]);
 
+  const hostProfiles = await getAuthUserPublicProfiles([userId]);
+  const hostProfile = hostProfiles.get(userId);
+  const hostName = publicHostDisplayName(hostProfile);
+  const hostAvatarSrc =
+    hostProfile?.image ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(hostName)}&background=0F2235&color=22FF88&size=256`;
+
+  const withHostFields = (serialized: ReturnType<typeof serializePublicEvent>) => ({
+    ...serialized,
+    hostDisplayName: hostName,
+    hostImageUrl: hostProfile?.image ?? null,
+  });
+
   const upcomingShaped = upcoming.map((event) =>
-    serializePublicEvent(event, {
-      attendeeCount: event._count.attendees,
-      reservedCount: reservationCounts.get(event.eventId) ?? 0,
-    }),
+    withHostFields(
+      serializePublicEvent(event, {
+        attendeeCount: event._count.attendees,
+        reservedCount: reservationCounts.get(event.eventId) ?? 0,
+      }),
+    ),
   );
 
   const pastShaped = past.map((event) =>
-    serializePublicEvent(event, {
-      attendeeCount: event._count.attendees,
-      reservedCount: reservationCounts.get(event.eventId) ?? 0,
-    }),
+    withHostFields(
+      serializePublicEvent(event, {
+        attendeeCount: event._count.attendees,
+        reservedCount: reservationCounts.get(event.eventId) ?? 0,
+      }),
+    ),
   );
 
   return (
@@ -73,17 +95,29 @@ export default async function HostProfilePage({
       <div className="mx-auto flex max-w-6xl flex-col gap-8">
         <Card className="rounded-3xl bg-[#0d1a27]/80 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm uppercase tracking-[0.18em] text-[var(--color-brand)]">
-                Event host
-              </p>
-              <h1 className="mt-2 text-3xl font-bold text-white">
-                Organizer profile
-              </h1>
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                {upcoming.length + past.length} event
-                {upcoming.length + past.length === 1 ? "" : "s"} total
-              </p>
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[var(--color-border-strong)] bg-[#0f1f2d] sm:h-24 sm:w-24">
+                <Image
+                  src={hostAvatarSrc}
+                  alt={`${hostName} profile photo`}
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                  priority
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm uppercase tracking-[0.18em] text-[var(--color-brand)]">
+                  Host
+                </p>
+                <h1 className="mt-2 truncate text-2xl font-bold text-white sm:text-3xl">
+                  {hostName}
+                </h1>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  {upcoming.length + past.length} event
+                  {upcoming.length + past.length === 1 ? "" : "s"} total
+                </p>
+              </div>
             </div>
             <Link
               href={`/events?hostId=${userId}`}

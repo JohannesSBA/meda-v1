@@ -31,11 +31,11 @@ export function useEventSearch(options: UseEventSearchOptions = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [radiusKm, setRadiusKm] = useState(50);
+  const [radiusKm, setRadiusKm] = useState(100);
   const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set());
-  const [categories, setCategories] = useState<
-    Array<{ categoryId: string; categoryName: string }>
-  >([]);
+  const [categories, setCategories] = useState<Array<{ categoryId: string; categoryName: string }>>(
+    [],
+  );
 
   const page = Number(searchParams.get("page")) || 1;
   const search = searchParams.get("search") || "";
@@ -122,11 +122,7 @@ export function useEventSearch(options: UseEventSearchOptions = {}) {
         if (categoryId) params.set("categoryId", categoryId);
         if (datePreset && datePreset !== "all") {
           const now = new Date();
-          const today = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-          );
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           if (datePreset === "week") {
             const end = new Date(today);
             end.setDate(end.getDate() + 7);
@@ -187,23 +183,9 @@ export function useEventSearch(options: UseEventSearchOptions = {}) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [
-    page,
-    search,
-    sort,
-    order,
-    categoryId,
-    datePreset,
-    nearLat,
-    nearLng,
-    radiusKm,
-    retryCount,
-  ]);
+  }, [page, search, sort, order, categoryId, datePreset, nearLat, nearLng, radiusKm, retryCount]);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
-    [total],
-  );
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
   const updateParams = useCallback(
     (next: Record<string, string | number | undefined>) => {
@@ -286,9 +268,7 @@ export function useEventSearch(options: UseEventSearchOptions = {}) {
       const redirectTarget = `${basePath}${redirectParams.toString() ? `?${redirectParams.toString()}` : ""}`;
 
       if (!session.data?.user?.id) {
-        router.push(
-          `/auth/sign-in?redirect=${encodeURIComponent(redirectTarget)}`,
-        );
+        router.push(`/auth/sign-in?redirect=${encodeURIComponent(redirectTarget)}`);
         return;
       }
       try {
@@ -301,10 +281,9 @@ export function useEventSearch(options: UseEventSearchOptions = {}) {
           else next.add(eventId);
           return next;
         });
-        toast.success(
-          isSaved ? "Event removed from saved list" : "Event saved",
-          { id: `save-${eventId}` },
-        );
+        toast.success(isSaved ? "Event removed from saved list" : "Event saved", {
+          id: `save-${eventId}`,
+        });
       } catch (err) {
         const message = getErrorMessage(err) || "Save action failed";
         if (message === "Unauthenticated") {

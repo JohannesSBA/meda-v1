@@ -11,6 +11,8 @@ export const AUTH_PROTECTED_PREFIXES = [
   "/profile/",
   "/create-events/",
   "/admin/",
+  /** Slot checkout & booking steps (`/play/slots/[id]`); public discovery stays on `/play`. */
+  "/play/slots/",
 ] as const;
 
 export const AUTH_PROTECTED_MATCHER = [
@@ -22,6 +24,7 @@ export const AUTH_PROTECTED_MATCHER = [
   "/admin",
   "/admin/:path*",
   "/host",
+  "/play/slots/:path*",
 ] as const;
 
 export function isAuthProtectedPath(pathname: string) {

@@ -68,7 +68,7 @@ export function EventCard({
   const hostSummaryLabel =
     event.hostReviewCount && event.hostReviewCount > 0 && event.hostAverageRating
       ? `${event.hostAverageRating.toFixed(1)}★ (${event.hostReviewCount})`
-      : "New host";
+      : (event.hostDisplayName?.trim() || "New host");
   const fitLine = [dateLabel, locationLabel, priceLabel, spotsLabel != null ? `${spotsLabel} spots left` : null]
     .filter(Boolean)
     .join(" · ");

@@ -47,6 +47,10 @@ export function EventDetailContent({
   reviewState,
 }: EventDetailContentProps) {
   const directionsUrl = buildDirectionsUrl(event);
+  const hostTitle = event.hostDisplayName?.trim() || "Host";
+  const hostAvatarSrc =
+    event.hostImageUrl?.trim() ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(hostTitle)}&background=0F2235&color=22FF88&size=128`;
 
   return (
     <PageShell className="!mt-0 sm:!mt-[calc(4rem+env(safe-area-inset-top,0px))]">
@@ -174,18 +178,24 @@ export function EventDetailContent({
               <section className="space-y-3">
                 <h2 className="text-lg font-semibold text-white">Host</h2>
                 <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[#0f1f2d] px-4 py-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-brand)]/20 text-sm font-bold text-[var(--color-brand)]">
-                    H
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-brand)]/10">
+                    <Image
+                      src={hostAvatarSrc}
+                      alt={`${hostTitle} profile photo`}
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-white">Event Organizer</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{hostTitle}</p>
                     <p className="text-xs text-[var(--color-text-secondary)]">
                       {event.hostReviewCount && event.hostAverageRating
                         ? `${event.hostAverageRating.toFixed(1)}★ from ${event.hostReviewCount} reviews`
                         : "New host"}
                     </p>
                   </div>
-                  <span className="rounded-full border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold tracking-wide text-[var(--color-text-secondary)]">
+                  <span className="shrink-0 rounded-full border border-[var(--color-border)] px-2 py-1 text-[10px] font-semibold tracking-wide text-[var(--color-text-secondary)]">
                     {(event.hostTrustBadge ?? "NEW_HOST").replaceAll("_", " ")}
                   </span>
                   <Link

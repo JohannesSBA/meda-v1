@@ -8,7 +8,8 @@
 
 import { useDatePicker } from "@rehookify/datepicker";
 import type { DPTime } from "@rehookify/datepicker";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import { cn } from "./cn";
 import {
@@ -18,6 +19,10 @@ import {
   getDayButtonClasses,
   getTimeButtonClasses,
 } from "./date-time-helpers";
+
+/** Above site header (z-50), mobile overlays (~70), and sticky sidebars on create-event. */
+const DATE_PICKER_Z_BACKDROP = 10_000;
+const DATE_PICKER_Z_PANEL = 10_001;
 
 type EventDateTimePickerProps = {
   id: string;
@@ -43,18 +48,49 @@ export function EventDateTimePicker({
   triggerClassName,
 }: EventDateTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [panelBox, setPanelBox] = useState({ top: 0, left: 0, width: 672 });
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setMounted(true);
+    }, 0);
+  }, []);
+
+  const updatePanelPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger || typeof window === "undefined") return;
+    const rect = trigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const maxW = Math.min(672, vw - 24);
+    const margin = 12;
+    let left = rect.left;
+    if (left + maxW > vw - margin) {
+      left = Math.max(margin, vw - maxW - margin);
+    }
+    setPanelBox({ top: rect.bottom + 8, left, width: maxW });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePanelPosition();
+    const onReposition = () => updatePanelPosition();
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [isOpen, updatePanelPosition]);
 
   const parsedDate = useMemo(
     () => parseDateTimeValue(dateValue, timeValue),
     [dateValue, timeValue],
   );
 
-  const selectedDates = useMemo(
-    () => (parsedDate ? [parsedDate] : []),
-    [parsedDate],
-  );
+  const selectedDates = useMemo(() => (parsedDate ? [parsedDate] : []), [parsedDate]);
 
   const handleDatesChange = useCallback(
     (dates: Date[]) => {
@@ -97,8 +133,7 @@ export function EventDateTimePicker({
   });
 
   const { calendars, weekDays, time } = data;
-  const { addOffset, subtractOffset, dayButton, setOffset, timeButton } =
-    propGetters;
+  const { addOffset, subtractOffset, dayButton, setOffset, timeButton } = propGetters;
   const calendar = calendars[0];
 
   useEffect(() => {
@@ -197,118 +232,130 @@ export function EventDateTimePicker({
           </svg>
         </button>
 
-        {isOpen ? (
-          <>
-          <div
-            className="fixed inset-0 z-20 bg-black/40"
-            onClick={() => setIsOpen(false)}
-            aria-hidden
-          />
-          <div
-            ref={popoverRef}
-            id={`${id}-panel`}
-            role="dialog"
-            aria-label={`${label} picker`}
-            className="absolute left-0 right-0 z-30 mt-2 max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0f2235]/98 p-4 shadow-2xl shadow-black/35 backdrop-blur sm:right-auto sm:w-[42rem] sm:rounded-3xl sm:p-6"
-          >
-            <div className="flex flex-col gap-6 lg:flex-row">
-              <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <button
-                    type="button"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
-                    {...subtractOffset({ months: 1 })}
-                  >
-                    <span className="sr-only">Previous month</span>
-                    <FaArrowLeft className="h-4 w-4" />
-                  </button>
-                  <div className="text-sm font-semibold text-[#e6f5ff]">
-                    {calendar ? `${calendar.month} ${calendar.year}` : ""}
-                  </div>
-                  <button
-                    type="button"
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
-                    {...addOffset({ months: 1 })}
-                  >
-                    <span className="sr-only">Next month</span>
-                    <FaArrowRight className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                  {weekDays.map((day) => (
-                    <span key={day}>{day}</span>
-                  ))}
-                </div>
-
-                <div className="mt-2 grid grid-cols-7 gap-1.5">
-                  {calendar?.days.map((day) => {
-                    const dayProps = dayButton(day);
-                    return (
-                      <button
-                        key={day.$date.toISOString()}
-                        type="button"
-                        {...dayProps}
-                        className={cn(getDayButtonClasses(day), dayProps.className as string)}
-                      >
-                        {day.day}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-4 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-                  <span>Week starts on Sunday</span>
-                  <button
-                    type="button"
-                    className="font-semibold text-[#7ccfff] transition hover:text-[#9fe9ff]"
-                    {...setOffset(new Date())}
-                  >
-                    Today
-                  </button>
-                </div>
-              </div>
-
-              <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
-                  Time
-                </p>
-                <div className="mt-2 max-h-60 overflow-y-auto pr-1">
-                  <div className="grid grid-cols-2 gap-2">
-                    {time.map((entry: DPTime) => {
-                      const timeProps = timeButton(entry);
-                      const isSelected = timeSelectionExists ? entry.selected : false;
-                      return (
+        {mounted && isOpen
+          ? createPortal(
+              <>
+                <div
+                  className="fixed inset-0 bg-black/40"
+                  style={{ zIndex: DATE_PICKER_Z_BACKDROP }}
+                  onClick={() => setIsOpen(false)}
+                  aria-hidden
+                />
+                <div
+                  ref={popoverRef}
+                  id={`${id}-panel`}
+                  role="dialog"
+                  aria-label={`${label} picker`}
+                  className="overflow-y-auto rounded-2xl border border-white/10 bg-[#0f2235]/98 p-4 shadow-2xl shadow-black/35 backdrop-blur sm:rounded-3xl sm:p-6"
+                  style={{
+                    position: "fixed",
+                    top: panelBox.top,
+                    left: panelBox.left,
+                    width: panelBox.width,
+                    zIndex: DATE_PICKER_Z_PANEL,
+                    maxHeight: `min(80vh, calc(100dvh - ${panelBox.top}px - 12px))`,
+                  }}
+                >
+                  <div className="flex flex-col gap-6 lg:flex-row">
+                    <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
+                      <div className="mb-4 flex items-center justify-between">
                         <button
-                          key={`${entry.$date.toISOString()}-${entry.time}`}
                           type="button"
-                          {...timeProps}
-                          className={cn(
-                            getTimeButtonClasses(isSelected, entry.disabled),
-                            timeProps.className as string,
-                          )}
+                          className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
+                          {...subtractOffset({ months: 1 })}
                         >
-                          {entry.time}
+                          <span className="sr-only">Previous month</span>
+                          <FaArrowLeft className="h-4 w-4" />
                         </button>
-                      );
-                    })}
+                        <div className="text-sm font-semibold text-[#e6f5ff]">
+                          {calendar ? `${calendar.month} ${calendar.year}` : ""}
+                        </div>
+                        <button
+                          type="button"
+                          className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition hover:bg-white/8"
+                          {...addOffset({ months: 1 })}
+                        >
+                          <span className="sr-only">Next month</span>
+                          <FaArrowRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                        {weekDays.map((day) => (
+                          <span key={day}>{day}</span>
+                        ))}
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-7 gap-1.5">
+                        {calendar?.days.map((day) => {
+                          const dayProps = dayButton(day);
+                          return (
+                            <button
+                              key={day.$date.toISOString()}
+                              type="button"
+                              {...dayProps}
+                              className={cn(getDayButtonClasses(day), dayProps.className as string)}
+                            >
+                              {day.day}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
+                        <span>Week starts on Sunday</span>
+                        <button
+                          type="button"
+                          className="font-semibold text-[#7ccfff] transition hover:text-[#9fe9ff]"
+                          {...setOffset(new Date())}
+                        >
+                          Today
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1 rounded-2xl border border-white/8 bg-[#0f1f2d] p-3 sm:p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+                        Time
+                      </p>
+                      <div className="mt-2 max-h-60 overflow-y-auto pr-1">
+                        <div className="grid grid-cols-2 gap-2">
+                          {time.map((entry: DPTime) => {
+                            const timeProps = timeButton(entry);
+                            const isSelected = timeSelectionExists ? entry.selected : false;
+                            return (
+                              <button
+                                key={`${entry.$date.toISOString()}-${entry.time}`}
+                                type="button"
+                                {...timeProps}
+                                className={cn(
+                                  getTimeButtonClasses(isSelected, entry.disabled),
+                                  timeProps.className as string,
+                                )}
+                              >
+                                {entry.time}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      className="h-11 rounded-full px-6 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[#e6f5ff]"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Done
+                    </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                className="h-11 rounded-full px-6 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[#e6f5ff]"
-                onClick={() => setIsOpen(false)}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-          </>
-        ) : null}
+              </>,
+              document.body,
+            )
+          : null}
       </div>
     </div>
   );

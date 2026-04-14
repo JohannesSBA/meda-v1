@@ -56,5 +56,6 @@ export const config = {
     "/admin",
     "/admin/:path*",
     "/host",
+    "/play/slots/:path*",
   ],
 };

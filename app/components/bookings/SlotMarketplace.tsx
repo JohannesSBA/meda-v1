@@ -12,61 +12,23 @@ import { OverlayPortal } from "@/app/components/ui/overlay-portal";
 import { browserApi } from "@/lib/browserApi";
 import { getErrorMessage } from "@/lib/errorMessage";
 import { cn } from "@/app/components/ui/cn";
-import { computeTicketChargeBreakdown } from "@/lib/ticketPricing";
 import { buildGoogleMapsUrl } from "@/lib/location";
 import { formatProductTypeLabel, uiCopy } from "@/lib/uiCopy";
+import {
+  buildOfferCards,
+  formatSlotTimeRange,
+  getOfferNextAvailableLabel,
+  getOfferPriceLabel,
+  getSlotChargeBreakdown,
+  getSlotDayKey,
+  getSlotDisplayPrice,
+  type SlotOfferGroupingSlot,
+} from "@/lib/slots/offerGrouping";
 
 const PUBLIC_SLOT_LOOKAHEAD_DAYS = 180;
 const SlotLocationsMap = dynamic(() => import("./SlotLocationsMap"), { ssr: false });
 
-type SlotSummary = {
-  id: string;
-  pitchId: string;
-  pitchName: string;
-  addressLabel: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  categoryName: string;
-  startsAt: string;
-  endsAt: string;
-  capacity: number;
-  price: number;
-  currency: string;
-  productType: "DAILY" | "MONTHLY";
-  status: "OPEN" | "RESERVED" | "BOOKED" | "BLOCKED" | "CANCELLED";
-  requiresParty: boolean;
-  notes: string | null;
-  bookingCount: number;
-  soldQuantity: number;
-  remainingCapacity: number;
-  hostAverageRating: number;
-  hostReviewCount: number;
-  hostTrustBadge: string;
-};
-
-type SlotOffer = {
-  key: string;
-  pitchId: string;
-  pitchName: string;
-  addressLabel: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  categoryName: string;
-  productType: "DAILY" | "MONTHLY";
-  capacity: number;
-  price: number;
-  currency: string;
-  requiresParty: boolean;
-  notes: string | null;
-  slots: SlotSummary[];
-  bookingCount: number;
-  dayOptions: Array<{
-    dateKey: string;
-    startsAt: string;
-    label: string;
-    count: number;
-  }>;
-};
+type SlotSummary = SlotOfferGroupingSlot;
 
 function formatCurrency(value: number, currency = "ETB") {
   return new Intl.NumberFormat("en-US", {
@@ -76,147 +38,9 @@ function formatCurrency(value: number, currency = "ETB") {
   }).format(value);
 }
 
-function getSlotDisplayPrice(slot: Pick<SlotSummary, "productType" | "price" | "capacity">) {
-  return slot.productType === "MONTHLY" ? slot.price * slot.capacity : slot.price;
-}
-
-function getSlotChargeBreakdown(
-  slot: Pick<SlotSummary, "price" | "capacity" | "productType">,
-  quantity?: number,
-) {
-  const effectiveQuantity = quantity ?? (slot.productType === "MONTHLY" ? slot.capacity : 1);
-  return computeTicketChargeBreakdown({
-    unitPriceEtb: slot.price,
-    quantity: effectiveQuantity,
-  });
-}
-
-function getSlotOfferKey(slot: SlotSummary) {
-  return [
-    slot.pitchId,
-    slot.productType,
-    slot.categoryName,
-    String(slot.capacity),
-    String(slot.price),
-    slot.currency,
-    slot.requiresParty ? "group" : "solo",
-    slot.notes?.trim().toLowerCase() ?? "",
-  ].join("::");
-}
-
-function getSlotDayKey(startsAt: string) {
-  const date = new Date(startsAt);
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function formatSlotDayLabel(startsAt: string, short = false) {
-  return new Date(startsAt).toLocaleDateString(undefined, {
-    weekday: short ? "short" : "long",
-    month: short ? "short" : "long",
-    day: "numeric",
-  });
-}
-
-function formatSlotTimeRange(slot: Pick<SlotSummary, "startsAt" | "endsAt">) {
-  return `${new Date(slot.startsAt).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })} - ${new Date(slot.endsAt).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  })}`;
-}
-
-function buildOfferCards(slots: SlotSummary[]) {
-  const sortedSlots = [...slots].sort(
-    (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
-  );
-  const grouped = new Map<string, SlotOffer>();
-
-  for (const slot of sortedSlots) {
-    const key = getSlotOfferKey(slot);
-    const existing = grouped.get(key);
-    if (existing) {
-      existing.slots.push(slot);
-      existing.bookingCount += slot.bookingCount;
-      continue;
-    }
-
-    grouped.set(key, {
-      key,
-      pitchId: slot.pitchId,
-      pitchName: slot.pitchName,
-      addressLabel: slot.addressLabel,
-      latitude: slot.latitude,
-      longitude: slot.longitude,
-      categoryName: slot.categoryName,
-      productType: slot.productType,
-      capacity: slot.capacity,
-      price: slot.price,
-      currency: slot.currency,
-      requiresParty: slot.requiresParty,
-      notes: slot.notes,
-      slots: [slot],
-      bookingCount: slot.bookingCount,
-      dayOptions: [],
-    });
-  }
-
-  const offers = Array.from(grouped.values());
-  for (const offer of offers) {
-    const dayMap = new Map<
-      string,
-      { dateKey: string; startsAt: string; label: string; count: number }
-    >();
-    for (const slot of offer.slots) {
-      const dateKey = getSlotDayKey(slot.startsAt);
-      const existing = dayMap.get(dateKey);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        dayMap.set(dateKey, {
-          dateKey,
-          startsAt: slot.startsAt,
-          label: formatSlotDayLabel(slot.startsAt, true),
-          count: 1,
-        });
-      }
-    }
-
-    offer.dayOptions = Array.from(dayMap.values()).sort(
-      (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
-    );
-  }
-
-  return offers;
-}
-
-function getOfferPriceLabel(
-  offer: Pick<SlotOffer, "productType" | "price" | "capacity" | "currency">,
-) {
-  if (offer.productType === "MONTHLY") {
-    const pricing = getSlotChargeBreakdown(offer);
-    return `${formatCurrency(pricing.totalAmountEtb, offer.currency)} full pitch`;
-  }
-  const pricing = getSlotChargeBreakdown(offer, 1);
-  return `${formatCurrency(pricing.totalAmountEtb, offer.currency)} per spot`;
-}
-
 function renderStars(rating: number) {
   const rounded = Math.max(0, Math.min(5, Math.round(rating)));
   return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
-}
-
-function getOfferNextAvailableLabel(offer: Pick<SlotOffer, "slots">) {
-  const nextSlot = [...offer.slots].sort(
-    (left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime(),
-  )[0];
-  if (!nextSlot) return null;
-  return `${formatSlotDayLabel(nextSlot.startsAt)} · ${formatSlotTimeRange(nextSlot)}`;
 }
 
 export function SlotMarketplace() {

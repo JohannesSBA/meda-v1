@@ -52,6 +52,9 @@ export const EventSchema = z.object({
   hostReviewCount: z.number().int().nonnegative().nullable().optional(),
   hostTrustBadge: HostTrustBadgeSchema.nullable().optional(),
   hostTrustScore: z.number().nullable().optional(),
+  /** Resolved from auth for public listings and detail */
+  hostDisplayName: z.string().optional(),
+  hostImageUrl: z.string().nullable().optional(),
 });
 
 export type EventResponse = z.infer<typeof EventSchema>;

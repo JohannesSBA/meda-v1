@@ -10,6 +10,11 @@ import {
   serializePublicEvent,
 } from "@/lib/events/serializers";
 import { getUserEventTicketSummaryMap } from "@/services/ticketSummaries";
+import {
+  getAuthUserPublicProfiles,
+  publicHostDisplayName,
+  type AuthUserPublicProfile,
+} from "@/lib/auth/userLookup";
 import type { EventListQueryInput } from "@/lib/validations/events";
 import type {
   EventOccurrence,
@@ -225,6 +230,17 @@ function buildListingBaseSql(whereClause: Prisma.Sql) {
   `;
 }
 
+function mergeHostProfilesIntoEvents(
+  events: EventResponse[],
+  profiles: Map<string, AuthUserPublicProfile>,
+): EventResponse[] {
+  return events.map((event) => ({
+    ...event,
+    hostDisplayName: publicHostDisplayName(profiles.get(event.userId)),
+    hostImageUrl: profiles.get(event.userId)?.image ?? null,
+  }));
+}
+
 function mapEventRow(row: ListedEventRow): EventResponse {
   return {
     eventId: row.eventId,
@@ -312,6 +328,9 @@ const getCachedPublicEventDetail = unstable_cache(
       );
     }
 
+    const hostProfiles = await getAuthUserPublicProfiles([event.userId]);
+    const hostProfile = hostProfiles.get(event.userId);
+
     return {
       ...serializePublicEvent(event, {
         attendeeCount: event._count.attendees,
@@ -322,6 +341,8 @@ const getCachedPublicEventDetail = unstable_cache(
       hostReviewCount: hostTrust?.reviewCount ?? null,
       hostTrustBadge: hostTrust?.trustBadge ?? null,
       hostTrustScore: hostTrust ? Number(hostTrust.trustScore) : null,
+      hostDisplayName: publicHostDisplayName(hostProfile),
+      hostImageUrl: hostProfile?.image ?? null,
       occurrences,
     };
   },
@@ -366,9 +387,18 @@ const getCachedEventList = unstable_cache(
       `),
     ]);
 
+    const itemsMapped = items.map(mapEventRow);
+    const mapItemsMapped = mapItems.map(mapEventRow);
+    const hostIds = [
+      ...new Set(
+        [...itemsMapped, ...mapItemsMapped].map((entry) => entry.userId),
+      ),
+    ];
+    const hostProfiles = await getAuthUserPublicProfiles(hostIds);
+
     return {
-      items: items.map(mapEventRow),
-      mapItems: mapItems.map(mapEventRow),
+      items: mergeHostProfilesIntoEvents(itemsMapped, hostProfiles),
+      mapItems: mergeHostProfilesIntoEvents(mapItemsMapped, hostProfiles),
       total: totalRows[0]?.total ?? 0,
       offset,
       limit: input.limit,

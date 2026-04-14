@@ -19,6 +19,7 @@ describe("auth protected route matrix", () => {
       "/profile/",
       "/create-events/",
       "/admin/",
+      "/play/slots/",
     ]);
     expect(AUTH_PROTECTED_MATCHER).toEqual([
       "/account/:path*",
@@ -29,6 +30,7 @@ describe("auth protected route matrix", () => {
       "/admin",
       "/admin/:path*",
       "/host",
+      "/play/slots/:path*",
     ]);
   });
 
@@ -39,6 +41,7 @@ describe("auth protected route matrix", () => {
     expect(isAuthProtectedPath("/account/settings")).toBe(true);
 
     expect(isAuthProtectedPath("/host")).toBe(true);
+    expect(isAuthProtectedPath("/play/slots/550e8400-e29b-41d4-a716-446655440000")).toBe(true);
     expect(isAuthProtectedPath("/play")).toBe(false);
   });
 

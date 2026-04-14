@@ -34,6 +34,34 @@ describe("env helpers", () => {
     expect(getAppBaseUrl()).toBe("https://meda.app");
   });
 
+  it("getMetadataBaseUrl prefers public URL, then Vercel, then dev loopback", async () => {
+    process.env.NEXT_PUBLIC_BASE_URL = "https://app.example/";
+    let { getMetadataBaseUrl } = await import("@/lib/env");
+    expect(getMetadataBaseUrl()).toBe("https://app.example");
+
+    vi.resetModules();
+    delete process.env.NEXT_PUBLIC_BASE_URL;
+    process.env.VERCEL_URL = "my-app.vercel.app";
+    ({ getMetadataBaseUrl } = await import("@/lib/env"));
+    expect(getMetadataBaseUrl()).toBe("https://my-app.vercel.app");
+
+    vi.resetModules();
+    delete process.env.NEXT_PUBLIC_BASE_URL;
+    delete process.env.VERCEL_URL;
+    process.env.PORT = "3100";
+    vi.stubEnv("NODE_ENV", "development");
+    ({ getMetadataBaseUrl } = await import("@/lib/env"));
+    expect(getMetadataBaseUrl()).toBe("http://127.0.0.1:3100");
+    vi.unstubAllEnvs();
+
+    vi.resetModules();
+    delete process.env.NEXT_PUBLIC_BASE_URL;
+    delete process.env.VERCEL_URL;
+    delete process.env.PORT;
+    ({ getMetadataBaseUrl } = await import("@/lib/env"));
+    expect(getMetadataBaseUrl()).toBe("https://meda.app");
+  });
+
   it("enables E2E auth bypass only in non-production mode", async () => {
     Object.assign(process.env, { NODE_ENV: "test", E2E_AUTH_BYPASS: "1" });
 
