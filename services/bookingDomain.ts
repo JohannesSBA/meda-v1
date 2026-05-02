@@ -1,4 +1,5 @@
 import { BookingStatus, TicketStatus } from "@/generated/prisma/client";
+import { roundCurrency } from "@/lib/ticketPricing";
 
 export const ACTIVE_CAPACITY_BOOKING_STATUSES = [
   BookingStatus.CONFIRMED,
@@ -24,9 +25,7 @@ export function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
-}
+export { roundCurrency } from "@/lib/ticketPricing";
 
 export function normalizeEmail(email?: string | null) {
   const normalized = email?.trim().toLowerCase() ?? "";

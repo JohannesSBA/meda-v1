@@ -9,6 +9,7 @@ const mockWaitlistFindMany = vi.fn();
 const mockQueryRawUnsafe = vi.fn();
 const mockSendRefundConfirmationEmail = vi.fn();
 const mockSendWaitlistSpotAvailableEmail = vi.fn();
+const mockComputeHostTrustMetrics = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -23,6 +24,10 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/services/email", () => ({
   sendRefundConfirmationEmail: mockSendRefundConfirmationEmail,
   sendWaitlistSpotAvailableEmail: mockSendWaitlistSpotAvailableEmail,
+}));
+
+vi.mock("@/services/trustScore", () => ({
+  computeHostTrustMetrics: mockComputeHostTrustMetrics,
 }));
 
 vi.mock("@/lib/location", () => ({
@@ -106,6 +111,7 @@ describe("processRefund", () => {
     vi.clearAllMocks();
     mockQueryRawUnsafe.mockResolvedValue([]);
     mockWaitlistFindMany.mockResolvedValue([]);
+    mockComputeHostTrustMetrics.mockResolvedValue({});
     setupDefaultTransaction();
   });
 
@@ -265,5 +271,38 @@ describe("processRefund", () => {
     const processRefund = await importProcessRefund();
     const result = await processRefund(EVENT_ID, USER_ID, 1);
     expect(result.ok).toBe(true);
+  });
+
+  it("triggers host trust metrics recompute after successful refund", async () => {
+    mockEventFindUnique.mockResolvedValue(makeEvent({ userId: "owner-uuid-1" }));
+    mockAttendeeFindMany.mockResolvedValue(makeTickets(1));
+
+    const processRefund = await importProcessRefund();
+    await processRefund(EVENT_ID, USER_ID, 1);
+
+    // Fire-and-forget: called once with the event owner's userId
+    await vi.waitFor(() => {
+      expect(mockComputeHostTrustMetrics).toHaveBeenCalledWith("owner-uuid-1");
+    });
+  });
+
+  it("does not throw if trust metrics recompute fails", async () => {
+    mockEventFindUnique.mockResolvedValue(makeEvent({ userId: "owner-uuid-1" }));
+    mockAttendeeFindMany.mockResolvedValue(makeTickets(1));
+    mockComputeHostTrustMetrics.mockRejectedValue(new Error("DB error"));
+
+    const processRefund = await importProcessRefund();
+    const result = await processRefund(EVENT_ID, USER_ID, 1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("does not trigger trust metrics when event has no owner", async () => {
+    mockEventFindUnique.mockResolvedValue(makeEvent({ userId: null }));
+    mockAttendeeFindMany.mockResolvedValue(makeTickets(1));
+
+    const processRefund = await importProcessRefund();
+    await processRefund(EVENT_ID, USER_ID, 1);
+
+    expect(mockComputeHostTrustMetrics).not.toHaveBeenCalled();
   });
 });

@@ -11,10 +11,11 @@ import {
   sendRefundConfirmationEmail,
   sendWaitlistSpotAvailableEmail,
 } from "@/services/email";
-import { REFUND_CUTOFF_HOURS } from "@/lib/constants";
+import { REFUND_CUTOFF_HOURS, PLATFORM_COMMISSION_PERCENT } from "@/lib/constants";
+import { roundCurrency } from "@/lib/ticketPricing";
 import { logger } from "@/lib/logger";
 import { getAuthUserEmails } from "@/lib/auth/userLookup";
-import { PLATFORM_COMMISSION_PERCENT } from "./pitchOwner";
+import { computeHostTrustMetrics } from "@/services/trustScore";
 
 export type RefundResult = {
   ok: true;
@@ -61,10 +62,6 @@ type RefundSelection = {
   selectedTickets: RefundableAttendeeRow[];
   paymentSelections: RefundSelectionEntry[];
 };
-
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
-}
 
 function assertRefundWindow(event: {
   eventId: string;
@@ -443,16 +440,21 @@ export async function processRefund(
     }
 
     if (ownerBalanceDebitTotal > 0) {
-      await tx.userBalance.upsert({
+      // Fetch current balance first so we can floor at zero; a refund should
+      // never push an owner into debt (Chapa-side funds are recovered separately).
+      const ownerBalance = await tx.userBalance.findUnique({
         where: { userId: event.userId },
-        update: {
-          balanceEtb: { decrement: ownerBalanceDebitTotal },
-        },
-        create: {
-          userId: event.userId,
-          balanceEtb: -ownerBalanceDebitTotal,
-        },
+        select: { balanceEtb: true },
       });
+      const currentOwnerBalance = Number(ownerBalance?.balanceEtb ?? 0);
+      const clampedDebit = Math.min(ownerBalanceDebitTotal, Math.max(0, currentOwnerBalance));
+
+      if (clampedDebit > 0) {
+        await tx.userBalance.update({
+          where: { userId: event.userId },
+          data: { balanceEtb: { decrement: clampedDebit } },
+        });
+      }
     }
   });
 
@@ -508,6 +510,13 @@ export async function processRefund(
         }
       }
     }
+  }
+
+  // Fire-and-forget: a refund changes the host's refundRate signal.
+  if (event.userId) {
+    computeHostTrustMetrics(event.userId).catch((err) => {
+      logger.error("Failed to recompute host trust metrics after refund", err);
+    });
   }
 
   return {

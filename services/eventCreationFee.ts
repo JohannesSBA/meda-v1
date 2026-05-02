@@ -7,6 +7,7 @@ import {
 import { acquireTransactionLock } from "@/lib/dbLocks";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { roundCurrency } from "@/lib/ticketPricing";
 import {
   createEventWithClient,
   decodeEventImage,
@@ -64,10 +65,6 @@ export type EventCreationConfirmationResult =
       status: "failed" | "processing";
       message: string;
     };
-
-function roundCurrency(value: number) {
-  return Math.round(value * 100) / 100;
-}
 
 function toNumber(value: Prisma.Decimal | number | string | null | undefined) {
   if (value == null) return 0;

@@ -129,7 +129,7 @@ async function computeOwnerPayoutSummary(args: {
   ownerId: string;
   recentPayoutLimit?: number;
 }): Promise<PitchOwnerPayoutSummary> {
-  const [profile, balanceRecord, payments, bookings, payouts] = await Promise.all([
+  const [profile, balanceRecord, payments, bookings, recentPayouts, reservedPayoutAggregate] = await Promise.all([
     prisma.pitchOwnerProfile.findUnique({
       where: { userId: args.ownerId },
       select: {
@@ -182,14 +182,24 @@ async function computeOwnerPayoutSummary(args: {
         ownerRevenueAmount: true,
       },
     }),
+    // Display list — capped for UI rendering
     prisma.pitchOwnerPayout.findMany({
-      where: {
-        ownerId: args.ownerId,
-      },
+      where: { ownerId: args.ownerId },
       orderBy: [{ createdAt: "desc" }],
       take: args.recentPayoutLimit ?? 8,
     }),
+    // Financial aggregate — ALL in-flight payouts, never capped
+    prisma.pitchOwnerPayout.aggregate({
+      where: {
+        ownerId: args.ownerId,
+        status: { in: [PayoutStatus.PENDING, PayoutStatus.PROCESSING, PayoutStatus.PAID] },
+      },
+      _sum: { amountEtb: true },
+    }),
   ]);
+
+  // Use the display list alias from here on
+  const payouts = recentPayouts;
 
   const grossEventBreakdown = payments.reduce(
     (totals, payment) => {
@@ -265,14 +275,9 @@ async function computeOwnerPayoutSummary(args: {
       payout.status === PayoutStatus.PROCESSING,
     )
     .reduce((sum, payout) => sum + asNumber(payout.amountEtb), 0);
-  const reservedPayoutEtb = payouts
-    .filter(
-      (payout) =>
-        payout.status === PayoutStatus.PENDING ||
-        payout.status === PayoutStatus.PROCESSING ||
-        payout.status === PayoutStatus.PAID,
-    )
-    .reduce((sum, payout) => sum + asNumber(payout.amountEtb), 0);
+  // reservedPayoutEtb uses the unlimited aggregate so it is always accurate,
+  // even when the owner has more than `recentPayoutLimit` active payouts.
+  const reservedPayoutEtb = asNumber(reservedPayoutAggregate._sum.amountEtb);
 
   const payoutCredentials = readPitchOwnerPayoutCredentials({
     ownerId: args.ownerId,
@@ -346,44 +351,194 @@ export async function listAdminPitchOwnerPayoutSummaries() {
     select: {
       userId: true,
       businessName: true,
+      accountNumberEnc: true,
+      bankCodeEnc: true,
+      payoutSetupVerifiedAt: true,
     },
   });
 
-  const authUsers = await getAuthUserEmails(profiles.map((profile) => profile.userId));
-  const summaries = await Promise.all(
-    profiles.map(async (profile) => {
-      const payoutSummary = await computeOwnerPayoutSummary({
-        ownerId: profile.userId,
-      });
-      const authUser = authUsers.get(profile.userId);
+  if (profiles.length === 0) {
+    return { commissionPercent: PLATFORM_COMMISSION_PERCENT, ticketSurchargeEtb: TICKET_SURCHARGE_ETB, owners: [] };
+  }
 
-      return {
-        ownerId: profile.userId,
-        ownerName: authUser?.name ?? profile.businessName ?? null,
-        ownerEmail: authUser?.email ?? null,
-        businessName: payoutSummary.businessName,
-        payoutReady: payoutSummary.payoutReady,
-        payoutSetupIssue: payoutSummary.payoutSetupIssue,
-        destinationLabel: payoutSummary.destinationLabel,
-        destinationBankCode: payoutSummary.destinationBankCode,
-        grossTicketSalesEtb: payoutSummary.grossTicketSalesEtb,
-        platformCommissionEtb: payoutSummary.platformCommissionEtb,
-        ticketSurchargeEtb: payoutSummary.ticketSurchargeEtb,
-        netOwnerRevenueEtb: payoutSummary.netOwnerRevenueEtb,
-        totalPaidOutEtb: payoutSummary.totalPaidOutEtb,
-        totalPendingPayoutEtb: payoutSummary.totalPendingPayoutEtb,
-        availablePayoutEtb: payoutSummary.availablePayoutEtb,
-        recentPayouts: payoutSummary.recentPayouts,
-      } satisfies AdminOwnerPayoutSummary;
+  const ownerIds = profiles.map((p) => p.userId);
+
+  // All 5 resource types fetched in a single batch per type (5 total queries).
+  const [authUsers, balanceRecords, allPayments, allBookings, allRecentPayouts, allReservedAggregates] = await Promise.all([
+    getAuthUserEmails(ownerIds),
+    prisma.userBalance.findMany({
+      where: { userId: { in: ownerIds } },
+      select: { userId: true, balanceEtb: true },
     }),
+    prisma.payment.findMany({
+      where: { event: { userId: { in: ownerIds } }, status: PaymentStatus.succeeded },
+      select: {
+        paymentId: true,
+        quantity: true,
+        amountEtb: true,
+        surchargeEtb: true,
+        ownerRevenueEtb: true,
+        event: { select: { userId: true } },
+        refunds: { select: { ticketCount: true } },
+      },
+    }),
+    prisma.booking.findMany({
+      where: {
+        slot: { pitch: { ownerId: { in: ownerIds } } },
+        status: { in: [BookingStatus.CONFIRMED, BookingStatus.COMPLETED] },
+      },
+      select: {
+        id: true,
+        totalAmount: true,
+        surchargeAmount: true,
+        ownerRevenueAmount: true,
+        slot: { select: { pitch: { select: { ownerId: true } } } },
+      },
+    }),
+    prisma.pitchOwnerPayout.findMany({
+      where: { ownerId: { in: ownerIds } },
+      orderBy: [{ createdAt: "desc" }],
+    }),
+    // Financial aggregate across ALL statuses — one query covers every owner
+    prisma.pitchOwnerPayout.groupBy({
+      by: ["ownerId"],
+      where: {
+        ownerId: { in: ownerIds },
+        status: { in: [PayoutStatus.PENDING, PayoutStatus.PROCESSING, PayoutStatus.PAID] },
+      },
+      _sum: { amountEtb: true },
+    }),
+  ]);
+
+  // Index all results by ownerId for O(1) lookups
+  const balanceByOwner = new Map(balanceRecords.map((b) => [b.userId, b]));
+  const paymentsByOwner = new Map<string, typeof allPayments>();
+  for (const payment of allPayments) {
+    const ownerId = payment.event.userId;
+    if (!ownerId) continue;
+    const list = paymentsByOwner.get(ownerId) ?? [];
+    list.push(payment);
+    paymentsByOwner.set(ownerId, list);
+  }
+  const bookingsByOwner = new Map<string, typeof allBookings>();
+  for (const booking of allBookings) {
+    const ownerId = booking.slot.pitch.ownerId;
+    const list = bookingsByOwner.get(ownerId) ?? [];
+    list.push(booking);
+    bookingsByOwner.set(ownerId, list);
+  }
+  const recentPayoutsByOwner = new Map<string, typeof allRecentPayouts>();
+  for (const payout of allRecentPayouts) {
+    const list = recentPayoutsByOwner.get(payout.ownerId) ?? [];
+    list.push(payout);
+    recentPayoutsByOwner.set(payout.ownerId, list);
+  }
+  const reservedByOwner = new Map(
+    allReservedAggregates.map((row) => [row.ownerId, asNumber(row._sum.amountEtb)]),
   );
+
+  const summaries: AdminOwnerPayoutSummary[] = profiles.map((profile) => {
+    const authUser = authUsers.get(profile.userId);
+    const payments = paymentsByOwner.get(profile.userId) ?? [];
+    const bookings = bookingsByOwner.get(profile.userId) ?? [];
+    const recentPayouts = (recentPayoutsByOwner.get(profile.userId) ?? []).slice(0, 8);
+    const reservedPayoutEtb = reservedByOwner.get(profile.userId) ?? 0;
+    const currentBalanceEtb = roundCurrency(asNumber(balanceByOwner.get(profile.userId)?.balanceEtb));
+
+    const grossEventBreakdown = payments.reduce(
+      (totals, payment) => {
+        const amountEtb = asNumber(payment.amountEtb);
+        const surchargeEtb = asNumber(payment.surchargeEtb);
+        const ownerRevenueEtb = asNumber(payment.ownerRevenueEtb);
+        const ticketSalesEtb = roundCurrency(amountEtb - surchargeEtb);
+        const refundedTicketCount = payment.refunds.reduce((n, r) => n + r.ticketCount, 0);
+        const refundableRatio = payment.quantity > 0
+          ? Math.min(1, Math.max(0, refundedTicketCount / payment.quantity))
+          : 0;
+        const refundedTicketSalesEtb = roundCurrency(ticketSalesEtb * refundableRatio);
+        const refundedSurchargeEtb = roundCurrency(surchargeEtb * refundableRatio);
+        const refundedOwnerRevenueEtb = roundCurrency(ownerRevenueEtb * refundableRatio);
+        const platformCommissionEtb = roundCurrency(
+          ticketSalesEtb - ownerRevenueEtb - refundedTicketSalesEtb + refundedOwnerRevenueEtb,
+        );
+        totals.grossTicketSalesEtb += roundCurrency(ticketSalesEtb - refundedTicketSalesEtb);
+        totals.ticketSurchargeEtb += roundCurrency(surchargeEtb - refundedSurchargeEtb);
+        totals.platformCommissionEtb += platformCommissionEtb;
+        totals.netOwnerRevenueEtb += roundCurrency(ownerRevenueEtb - refundedOwnerRevenueEtb);
+        return totals;
+      },
+      { grossTicketSalesEtb: 0, ticketSurchargeEtb: 0, platformCommissionEtb: 0, netOwnerRevenueEtb: 0 },
+    );
+
+    const bookingBreakdown = bookings.reduce(
+      (totals, booking) => {
+        const totalAmount = asNumber(booking.totalAmount);
+        const surchargeAmount = asNumber(booking.surchargeAmount);
+        const ownerRevenueAmount = asNumber(booking.ownerRevenueAmount);
+        const ticketSalesEtb = roundCurrency(totalAmount - surchargeAmount);
+        totals.grossTicketSalesEtb += ticketSalesEtb;
+        totals.ticketSurchargeEtb += surchargeAmount;
+        totals.platformCommissionEtb += roundCurrency(ticketSalesEtb - ownerRevenueAmount);
+        totals.netOwnerRevenueEtb += ownerRevenueAmount;
+        return totals;
+      },
+      { grossTicketSalesEtb: 0, ticketSurchargeEtb: 0, platformCommissionEtb: 0, netOwnerRevenueEtb: 0 },
+    );
+
+    const totalPaidOutEtb = recentPayouts
+      .filter((p) => p.status === PayoutStatus.PAID)
+      .reduce((s, p) => s + asNumber(p.amountEtb), 0);
+    const totalPendingPayoutEtb = recentPayouts
+      .filter((p) => p.status === PayoutStatus.PENDING || p.status === PayoutStatus.PROCESSING)
+      .reduce((s, p) => s + asNumber(p.amountEtb), 0);
+
+    const netOwnerRevenue = roundCurrency(
+      grossEventBreakdown.netOwnerRevenueEtb + bookingBreakdown.netOwnerRevenueEtb,
+    );
+    const remainingOwnerRevenueEtb = roundCurrency(netOwnerRevenue - reservedPayoutEtb);
+    const availablePayoutEtb = Math.max(0, roundCurrency(Math.min(currentBalanceEtb, remainingOwnerRevenueEtb)));
+
+    const payoutCredentials = readPitchOwnerPayoutCredentials({
+      ownerId: profile.userId,
+      accountNameEnc: null,
+      accountNumberEnc: profile.accountNumberEnc,
+      bankCodeEnc: profile.bankCodeEnc,
+      context: "admin-payout-summary",
+    });
+    const destinationLabel =
+      payoutCredentials.accountNumber && payoutCredentials.bankCode
+        ? `${payoutCredentials.accountNumberMasked} via bank ${payoutCredentials.bankCode}`
+        : null;
+
+    return {
+      ownerId: profile.userId,
+      ownerName: authUser?.name ?? profile.businessName ?? null,
+      ownerEmail: authUser?.email ?? null,
+      businessName: profile.businessName ?? null,
+      payoutReady: Boolean(
+        profile.payoutSetupVerifiedAt &&
+          payoutCredentials.accountNumber &&
+          payoutCredentials.bankCode &&
+          payoutCredentials.payoutSetupIssue == null,
+      ),
+      payoutSetupIssue: payoutCredentials.payoutSetupIssue,
+      destinationLabel,
+      destinationBankCode: payoutCredentials.bankCode,
+      grossTicketSalesEtb: roundCurrency(grossEventBreakdown.grossTicketSalesEtb + bookingBreakdown.grossTicketSalesEtb),
+      platformCommissionEtb: roundCurrency(grossEventBreakdown.platformCommissionEtb + bookingBreakdown.platformCommissionEtb),
+      ticketSurchargeEtb: roundCurrency(grossEventBreakdown.ticketSurchargeEtb + bookingBreakdown.ticketSurchargeEtb),
+      netOwnerRevenueEtb: netOwnerRevenue,
+      totalPaidOutEtb: roundCurrency(totalPaidOutEtb),
+      totalPendingPayoutEtb: roundCurrency(totalPendingPayoutEtb),
+      availablePayoutEtb,
+      recentPayouts: recentPayouts.map((p) => serializePayout(p)),
+    } satisfies AdminOwnerPayoutSummary;
+  });
 
   return {
     commissionPercent: PLATFORM_COMMISSION_PERCENT,
     ticketSurchargeEtb: TICKET_SURCHARGE_ETB,
-    owners: summaries.sort(
-      (left, right) => right.availablePayoutEtb - left.availablePayoutEtb,
-    ),
+    owners: summaries.sort((a, b) => b.availablePayoutEtb - a.availablePayoutEtb),
   };
 }
 
