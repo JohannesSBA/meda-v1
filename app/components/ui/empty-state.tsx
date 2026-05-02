@@ -42,17 +42,25 @@ export function EmptyState({
         <div className="text-[var(--color-text-muted)]">{icon}</div>
       ) : (
         <div
-          className="flex h-16 w-16 items-center justify-center rounded-full border border-[var(--color-border-strong)] bg-[rgba(125,211,252,0.08)] text-[var(--color-brand)]"
+          className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[rgba(74,222,128,0.25)] bg-[rgba(74,222,128,0.08)] text-[var(--color-brand)]"
           aria-hidden
         >
-          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            className="h-7 w-7"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <circle cx="12" cy="12" r="10" />
             <path d="M8 15h8M9 9h.01M15 9h.01" />
           </svg>
         </div>
       )}
       <div className="max-w-md space-y-2">
-        <h3 className="text-xl font-semibold tracking-[-0.03em] text-[var(--color-text-primary)]">
+        <h3 className="text-xl font-bold tracking-[-0.035em] text-[var(--color-text-primary)]">
           {title}
         </h3>
         {description ? (
