@@ -152,7 +152,7 @@ export async function payWithBalance(
     );
   }
 
-  const { event, totalCost } = await prisma.$transaction(async (tx) => {
+  const { event, totalCost, paymentId } = await prisma.$transaction(async (tx) => {
     const snapshot = await getLockedAvailabilitySnapshot(eventId, tx);
     if (!snapshot) throw new Error("Event not found");
 
@@ -261,13 +261,13 @@ export async function payWithBalance(
       })),
     });
 
-    return { event, totalCost };
+    return { event, totalCost, paymentId };
   });
 
   if (userEmail) {
     const location = resolveEventLocation(event);
     const attendees = await prisma.eventAttendee.findMany({
-      where: { eventId, userId },
+      where: { eventId, userId, ...(paymentId ? { paymentId } : {}) },
       select: { attendeeId: true },
       orderBy: { createdAt: "desc" },
       take: quantity,
@@ -887,7 +887,7 @@ export async function getPaymentEmailPayloadByReference(
 
   const location = resolveEventLocation(payment.event);
   const attendees = await prisma.eventAttendee.findMany({
-    where: { eventId: payment.eventId, userId: payment.userId },
+    where: { eventId: payment.eventId, userId: payment.userId, paymentId: payment.paymentId },
     select: { attendeeId: true },
     orderBy: { createdAt: "desc" },
     take: payment.quantity,

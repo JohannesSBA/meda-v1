@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { logger } from "@/lib/logger";
@@ -6,7 +7,7 @@ import {
   chapaCallbackQuerySchema,
 } from "@/lib/validations/payments";
 import {
-  parseJsonBody,
+  parseJsonText,
   parseSearchParams,
   validationErrorResponse,
 } from "@/lib/validations/http";
@@ -31,6 +32,14 @@ function extractReference(payload: unknown) {
   return typeof reference === "string" && reference.trim()
     ? reference.trim()
     : null;
+}
+
+function verifyWebhookSignature(rawBody: string, signature: string, secret: string) {
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== providedBuffer.length) return false;
+  return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 export async function GET(request: Request) {
@@ -61,7 +70,26 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const parsed = await parseJsonBody(chapaCallbackPayloadSchema, request);
+  const rawBody = await request.text();
+  const signature =
+    request.headers.get("x-chapa-signature") ??
+    request.headers.get("chapa-signature") ??
+    "";
+  const webhookSecret = process.env.CHAPA_WEBHOOK_SECRET ?? "";
+
+  if (!webhookSecret && process.env.NODE_ENV === "production") {
+    logger.error("CHAPA_WEBHOOK_SECRET is missing in production");
+    return NextResponse.json(
+      { error: "Webhook secret is not configured" },
+      { status: 503 },
+    );
+  }
+
+  if (webhookSecret && !verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+  }
+
+  const parsed = parseJsonText(chapaCallbackPayloadSchema, rawBody);
   if (!parsed.success) {
     return validationErrorResponse(parsed.error, "Invalid payout callback payload");
   }
@@ -74,7 +102,7 @@ export async function POST(request: Request) {
   try {
     const payout = await reconcilePitchOwnerPayout({
       reference,
-      payload: JSON.parse(JSON.stringify(parsed.data)) as Prisma.JsonObject,
+      payload: JSON.parse(rawBody) as Prisma.JsonObject,
     });
     return NextResponse.json({ payout }, { status: 200 });
   } catch (error) {

@@ -55,11 +55,16 @@ export function RefundConfirmCard({
         />
       </div>
       {isPaid ? (
-        <p className="text-sm text-[var(--color-text-muted)]">
-          {refundQuoteLoading
-            ? "Calculating your refund amount..."
-            : `ETB ${refundAmountEtb} will be credited to your Meda balance.`}
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            {refundQuoteLoading
+              ? "Calculating your refund amount..."
+              : `ETB ${refundAmountEtb} will be credited to your Meda balance.`}
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)] opacity-70">
+            Refunds are issued as Meda credit, not back to your original payment method.
+          </p>
+        </div>
       ) : null}
       <div className="flex gap-2">
         <Button
